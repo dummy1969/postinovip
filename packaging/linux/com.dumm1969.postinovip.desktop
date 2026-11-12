@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=PostinoVip
+GenericName=Client di posta
+Comment=Leggi e invia la posta elettronica
+Exec=postinovip
+Icon=com.dumm1969.postinovip
+Terminal=false
+Categories=Network;Email;
+Keywords=mail;email;posta;
+StartupWMClass=com.dumm1969.postinovip

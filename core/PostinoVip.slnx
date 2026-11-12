@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PostinoVip.Api/PostinoVip.Api.csproj" />
+    <Project Path="src/PostinoVip.Cli/PostinoVip.Cli.csproj" />
+    <Project Path="src/PostinoVip.Core/PostinoVip.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PostinoVip.Api.Tests/PostinoVip.Api.Tests.csproj" />
+    <Project Path="tests/PostinoVip.Core.Tests/PostinoVip.Core.Tests.csproj" />
+  </Folder>
+</Solution>

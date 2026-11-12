@@ -1,0 +1,54 @@
+name: postinovip
+description: "PostinoVip: client di posta desktop (Flutter + core C#/MailKit)."
+publish_to: 'none'
+version: 0.0.214+214
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  file_selector: ^1.1.0
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_local_notifications: ^23.0.1
+  flutter_secure_storage: ^11.2.0
+  flutter_widget_from_html_core: ^0.17.4
+  http: ^1.6.0
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.6
+  url_launcher: ^6.3.3
+  fluentui_system_icons: ^1.1.273
+  flutter_quill: ^11.6.0
+  vsc_quill_delta_to_html: ^1.0.5
+  flutter_quill_delta_from_html: ^1.5.3
+  pdf: ^3.13.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon.png
+    - assets/licenses/
+  # Inter 4.1 (rsms/inter, SIL OFL 1.1, licenza in assets/licenses/inter.txt): carattere dell'interfaccia su Linux
+  # e macOS; su Windows si usa Segoe UI del sistema (scelta 2b della tappa «Aspetto»).
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+        - asset: assets/fonts/inter/Inter-Italic.ttf
+          style: italic
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/inter/Inter-BoldItalic.ttf
+          weight: 700
+          style: italic

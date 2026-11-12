@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Niente ICU: il pacchetto di sistema ha nomi diversi tra distribuzioni (libicu74, libicu72...). -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <UserSecretsId>0cffb91e-5a46-414c-9182-3154ab5ca4de</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PostinoVip.Core\PostinoVip.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,3 @@
+# Percorsi del repository privato da NON copiare in quello pubblico (uno per riga, relativi alla radice).
+# Lo legge tools/esporta-pubblico.sh. Oggi vuoto: con la scelta 2b del 12/11/2026 tutti i file versionati sono
+# pubblicabili (i dati reali stanno fuori dal repository).

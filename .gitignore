@@ -1,0 +1,43 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.nupkg
+
+# Configurazione locale con segreti (usare dotnet user-secrets)
+appsettings.Development.json
+appsettings.Local.json
+*.local.json
+.env
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+app/linux/flutter/ephemeral/
+app/windows/flutter/ephemeral/
+app/macos/Flutter/ephemeral/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build di rilascio e pacchetti
+dist/
+
+# OAuth2: client ID di chi distribuisce PostinoVip (non nel repository)
+oauth-clients.json
+
+# Mail vere (.eml) e dati reali: mai nel repository (preparazione alla pubblicazione, 12/11/2026)
+*.eml
+tools/dati-privati.txt

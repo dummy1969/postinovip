@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    Dati comuni a tutti i progetti del core.
+    Versione 0.0.N, N = numero del commit: va aggiornata a OGNI commit insieme a app/pubspec.yaml e
+    app/lib/app_info.dart (app/test/version_test.dart controlla che coincidano).
+  -->
+  <PropertyGroup>
+    <Version>0.0.214</Version>
+    <Product>PostinoVip</Product>
+    <Authors>Marcello Anderlini</Authors>
+    <Copyright>© 2026 Marcello Anderlini</Copyright>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <!-- Senza "+<hash del commit>" in coda alla versione informativa. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

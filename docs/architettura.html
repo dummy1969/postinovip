@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Architettura PostinoVip</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: pagina di onboarding a una colonna; in alto lo schema interattivo (SVG) con il pannello
+   dei dettagli accanto, sotto le sezioni di riferimento. Colori dall'app: indaco + ambra dell'icona. */
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --fg: #1b1e2e;
+  --muted: #5a6078;
+  --line: #c9cde0;
+  --indigo: #3f51b5;
+  --indigo-soft: #e6e9f7;
+  --amber: #b97700;
+  --amber-line: #e6a100;
+  --amber-soft: #fff3d6;
+  --frame: #eceef7;
+  --code-bg: #eef0f8;
+  --ok: #2e7d32;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12141d; --surface: #1b1e2b; --fg: #e6e8f2; --muted: #a2a8c3; --line: #3a3f57;
+    --indigo: #9aa6ff; --indigo-soft: #262b47; --amber: #ffc94d; --amber-line: #ffc107; --amber-soft: #3a3020;
+    --frame: #171a26; --code-bg: #22263a; --ok: #7bd389; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12141d; --surface: #1b1e2b; --fg: #e6e8f2; --muted: #a2a8c3; --line: #3a3f57;
+  --indigo: #9aa6ff; --indigo-soft: #262b47; --amber: #ffc94d; --amber-line: #ffc107; --amber-soft: #3a3020;
+  --frame: #171a26; --code-bg: #22263a; --ok: #7bd389; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+}
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px;
+  display: flex; flex-direction: column; gap: 40px;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.5rem; font-weight: 800; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+p { margin: 0; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+header { display: flex; flex-direction: column; gap: 12px; }
+.lede { max-width: 68ch; font-size: 1.12rem; color: var(--muted); }
+.lede strong { color: var(--fg); }
+
+/* --- schema --- */
+.explorer { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+.diagram-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  font: 600 0.9rem var(--font-body); border: 1px solid var(--line); background: transparent; color: var(--fg);
+  border-radius: 999px; padding: 6px 14px; cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--indigo); border-color: var(--indigo); color: var(--surface); }
+.chip:focus-visible, .ctrl:focus-visible, .node:focus-visible, .copy:focus-visible { outline: 3px solid var(--amber-line); outline-offset: 2px; }
+.svg-scroll { overflow-x: auto; }
+svg { display: block; width: 100%; min-width: 680px; height: auto; }
+.frame rect { fill: var(--frame); stroke: var(--line); }
+.frame text { fill: var(--muted); font: 600 13px var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.node { cursor: pointer; }
+.node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; transition: stroke 0.2s, fill 0.2s; }
+.node text.t { fill: var(--fg); font: 600 14px var(--font-body); }
+.node text.s { fill: var(--muted); font: 400 11.5px var(--font-mono); }
+.node:hover rect { stroke: var(--indigo); }
+.node.selected rect { stroke: var(--indigo); stroke-width: 2.5; }
+.node.lit rect { fill: var(--amber-soft); stroke: var(--amber-line); stroke-width: 2.5; }
+.edge { fill: none; stroke: var(--line); stroke-width: 2; }
+.edge.dashed { stroke-dasharray: 6 5; }
+.edge.lit { stroke: var(--amber-line); stroke-width: 3.5; stroke-dasharray: 9 6; animation: flow 0.9s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -30; } }
+@media (prefers-reduced-motion: reduce) { .edge.lit { animation: none; } }
+.elabel { fill: var(--muted); font: 400 11px var(--font-mono); }
+.elabel.lit { fill: var(--amber); font-weight: 600; }
+
+.stepper { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
+.stepper-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.ctrls { display: flex; gap: 8px; }
+.ctrl {
+  font: 600 0.9rem var(--font-body); border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+  border-radius: 8px; padding: 6px 12px; cursor: pointer;
+}
+.ctrl:disabled { opacity: 0.45; cursor: default; }
+.ctrl.primary { background: var(--indigo); border-color: var(--indigo); color: var(--surface); }
+.step-now { font-size: 1.02rem; min-height: 3.2em; }
+.step-now .n { font-family: var(--font-mono); color: var(--amber); font-weight: 600; margin-right: 6px; }
+.dots { display: flex; gap: 6px; flex-wrap: wrap; }
+.dot { width: 26px; height: 6px; border-radius: 3px; background: var(--line); border: 0; padding: 0; cursor: pointer; }
+.dot.on { background: var(--amber-line); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
+@media (max-width: 900px) { .panel { position: static; } }
+.panel .files { display: flex; flex-direction: column; gap: 4px; }
+.panel ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.tag { align-self: flex-start; font: 600 0.72rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: var(--indigo-soft); color: var(--indigo); }
+.tag.write { background: var(--amber-soft); color: var(--amber); }
+
+/* --- sezioni --- */
+section { display: flex; flex-direction: column; gap: 16px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 1050px) { .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 820px) { .grid2, .grid3, .grid4 { grid-template-columns: minmax(0, 1fr); } }
+.path { font-family: var(--font-mono); font-size: 0.84rem; background: var(--code-bg); border-radius: 8px; padding: 10px 12px; overflow-x: auto; white-space: pre; line-height: 1.6; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.box ul, .rules { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+.dir { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 6px 14px; }
+.dir dt { font-family: var(--font-mono); font-size: 0.86rem; color: var(--indigo); white-space: nowrap; }
+.dir dd { margin: 0; }
+@media (max-width: 520px) { .dir { grid-template-columns: minmax(0, 1fr); } .dir dd { margin-bottom: 6px; } }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.table-scroll { overflow-x: auto; }
+.cmds { display: flex; flex-direction: column; gap: 8px; }
+.cmd { display: flex; gap: 10px; align-items: center; background: var(--code-bg); border-radius: 8px; padding: 8px 10px; }
+.cmd code { background: none; padding: 0; flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; }
+.cmd .why { color: var(--muted); font-size: 0.85rem; white-space: nowrap; }
+@media (max-width: 620px) { .cmd { flex-wrap: wrap; } .cmd .why { white-space: normal; } }
+.copy { font: 600 0.78rem var(--font-body); border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.checklist { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.checklist li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; }
+.checklist li::before { content: ""; width: 14px; height: 14px; margin-top: 5px; border: 2px solid var(--indigo); border-radius: 3px; }
+.read-order { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-family: var(--font-mono); font-size: 0.86rem; }
+.read-order span.f { background: var(--indigo-soft); color: var(--indigo); padding: 4px 8px; border-radius: 6px; }
+.read-order span.arrow { color: var(--muted); }
+footer { color: var(--muted); font-size: 0.9rem; }
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Onboarding · client di posta desktop</span>
+    <h1>Architettura di PostinoVip</h1>
+    <p class="lede">Un client di posta in stile Outlook fatto di <strong>due programmi sullo stesso PC</strong>: un'interfaccia
+      in <strong>Flutter</strong> e un <strong>core in C#</strong> che parla con i server di posta. L'utente avvia solo
+      l'interfaccia: il core parte e si ferma con lei. Gestisce <strong>più account</strong>: ognuno ha nel core le sue
+      connessioni e nell'app il suo ramo nell'albero delle cartelle. Il core tiene sul disco una <strong>copia locale della posta</strong>:
+      le mail si aprono subito, si cercano in un attimo e restano leggibili anche senza rete. L'interfaccia riproduce <strong>Outlook classico</strong>:
+      barra multifunzione, Preferiti, conversazioni, testo formattato con firme, <strong>bozze</strong> sul server e <strong>Posta in uscita</strong> sul computer.
+      Gli account possono essere <strong>IMAP</strong> (la posta resta sul server) o <strong>POP3</strong> (la posta viene scaricata sul computer), con la crittografia scelta per ogni server. Le <strong>regole</strong> smistano da sole la posta che arriva e le <strong>risposte automatiche</strong> rispondono quando sei fuori sede, come in Outlook.
+      Per <strong>Gmail</strong> c'è l'accesso con Google (OAuth2) al posto della password, provato con un account vero; per Microsoft 365 e Outlook.com lo stesso codice è pronto e provato con un fornitore finto, la prova vera è rinviata. Ogni account ha la sua <strong>rubrica dei contatti</strong>, sul computer o, se l'utente la attiva, <strong>sincronizzata con il server</strong> (CardDAV, nei due sensi), e i suoi <strong>calendari</strong>, anche questi sul computer o sincronizzati con CalDAV (anche quelli di Gmail, festività comprese in sola lettura), con viste Giorno / Settimana / Mese, ricorrenze e promemoria; vista Persone come in Outlook e completamento degli indirizzi (anche in Ccn) mentre si scrive. Si installa con un pacchetto .deb o un'AppImage su Linux e con un normale <code>Setup.exe</code> su Windows, con il core già incluso.
+      Clicca un componente dello schema o scegli un percorso da seguire.</p>
+  </header>
+
+  <div class="explorer">
+    <div class="diagram-card">
+      <div class="scenarios" role="group" aria-label="Percorsi da seguire">
+        <button class="chip" data-scenario="open" aria-pressed="true">Apri una mail</button>
+        <button class="chip" data-scenario="incoming" aria-pressed="false">Arriva una mail nuova</button>
+        <button class="chip" data-scenario="send" aria-pressed="false">Invia con allegato</button>
+        <button class="chip" data-scenario="search" aria-pressed="false">Cerca</button>
+        <button class="chip" data-scenario="draft" aria-pressed="false">Bozza e Posta in uscita</button>
+        <button class="chip" data-scenario="offline" aria-pressed="false">Senza rete</button>
+        <button class="chip" data-scenario="pop3" aria-pressed="false">Account POP3</button>
+        <button class="chip" data-scenario="rules" aria-pressed="false">Una regola smista una mail</button>
+        <button class="chip" data-scenario="autoreply" aria-pressed="false">Risposta automatica</button>
+        <button class="chip" data-scenario="junk" aria-pressed="false">Posta indesiderata</button>
+        <button class="chip" data-scenario="archive" aria-pressed="false">Archivia</button>
+        <button class="chip" data-scenario="ignore" aria-pressed="false">Ignora conversazione</button>
+        <button class="chip" data-scenario="contact" aria-pressed="false">Scrivi a un contatto</button>
+        <button class="chip" data-scenario="carddav" aria-pressed="false">Un contatto va sul server</button>
+        <button class="chip" data-scenario="caldav" aria-pressed="false">Un appuntamento ricorrente</button>
+        <button class="chip" data-scenario="oauth" aria-pressed="false">Accedi con Google</button>
+        <button class="chip" data-scenario="boot" aria-pressed="false">Avvio dell'app</button>
+      </div>
+
+      <div class="svg-scroll">
+        <svg viewBox="0 0 1000 1100" role="img" aria-label="Schema dei componenti di PostinoVip: app, core con la copia locale e la rubrica, server di posta e dei contatti, sistema operativo">
+          <!-- cornici -->
+          <g class="frame"><rect x="20" y="30" width="310" height="430" rx="14"/><text x="38" y="54">App Flutter (Dart)</text></g>
+          <g class="frame"><rect x="370" y="30" width="330" height="990" rx="14"/><text x="388" y="54">Core C# (.NET 10)</text></g>
+          <g class="frame"><rect x="740" y="30" width="240" height="290" rx="14"/><text x="758" y="54">Server di posta</text></g>
+          <g class="frame"><rect x="740" y="350" width="240" height="190" rx="14"/><text x="758" y="374">Sistema operativo</text></g>
+          <g class="frame"><rect x="740" y="562" width="240" height="110" rx="14"/><text x="758" y="586">Accesso (OAuth2)</text></g>
+          <g class="frame"><rect x="740" y="770" width="240" height="110" rx="14"/><text x="758" y="794">Contatti e calendari</text></g>
+
+          <!-- collegamenti: app -->
+          <path id="e-ui-model" class="edge" d="M175 122 V150"/>
+          <path id="e-model-api" class="edge" d="M175 202 V230"/>
+          <path id="e-api-mw" class="edge" d="M310 246 C350 246 350 96 390 96"/>
+          <text id="l-api-mw" class="elabel" x="318" y="136">HTTP</text>
+          <path id="e-sse" class="edge dashed" d="M390 186 C350 186 350 270 310 270"/>
+          <text id="l-sse" class="elabel" x="318" y="300">SSE</text>
+          <path id="e-launch" class="edge dashed" d="M310 336 C350 336 350 656 390 656"/>
+          <text id="l-launch" class="elabel" x="236" y="520">avvio + stdin</text>
+          <!-- collegamenti: dentro il core (letture dalla cache, scritture dirette sulla connessione) -->
+          <path id="e-mw-ctrl" class="edge" d="M535 122 V150"/>
+          <path id="e-ctrl-svc" class="edge" d="M535 202 V230"/>
+          <path id="e-svc-cache" class="edge" d="M535 282 V310"/>
+          <path id="e-cache-conn" class="edge" d="M535 362 V390"/>
+          <path id="e-svc-conn" class="edge" d="M390 262 H382 V410 H390"/>
+          <path id="e-download-cache" class="edge dashed" d="M390 496 H366 V340 H390"/>
+          <path id="e-watcher-ctrl" class="edge dashed" d="M680 564 H700 V176 H680"/>
+          <!-- collegamenti: verso i server -->
+          <path id="e-svc-smtp" class="edge" d="M680 250 C722 250 722 96 760 96"/>
+          <text id="l-svc-smtp" class="elabel" x="694" y="160">SMTP</text>
+          <path id="e-conn-imap" class="edge" d="M680 416 C730 416 730 246 760 246"/>
+          <text id="l-conn-imap" class="elabel" x="706" y="404">IMAP</text>
+          <path id="e-download-imap" class="edge dashed" d="M680 496 C742 496 742 258 760 258"/>
+          <text id="l-download-imap" class="elabel" x="706" y="484">corpi</text>
+          <path id="e-watcher-imap" class="edge dashed" d="M680 576 C752 576 752 270 760 270"/>
+          <text id="l-watcher-imap" class="elabel" x="706" y="596">IDLE</text>
+          <!-- collegamenti: Posta in uscita e bozze in attesa (3.8) -->
+          <path id="e-svc-outbox" class="edge dashed" d="M390 270 H374 V736 H390"/>
+          <path id="e-outbox-smtp" class="edge dashed" d="M680 726 H990 V96 H960"/>
+          <text id="l-outbox-smtp" class="elabel" x="884" y="720">coda</text>
+          <path id="e-outbox-imap" class="edge dashed" d="M680 746 H982 V256 H960"/>
+          <text id="l-outbox-imap" class="elabel" x="884" y="762">Bozze</text>
+          <!-- collegamenti: sistema operativo (sotto lo schema, senza attraversare i componenti) -->
+          <!-- POP3 (4.2): casella sul computer e server POP3 -->
+          <path id="e-svc-pop3" class="edge" d="M390 274 H358 V816 H390"/>
+          <path id="e-pop3-server" class="edge dashed" d="M680 816 C712 816 712 176 760 176"/>
+          <text id="l-pop3-server" class="elabel" x="690" y="806">POP3</text>
+
+          <!-- Regole: usano Reader e Writer dell'account, partono dagli eventi -->
+          <path id="e-svc-rules" class="edge" d="M390 286 H350 V896 H390"/>
+          <path id="e-watcher-rules" class="edge dashed" d="M680 590 H692 V896 H680"/>
+          <text id="l-watcher-rules" class="elabel" x="606" y="866">eventi</text>
+          <path id="e-rules-smtp" class="edge dashed" d="M680 910 H996 V84 H960"/>
+          <text id="l-rules-smtp" class="elabel" x="880" y="926">risposte automatiche</text>
+
+          <!-- OAuth2: token di accesso e di rinnovo dal fornitore -->
+          <!-- collegamenti: rubrica e CardDAV -->
+          <path id="e-svc-carddav" class="edge" d="M390 280 H342 V976 H390"/>
+          <path id="e-carddav-server" class="edge dashed" d="M680 976 C724 976 724 838 760 838"/>
+          <text id="l-carddav-server" class="elabel" x="692" y="1000">HTTPS (DAV)</text>
+          <path id="e-svc-oauth" class="edge dashed" d="M680 278 C724 278 724 626 760 626"/>
+          <text id="l-svc-oauth" class="elabel" x="706" y="664">token</text>
+
+          <path id="e-store-keyring" class="edge dashed" d="M175 442 V1044 H750 V548 H860 V522"/>
+          <text id="l-store-keyring" class="elabel" x="470" y="1060">portachiavi (libsecret)</text>
+          <path id="e-model-desktop" class="edge dashed" d="M40 176 H28 V1072 H970 V416 H960"/>
+          <text id="l-model-desktop" class="elabel" x="400" y="1088">notifiche e clic (D-Bus)</text>
+
+          <!-- nodi: app -->
+          <g class="node" id="n-ui" tabindex="0" role="button"><rect x="40" y="70" width="270" height="52" rx="9"/><text class="t" x="56" y="92">Interfaccia (widget)</text><text class="s" x="56" y="111">ui/*.dart</text></g>
+          <g class="node" id="n-model" tabindex="0" role="button"><rect x="40" y="150" width="270" height="52" rx="9"/><text class="t" x="56" y="172">MailboxModel</text><text class="s" x="56" y="191">account, selezione, conversazioni, rete</text></g>
+          <g class="node" id="n-api" tabindex="0" role="button"><rect x="40" y="230" width="270" height="52" rx="9"/><text class="t" x="56" y="252">ApiClient</text><text class="s" x="56" y="271">api/api_client.dart</text></g>
+          <g class="node" id="n-launcher" tabindex="0" role="button"><rect x="40" y="310" width="270" height="52" rx="9"/><text class="t" x="56" y="332">CoreGate + CoreLauncher</text><text class="s" x="56" y="351">core/*.dart</text></g>
+          <g class="node" id="n-store" tabindex="0" role="button"><rect x="40" y="390" width="270" height="52" rx="9"/><text class="t" x="56" y="412">Account (elenco) e opzioni</text><text class="s" x="56" y="431">account/, settings/</text></g>
+          <!-- nodi: core -->
+          <g class="node" id="n-mw" tabindex="0" role="button"><rect x="390" y="70" width="290" height="52" rx="9"/><text class="t" x="406" y="92">Token e gestione errori</text><text class="s" x="406" y="111">TokenAuthMiddleware · MailExceptionHandler</text></g>
+          <g class="node" id="n-ctrl" tabindex="0" role="button"><rect x="390" y="150" width="290" height="52" rx="9"/><text class="t" x="406" y="172">Controller</text><text class="s" x="406" y="191">/accounts/{id}/… · Drafts · Outbox · Events</text></g>
+          <g class="node" id="n-svc" tabindex="0" role="button"><rect x="390" y="230" width="290" height="52" rx="9"/><text class="t" x="406" y="252">MailAccountRegistry</text><text class="s" x="406" y="271">per account: Reader · Writer · Sender</text></g>
+          <g class="node" id="n-cache" tabindex="0" role="button"><rect x="390" y="310" width="290" height="52" rx="9"/><text class="t" x="406" y="332">Copia locale (cache)</text><text class="s" x="406" y="351">index.db (SQLite, FTS5) + file .eml</text></g>
+          <g class="node" id="n-conn" tabindex="0" role="button"><rect x="390" y="390" width="290" height="52" rx="9"/><text class="t" x="406" y="412">ImapConnection</text><text class="s" x="406" y="431">comandi · al massimo 10 s per risposta</text></g>
+          <g class="node" id="n-download" tabindex="0" role="button"><rect x="390" y="470" width="290" height="52" rx="9"/><text class="t" x="406" y="492">Download e manutenzione</text><text class="s" x="406" y="511">3ª connessione · pulizia ogni 6 h</text></g>
+          <g class="node" id="n-watcher" tabindex="0" role="button"><rect x="390" y="550" width="290" height="52" rx="9"/><text class="t" x="406" y="572">InboxWatcher + EventHub</text><text class="s" x="406" y="591">IDLE su ogni INBOX → eventi</text></g>
+          <g class="node" id="n-stdin" tabindex="0" role="button"><rect x="390" y="630" width="290" height="52" rx="9"/><text class="t" x="406" y="652">Program + StdinWatcher</text><text class="s" x="406" y="671">avvio, porta, arresto con l'app</text></g>
+          <g class="node" id="n-pop3" tabindex="0" role="button"><rect x="390" y="790" width="290" height="52" rx="9"/><text class="t" x="406" y="812">Casella POP3 sul computer</text><text class="s" x="406" y="831">LocalMailStore · Pop3Worker</text></g>
+          <g class="node" id="n-rules" tabindex="0" role="button"><rect x="390" y="870" width="290" height="52" rx="9"/><text class="t" x="406" y="892">Regole, risposte, indesiderata</text><text class="s" x="406" y="911">JunkFilter · AutoReplyRunner · RuleRunner</text></g>
+          <g class="node" id="n-carddav" tabindex="0" role="button"><rect x="390" y="950" width="290" height="52" rx="9"/><text class="t" x="406" y="972">Rubrica, calendari e DAV</text><text class="s" x="406" y="991">ContactStore · CalendarSet · DavWorker</text></g>
+          <g class="node" id="n-outbox" tabindex="0" role="button"><rect x="390" y="710" width="290" height="52" rx="9"/><text class="t" x="406" y="732">Posta in uscita e bozze in attesa</text><text class="s" x="406" y="751">OutboxStore · OutboxService</text></g>
+          <!-- nodi: esterni -->
+          <g class="node" id="n-smtp" tabindex="0" role="button"><rect x="760" y="70" width="200" height="52" rx="9"/><text class="t" x="776" y="92">Server SMTP</text><text class="s" x="776" y="111">587/25 STARTTLS · 465 TLS</text></g>
+          <g class="node" id="n-pop3srv" tabindex="0" role="button"><rect x="760" y="150" width="200" height="52" rx="9"/><text class="t" x="776" y="172">Server POP3</text><text class="s" x="776" y="191">995 TLS · 110 STARTTLS</text></g>
+          <g class="node" id="n-imap" tabindex="0" role="button"><rect x="760" y="230" width="200" height="52" rx="9"/><text class="t" x="776" y="252">Server IMAP</text><text class="s" x="776" y="271">993 TLS · 143 STARTTLS</text></g>
+          <g class="node" id="n-desktop" tabindex="0" role="button"><rect x="760" y="390" width="200" height="52" rx="9"/><text class="t" x="776" y="412">Notifiche desktop</text><text class="s" x="776" y="431">demone del sistema</text></g>
+          <g class="node" id="n-oauth" tabindex="0" role="button"><rect x="760" y="602" width="200" height="52" rx="9"/><text class="t" x="776" y="624">Google · Microsoft</text><text class="s" x="776" y="643">servizi di accesso e token</text></g>
+          <g class="node" id="n-carddavsrv" tabindex="0" role="button"><rect x="760" y="812" width="200" height="52" rx="9"/><text class="t" x="776" y="834">Server CardDAV · CalDAV</text><text class="s" x="776" y="853">rubrica vCard, calendari iCalendar</text></g>
+          <g class="node" id="n-keyring" tabindex="0" role="button"><rect x="760" y="470" width="200" height="52" rx="9"/><text class="t" x="776" y="492">Portachiavi</text><text class="s" x="776" y="511">gnome-keyring</text></g>
+        </svg>
+      </div>
+
+      <div class="stepper" aria-live="polite">
+        <div class="stepper-head">
+          <h3 id="scenario-title">Apri una mail</h3>
+          <div class="ctrls">
+            <button class="ctrl" id="prev">Indietro</button>
+            <button class="ctrl primary" id="next">Avanti</button>
+          </div>
+        </div>
+        <p class="step-now" id="step-text"></p>
+        <div class="dots" id="dots" aria-label="Passi del percorso"></div>
+      </div>
+    </div>
+
+    <aside class="panel" id="panel" aria-live="polite">
+      <span class="eyebrow">Componente selezionato</span>
+      <h2 id="p-title">Interfaccia (widget)</h2>
+      <span class="tag" id="p-tag">App</span>
+      <p id="p-role"></p>
+      <div class="files" id="p-files"></div>
+      <ul id="p-notes"></ul>
+    </aside>
+  </div>
+
+  <section>
+    <h2>Come sono organizzati i progetti</h2>
+    <div class="grid2">
+      <div class="box">
+        <h3>Core C# · <code>core/</code></h3>
+        <dl class="dir">
+          <dt>PostinoVip.Core</dt><dd>La logica mail, senza HTTP: IMAP, SMTP, MIME, HTML, eventi, la copia locale (<code>Cache/</code>), risposte, citazioni e bozze da riaprire (<code>Compose/</code>), la coda locale della Posta in uscita (<code>Outbox/</code>), crittografia e certificati (<code>Security/</code>), la casella POP3 sul computer (<code>Local/</code>), lo scaricamento POP3 (<code>Pop3/</code>), le regole (<code>Rules/</code>, <code>AutoReply/</code>), la posta indesiderata (<code>Junk/</code>), la cartella di archiviazione (<code>Archive/</code>), Ignora e Pulisci conversazione (<code>Conversations/</code>), la rubrica (<code>Contacts/</code>), i calendari (<code>Calendars/</code>), il codice DAV comune a CardDAV e CalDAV (<code>Dav/</code>) e l'accesso OAuth2 (<code>OAuth/</code>). Riusabile.</dd>
+          <dt>PostinoVip.Api</dt><dd>Lo sportello HTTP: controller, token, errori, avvio e i servizi in background (download, manutenzione, IDLE, POP3, regole, Posta in uscita, CardDAV e CalDAV). Logica minima.</dd>
+          <dt>PostinoVip.Cli</dt><dd>La console dei primi step: elenco mail e <code>send</code>, per le prove.</dd>
+          <dt>tests/</dt><dd>Core.Tests (logica, senza rete; server IMAP, SMTP, POP3 e CardDAV finti su 127.0.0.1, con certificati autofirmati creati al volo) e Api.Tests (endpoint con servizi finti o con un account POP3 in una cartella temporanea).</dd>
+          <dt>../tools/</dt><dd>Prove in un solo comando. In sola lettura o su una copia: senza rete, manutenzione, dati degli account, conversazioni, crittografia (solo login), POP3 sul computer, accesso OAuth2 con un fornitore finto. Sul server vero, dopo una conferma: cartelle, azioni in blocco, trascinamento, testo formattato, bozze e Posta in uscita, scaricamento POP3 (senza togliere nulla), sincronizzazione dei contatti (con contatti di prova eliminati alla fine).</dd>
+        </dl>
+      </div>
+      <div class="box">
+        <h3>App Flutter · <code>app/lib/</code></h3>
+        <dl class="dir">
+          <dt>core/</dt><dd>Avvio del core (token, porta, output) e schermata di avvio o configurazione.</dd>
+          <dt>api/</dt><dd>L'unico punto che parla con il core; ogni errore diventa <code>ApiException</code>.</dd>
+          <dt>state/</dt><dd><code>MailboxModel</code>: account, cartelle di ognuno, selezione, ricerca, stato della rete; <code>ContactsModel</code>: rubriche e stato della loro sincronizzazione; <code>CalendarModel</code>: vista, periodo e calendari; <code>ReminderModel</code>: promemoria degli appuntamenti. La logica sta qui, non nei widget.</dd>
+          <dt>ui/</dt><dd>Tema (<code>theme.dart</code>: colori di Fluent 2, carattere Inter o Segoe UI, testo a 14), barra in alto con la ricerca, barra dei moduli, barra multifunzione classica o semplificata (<code>ribbon_parts.dart</code>), cartelle con i Preferiti, lista (righe o colonne, conversazioni), lettura, composizione con il suo editor, firme, «Regole e avvisi», Calendario e finestra Appuntamento, «Promemoria», impostazioni.</dd>
+          <dt>ui/message_window.dart</dt><dd>La mail a tutta finestra (doppio clic o Invio) con la barra «Messaggio», il menu File e le frecce ↑ ↓; mostra sempre la mail selezionata nella lista e dopo Elimina/Sposta apre la successiva. Una finestra vera del sistema arriverà con le finestre ufficiali di Flutter (oggi sperimentali).</dd>
+          <dt>ui/junk_ui.dart</dt><dd>Menu «Posta indesiderata» (Home → Elimina, finestra della mail, tasto destro): Blocca mittente, Non bloccare mai…, Non è posta indesiderata e la finestra «Opzioni posta indesiderata» con le quattro schede di Outlook.</dd>
+          <dt>ui/archive_ui.dart</dt><dd>«Archivia» (Home → Elimina, Backspace, tasto destro, finestra della mail): sposta le mail nella cartella di archiviazione dell'account; la prima volta, e da Cartella → «Imposta cartella di archiviazione», la finestra per sceglierla (con la proposta del core) o crearla.</dd>
+          <dt>ui/conversation_tools_ui.dart</dt><dd>«Ignora» (Home → Elimina, finestra della mail, tasto destro; in Posta eliminata «Interrompi Ignora») e il menu «Pulisci» (Pulisci conversazione, Pulisci cartella, anche dal tasto destro sulla cartella), con le conferme di Outlook e «Non visualizzare più questo messaggio».</dd>
+          <dt>ui/eml_view.dart</dt><dd>File .eml: «Salva con nome… (F12)» con i byte originali della mail, «Apri file .eml…» e le mail allegate in una finestra di sola lettura (<code>EmlPage</code>, stessa <code>MessageView</code> del riquadro di lettura) con Rispondi e Inoltra.</dd>
+          <dt>print/</dt><dd>Stampa: PDF A4 della mail aperta (pacchetto <code>pdf</code>, solo Dart) con le intestazioni come testo e il corpo disegnato fuori schermo come nel riquadro di lettura, diviso in pagine tra una riga e l'altra; si apre nel visualizzatore PDF del sistema (Ctrl+P) o si salva.</dd>
+          <dt>compose/</dt><dd>Indirizzi, testo formattato ↔ HTML (<code>rich_text.dart</code>) e firme nel testo.</dd>
+          <dt>models/</dt><dd>Le stesse strutture del core, con <code>fromJson</code>.</dd>
+          <dt>account/ · notify/ · settings/ · attachments/</dt><dd>Elenco account e finestra «Account», notifiche, opzioni (finestra «Opzioni» a categorie in ui/settings_dialog.dart), finestre per i file.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Le corsie di comunicazione</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Corsia</th><th>Da → a</th><th>A cosa serve</th></tr></thead>
+        <tbody>
+          <tr><td>Connessione comandi IMAP</td><td>core → server</td><td>Una per account: sincronizza la lista che apri, scarica la mail che apri se non è sul disco, esegue le scritture. Un comando alla volta, al massimo 10 s per risposta.</td></tr>
+          <tr><td>Connessione download IMAP</td><td>core → server</td><td>Una per account: in background sincronizza tutte le cartelle e scarica i corpi entro il limite, senza far aspettare i clic.</td></tr>
+          <tr><td>Connessione IDLE IMAP</td><td>core → server</td><td>Una per account: resta in attesa e il server avvisa quando INBOX cambia (rinnovo ogni 9 minuti).</td></tr>
+          <tr><td>Connessione POP3</td><td>core → server</td><td>Solo per gli account POP3, una per controllo: all'avvio, ogni 10 minuti (5–60, per account) e con Invia/ricevi. Scarica le mail nuove, poi toglie dal server quelle indicate dalle regole; il server le toglie solo alla chiusura regolare (QUIT).</td></tr>
+          <tr><td>Fornitore OAuth2</td><td>core → Google / Microsoft</td><td>Solo per gli account Gmail (o Microsoft) con accesso OAuth2: HTTPS verso il servizio dei token, per scambiare il codice dell'accesso e poi, quando serve, per un nuovo token di accesso (vale circa un'ora). Il login IMAP, SMTP e POP3 usa quel token (XOAUTH2) invece della password.</td></tr>
+          <tr><td>Ritorno del browser</td><td>browser → core</td><td>Una volta per accesso: dopo il login il fornitore rimanda il browser a <code>http://localhost:{porta}/oauth/callback</code>, l'unico percorso del core senza token, protetto dallo «state» monouso.</td></tr>
+          <tr><td>Connessione CalDAV</td><td>core → server del calendario</td><td>Solo per gli account con la sincronizzazione del calendario attiva: come CardDAV, con lo stesso codice (DavClient, DavSync), per ogni calendario del server che accetta appuntamenti. Per Gmail verso apidata.googleusercontent.com/caldav/v2/, con il token OAuth2.</td></tr>
+          <tr><td>Connessione CardDAV</td><td>core → server dei contatti</td><td>Solo per gli account con «Sincronizza i contatti» attivo: HTTPS con le credenziali di ricezione, all'avvio, ogni 15 minuti, 2 secondi dopo una modifica nell'app e con Invia/ricevi. Chiede solo le differenze (sync-collection), poi legge e scrive i singoli vCard con If-Match.</td></tr>
+          <tr><td>SSE <code>/events</code></td><td>core → app</td><td>Una sola per tutti gli account: posta cambiata, stato dell'IDLE, server raggiungibile o no, copia locale ricostruita, Posta in uscita cambiata, nuovo token di rinnovo da salvare, rubrica o calendari cambiati dalla sincronizzazione. Ogni evento dice di quale account è.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="color: var(--muted)">Ogni connessione usa la crittografia scelta per quel server: SSL/TLS dall'inizio, STARTTLS obbligatorio, oppure, solo per scelta esplicita e confermata, nessuna. L'invio usa SMTP con una connessione nuova per ogni mail, dall'account scelto in «Da:», subito o più tardi dalla Posta in uscita. Le richieste su una casella hanno il prefisso <code>/accounts/{id}</code>; senza prefisso valgono per il primo account.</p>
+  </section>
+
+  <section>
+    <h2>La copia locale</h2>
+    <p class="lede" style="font-size: 1rem">Il core è l'unico che la legge e la scrive; l'app chiede le stesse cose di sempre e non sa da dove arrivano.
+      È uno <strong>specchio del server</strong>: ciò che sparisce sul server sparisce anche qui, e tutto si può ricostruire.</p>
+    <div class="grid3">
+      <div class="box">
+        <h3>Dove sta</h3>
+        <div class="path">~/.local/share/postinovip/accounts/&lt;id&gt;/
+  account.json     di chi sono i dati
+  index.db         cartelle, intestazioni, flag, indice
+  bodies/ab/cd/&lt;sha256&gt;.eml
+  outbox/&lt;id&gt;.eml + &lt;id&gt;.json   Posta in uscita
+  mail/INBOX/folder.json, 1.eml…    solo POP3
+  pop3.json        mail già scaricate (UIDL)
+  rules.json       regole, nell'ordine in cui si applicano
+  rules-state.json fin dove sono già state applicate
+  autoreply.json   risposte automatiche (messaggio, intervallo)
+  autoreply-state.json  a chi si è già risposto
+  junk.json        posta indesiderata: livello, cartella, elenchi
+  junk-state.json  fin dove il filtro ha già guardato
+  archive.json     cartella di archiviazione scelta
+  ignore.json      conversazioni ignorate (Message-ID)
+  ignore-state.json fin dove il filtro di Ignora ha già guardato
+  contacts/&lt;id&gt;.vcf  rubrica (vCard 3.0, un file per contatto)
+  recent-addresses.json indirizzi a cui si è scritto
+  carddav.json     rubrica sul server collegata, ETag, conferma
+  calendars/calendars.json        calendari (nome, indirizzo sul server)
+  calendars/&lt;id&gt;/items/&lt;id&gt;.ics  un appuntamento (serie ed eccezioni)
+  calendars/&lt;id&gt;/updated.json   ora della modifica di ognuno
+  calendars/&lt;id&gt;/caldav.json    stato della sincronizzazione</div>
+        <p>In sviluppo la cartella è <code>postinovip-dev</code>. Cartelle 0700 e file 0600.</p>
+      </div>
+      <div class="box">
+        <h3>Cosa contiene</h3>
+        <ul>
+          <li>Intestazioni e flag di <strong>tutte</strong> le mail.</li>
+          <li>Corpi delle mail arrivate negli ultimi <strong>12 mesi</strong>; per account 3, 6, 12, 24 mesi o tutte.</li>
+          <li>Posta eliminata e Indesiderata: solo intestazioni.</li>
+          <li>Indice di ricerca FTS5: oggetto, mittente, destinatari, testo, nomi degli allegati.</li>
+          <li>Conversazioni: ogni mail ha un <code>thread_id</code> calcolato da Message-ID, In-Reply-To e References su tutto l'account.</li>
+          <li>Anteprima del testo, allegati sì/no, dimensione: per la lista, anche per le mail non scaricate.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Come resta allineata</h3>
+        <ul>
+          <li>Ogni lista: UIDVALIDITY, <code>UID SEARCH ALL</code> per le cancellate, flag di tutte, intestazioni nuove.</li>
+          <li>Ogni file <code>.eml</code> ha per nome l'impronta del contenuto: si salva con file temporaneo, fsync e rinomina, e alla lettura si verifica.</li>
+          <li>Il download in background parte all'avvio, a ogni avviso dell'IDLE e ogni 15 minuti.</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Senza rete</h3>
+        <p>Dopo 10 s senza risposta l'account è «non connesso»: cartelle, lista, mail scaricate e ricerca vengono dal disco; la barra di stato dice «Disconnesso»
+          e sposta, elimina e letto si disattivano. Le mail inviate e le bozze salvate restano nella coda <code>outbox/</code> e partono da sole al ritorno.
+          Ogni 30 s il core riprova.</p>
+      </div>
+      <div class="box">
+        <h3>Se si rovina</h3>
+        <p><code>quick_check</code> all'apertura e ogni 6 ore. Un database rovinato viene rinominato <code>index.db.rovinato-&lt;data&gt;</code> e ricreato dal server.
+          Dalla pagina Account, «Ricostruisci cache» fa lo stesso a mano.</p>
+      </div>
+      <div class="box">
+        <h3>Regole</h3>
+        <p>Le applica il core, sul computer: il server di prova non ha Sieve. Ogni mail nuova della Posta in arrivo viene esaminata
+          <strong>una volta sola</strong>: <code>rules-state.json</code> ricorda UIDVALIDITY e l'ultimo UID. La prima volta si parte dalla mail più recente,
+          quindi una regola nuova non tocca il passato; per quello c'è «Esegui regole ora». Le mail arrivate con l'app chiusa si smistano alla riapertura.</p>
+      </div>
+      <div class="box">
+        <h3>Risposte automatiche</h3>
+        <p>Anche queste le invia il core, prima delle regole: alle mail arrivate dall'attivazione, <strong>una per mittente</strong>, solo se sei in A o Cc
+          e mai a mailing list, altre risposte automatiche o «noreply» (RFC 3834). <code>autoreply-state.json</code> ricorda l'ora di attivazione,
+          fin dove si è arrivati e a chi si è già risposto: riattivandole si ricomincia. Non finiscono in Posta inviata.</p>
+      </div>
+      <div class="box">
+        <h3>Account POP3: i file sono l'originale</h3>
+        <p>Per un account POP3 non c'è un server da rispecchiare: ogni cartella di posta è una cartella su disco in <code>mail/</code>,
+          con un file <code>&lt;uid&gt;.eml</code> per mail e <code>folder.json</code> (ruolo, UIDVALIDITY, prossimo UID). L'indice <code>index.db</code>
+          si rifà da quei file con la stessa sincronizzazione dell'IMAP: se si rovina si perdono al più letto, contrassegni e categorie.
+          Ogni mail scaricata porta in testa <code>X-UIDL</code>, così si ritrova sul server. Niente «Ricostruisci cache».</p>
+      </div>
+      <div class="box">
+        <h3>Rubrica con il server</h3>
+        <p>Con CardDAV attivo la rubrica dell'account diventa quella del server: i contatti uguali (stesso nome e indirizzi) si collegano invece di duplicarsi,
+          e quelli solo sul computer partono <strong>dopo una conferma</strong>. Poi modifiche ed eliminazioni passano nei due sensi.
+          <code>carddav.json</code> ricorda per ogni contatto l'ETag del server e l'impronta di quello locale: se cambiano entrambi
+          vince la modifica più recente; un contatto eliminato da una parte e cambiato dall'altra si conserva. Perso il file, si ricollega tutto senza doppioni.</p>
+      </div>
+      <div class="box">
+        <h3>Calendari</h3>
+        <p>Ogni account ha almeno «Calendario»; con CalDAV ogni calendario del server che accetta appuntamenti ne ha uno qui (su IceWarp
+          solo «Calendario»: «Attività» e «Diario» no). Il testo iCalendar si conserva com'è, con gli a capo CRLF; la modifica cambia solo i
+          campi toccati, il resto (partecipanti, proprietà X-, promemoria) resta. Ricorrenze, eccezioni e fusi orari li calcola Ical.Net con
+          il database dei fusi di NodaTime, senza ICU. Stesse regole dei contatti: conferma della prima volta, vince la modifica più recente.
+          Un calendario che il server dichiara di sola lettura (le festività di Google) si sincronizza solo dal server: il core rifiuta
+          le scritture (409) e l'app lo mostra col lucchetto, senza modifiche né «Elimina».</p>
+      </div>
+      <div class="box">
+        <h3>Account rimossi</h3>
+        <p>Togliere un account dall'app non cancella i suoi dati. Restano in «Dati di account rimossi», con lo spazio occupato,
+          finché l'utente non sceglie «Elimina dati locali» (che toglie anche la sua Posta in uscita). «Ricostruisci cache» invece non tocca la coda.
+          Per le mail POP3, che lì sono l'unica copia, bisogna scrivere l'indirizzo per confermare.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sicurezza: regole che non si toccano</h2>
+    <div class="grid4">
+      <div class="box"><h3>Solo dentro il PC</h3><p>Il core ascolta su <code>127.0.0.1</code> con una porta casuale; ogni richiesta porta un token generato a ogni avvio.</p></div>
+      <div class="box"><h3>Segreti al sicuro</h3><p>Token e account (<code>Accounts__N__*</code>) passano al core come variabili d'ambiente, mai come argomenti né nei log. Le password stanno nel portachiavi, in una sola voce con l'elenco degli account.</p></div>
+      <div class="box"><h3>HTML innocuo</h3><p>Sanificato nel core in lettura e anche in uscita (testo scritto e citazioni), mostrato senza JavaScript; immagini remote bloccate finché l'utente non le sblocca.</p></div>
+      <div class="box"><h3>Scritture evidenti</h3><p>Ciò che modifica la casella passa da <code>IMailWriter</code>, non viene mai ripetuto in automatico e, se irreversibile, chiede conferma. Una bozza vecchia si elimina solo dopo che la nuova è salvata.</p></div>
+      <div class="box"><h3>Certificati veri</h3><p>La validazione dei certificati non si spegne mai. Un server interno con un certificato autofirmato si accetta solo dopo «Fidarsi di questo certificato?»: si salva la sua impronta SHA-256 e vale solo quel certificato, controllato prima di mandare la password.</p></div>
+      <div class="box"><h3>Niente in chiaro per caso</h3><p>STARTTLS è obbligatorio, mai «se disponibile». «Nessuna» crittografia esiste solo come scelta dell'utente per un server, con avviso rosso e conferma al salvataggio.</p></div>
+      <div class="box"><h3>Posta indesiderata prudente</h3><p>Nella cartella della posta indesiderata i collegamenti non si aprono e le immagini remote restano bloccate, senza «Mostra immagini». Il filtro guarda solo le mail arrivate dopo l'avvio, mai quelle già presenti; il proprio indirizzo non si blocca. Nel log solo numeri, UID e nomi delle cartelle.</p></div>
+      <div class="box"><h3>Regole senza sorprese</h3><p>Nessun «inoltra»: partirebbe senza la conferma che ogni invio chiede. «Elimina» porta in Posta eliminata, mai definitivamente. Un'azione non riuscita va nel registro e non si ripete; nel registro solo UID e nomi delle regole, mai mittenti od oggetti.</p></div>
+      <div class="box"><h3>Risposte che non rimbalzano</h3><p>Ogni risposta automatica porta <code>Auto-Submitted: auto-replied</code> e <code>X-Auto-Response-Suppress: All</code>: gli altri programmi non rispondono a loro volta. Attivarle chiede una conferma, perché da lì partono mail senza chiedere; la barra gialla ricorda che sono accese.</p></div>
+      <div class="box"><h3>Accesso senza password</h3><p>Con «Accedi con Google» (o Microsoft) la password non passa mai dall'app: si scrive solo nella pagina del fornitore, nel browser di sistema. PKCE e «state» monouso (RFC 7636, RFC 8252), token di rinnovo nel portachiavi al posto della password, token di accesso solo in memoria, nessun token nei log. L'ID dell'app registrata (per Google anche il suo «segreto», che per un'app desktop Google dichiara non segreto) sta in <code>oauth-clients.json</code>, fuori da git. Accesso revocato o scaduto: striscia rossa «Accesso scaduto» con «Accedi di nuovo», mai tentativi a vuoto con la password.</p></div>
+      <div class="box"><h3>Contatti sul server con il tuo sì</h3><p>CardDAV parla solo HTTPS (un indirizzo http blocca l'avvio del core) e vale lo stesso controllo dei certificati della posta. Il primo caricamento dei contatti che sono solo sul computer chiede una conferma; ogni scrittura è condizionata all'ETag, quindi non sovrascrive una modifica fatta altrove.</p></div>
+      <div class="box"><h3>Cartelle per ruolo</h3><p>«Posta inviata» e «Posta eliminata» si trovano dal ruolo dichiarato dal server (SPECIAL-USE), mai dal nome.</p></div>
+      <div class="box"><h3>Test senza credenziali</h3><p>I test dell'Api girano in ambiente <code>Testing</code>: non caricano gli user-secrets e non toccano la casella reale.</p></div>
+      <div class="box"><h3>Copia locale privata</h3><p>Leggibile solo dall'utente (0700/0600), mai password nei file. Non è cifrata dall'app: contro il furto del PC vale la cifratura del disco.</p></div>
+      <div class="box"><h3>Niente cancellato di nascosto</h3><p>I dati di un account rimosso si eliminano solo con un clic esplicito e una conferma. Sul server la cache non tocca mai nulla.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Comandi di tutti i giorni</h2>
+    <div class="cmds">
+      <div class="cmd"><code>cd core &amp;&amp; dotnet build &amp;&amp; dotnet test</code><span class="why">compila e prova il core</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>cd app &amp;&amp; flutter run -d linux</code><span class="why">l'app avvia da sola il core</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>cd app &amp;&amp; flutter analyze &amp;&amp; flutter test</code><span class="why">controlli e test dell'app</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/schermate.sh</code><span class="why">schermate di una casella d'esempio inventata con i caratteri veri; segnala trabocchi e testi senza carattere</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>packaging/linux/build-deb.sh</code><span class="why">pacchetto .deb in dist/linux/</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>packaging/linux/build-appimage.sh</code><span class="why">AppImage in dist/linux/</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>powershell -ExecutionPolicy Bypass -File packaging\windows\build-installer.ps1</code><span class="why">su Windows: installer Inno Setup in dist\windows\, per l'utente, senza amministratore</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-offline.sh</code><span class="why">il core senza rete, con un server finto</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-manutenzione.sh</code><span class="why">controllo e recupero su una copia del database</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-conversazioni.sh</code><span class="why">conversazioni, in sola lettura</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-bozze.sh</code><span class="why">bozze e Posta in uscita: invia una mail a te stesso, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-crittografia.sh</code><span class="why">porte e crittografie sul server di prova (solo login) e certificato autofirmato locale</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-pop3.sh</code><span class="why">scarica con POP3 la Posta in arrivo in una cartella temporanea, senza togliere nulla, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-regole.sh</code><span class="why">regola su una mail nuova ed «Esegui regole ora»: invia una mail a te stesso e poi pulisce, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-posta-indesiderata.sh</code><span class="why">filtro, Blocca mittente e Non è posta indesiderata con due mail aggiunte (nessun invio) e una cartella di prova, poi pulisce, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-archivia.sh</code><span class="why">Archivia con due mail aggiunte (nessun invio) in una cartella di prova, letto/non letto invariato, poi pulisce, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-ignora-pulisci.sh</code><span class="why">Pulisci cartella, Ignora (anche su una risposta nuova) e Interrompi Ignora con cinque mail aggiunte (nessun invio) in una cartella di prova, poi pulisce, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-risposte-automatiche.sh</code><span class="why">risposte automatiche tra due caselle vere (una sola per mittente), poi pulisce, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-pop3-locale.sh</code><span class="why">operazioni POP3 sul computer, con un server finto</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-contatti.sh</code><span class="why">rubrica, importazione/esportazione e suggerimenti su una copia, server finto</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-carddav.sh</code><span class="why">rubriche CardDAV del server di prova, in sola lettura</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-carddav-sync.sh</code><span class="why">sincronizzazione nei due sensi con il server vero: contatti di prova creati e poi eliminati, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-caldav.sh</code><span class="why">calendari CalDAV del server di prova, in sola lettura (solo numeri e tipi)</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-caldav-sync.sh</code><span class="why">sincronizzazione dei calendari nei due sensi con il server vero, appuntamenti di prova eliminati alla fine, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-google-caldav.sh</code><span class="why">calendari di Gmail con OAuth2, in sola lettura (solo numeri e tipi)</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-google-caldav-sync.sh</code><span class="why">calendario di Gmail nei due sensi e sola lettura delle festività, solo appuntamenti di prova, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-calendario.sh</code><span class="why">appuntamenti creati, modificati ed eliminati dall'API e portati sul server, con conferma</span><button class="copy">Copia</button></div>
+      <div class="cmd"><code>tools/verifica-oauth-locale.sh</code><span class="why">accesso OAuth2 completo con un fornitore e server di posta finti</span><button class="copy">Copia</button></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Il primo giorno</h2>
+    <div class="grid2">
+      <div class="box">
+        <ul class="checklist">
+          <li><span>Dopo una modifica al C#: <code>dotnet build</code> e <strong>riavvia l'app</strong>. L'hot reload vale solo per Flutter.</span></li>
+          <li><span><code>CLAUDE.md</code> è la fonte di verità: regole, stato in breve, lezioni apprese. I dettagli di ogni passo stanno in <code>docs/storia.md</code>, gli endpoint in <code>docs/api.md</code>. Vanno aggiornati a ogni cambiamento.</span></li>
+          <li><span>Ogni funzione nuova porta con sé i suoi test; la casella reale si tocca solo nelle prove manuali.</span></li>
+          <li><span>Commit piccoli, uno per sotto-step, con un messaggio che spiega il perché.</span></li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Da dove iniziare a leggere</h3>
+        <p>Questi sei file coprono gran parte del progetto:</p>
+        <div class="read-order">
+          <span class="f">Program.cs</span><span class="arrow">→</span>
+          <span class="f">MessagesController.cs</span><span class="arrow">→</span>
+          <span class="f">CachedMailReader.cs</span><span class="arrow">→</span>
+          <span class="f">ImapMailService.cs</span><span class="arrow">→</span>
+          <span class="f">mailbox_model.dart</span><span class="arrow">→</span>
+          <span class="f">compose_page.dart</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Stato al 12 novembre 2026, versione 0.0.207 (Flutter 3.47.9): fasi 1 e 2 completate (pacchetti Linux e installer per Windows), fase 3 «Outlook classico» con i temi di Office, contatti (rubrica per account, vista Persone, completamento degli indirizzi, Ccn e sincronizzazione CardDAV, anche dei contatti di Gmail), fase 4 «crittografia e POP3», regole e risposte automatiche completate; OAuth2: Gmail provato con un account vero; Microsoft scritto e provato con un fornitore finto, prova vera rinviata (la registrazione dell'app richiede un tenant Azure). Calendario completato: CalDAV nei due sensi, viste Giorno / Settimana / Mese, finestra Appuntamento con ricorrenze e singole occorrenze, promemoria; calendario di Gmail con CalDAV (calendari di sola lettura compresi). Posta: importanza, zoom del riquadro di lettura, stampa in PDF, file .eml (salva e apri), conferme di lettura, finestra della mail, posta indesiderata (filtro nel core, elenchi e Opzioni come Outlook) Archivia (cartella di archiviazione per account), Ignora e Pulisci conversazione; File → Opzioni a categorie come Outlook, finestre Account con «Annulla / OK»; versione installata con una sola copia aperta e prima sincronizzazione delle cartelle grandi in sottofondo. Tappa «Aspetto» chiusa: aspetto dell'Outlook classico di Microsoft 365 di oggi (carattere Inter, barra in alto con la ricerca, barra dei moduli a sinistra o in basso, barra multifunzione classica o semplificata, riquadro di lettura con le iniziali del mittente). Test: core 634 (452 + 182 dell'Api), app 343.</footer>
+</div>
+
+<script>
+const NODES = {
+  ui: { title: "Interfaccia (widget)", tag: "App", files: ["ui/home_page.dart", "ui/theme.dart", "ui/top_bar.dart", "ui/module_bar.dart", "ui/ribbon_parts.dart", "ui/message_list_pane.dart", "ui/reading_pane.dart", "ui/compose_page.dart"],
+    role: "Quello che l'utente vede, con l'aspetto dell'Outlook classico di Microsoft 365 di oggi e i temi di Office: barra in alto con Invia/ricevi e la ricerca, barra multifunzione (classica o semplificata), barra dei moduli a sinistra, cartelle con Preferiti e Posta in uscita, lista, lettura, barra di stato; composizione con la sua barra, testo formattato e firme.",
+    notes: ["Mostra soltanto: legge lo stato con context.watch e chiama il modello con context.read.", "Aspetto (tappa «Aspetto», 11–12/11/2026): carattere Inter incluso (SIL OFL) su Linux e macOS, Segoe UI del sistema su Windows (OfficeTheme.fontFamily); colori neutri di Fluent 2 scritti a mano, testo a 14, angoli di 4 px, caselle basse (ui/theme.dart). Barra in alto (ui/top_bar.dart) con Invia/ricevi e la casella di ricerca al centro (ui/search_box.dart), blu nel tema Colorato. Barra multifunzione (ui/ribbon_parts.dart): «File» come le altre schede, comandi in un riquadro arrotondato, icone grigie; «Opzioni di visualizzazione» per classica / semplificata (RibbonStyle) e «Mostra solo le schede». Riquadro di lettura con cerchio delle iniziali del mittente (ui/sender_avatar.dart) e allegati come schede. tools/schermate.sh fa le schermate di una casella d'esempio inventata con i caratteri veri e segnala trabocchi e testi senza carattere.", "Barra dei moduli (ui/module_bar.dart): Posta, Calendario e Persone (Ctrl+1/2/3), a sinistra o in basso nel riquadro di sinistra (File → Opzioni → Generale). Persone: rubriche per account, elenco con «Cerca contatti», scheda, finestra «Contatto», Importa/Esporta (.vcf, .csv); stato in ContactsModel. Con CardDAV: stato sotto la rubrica e nella barra di stato, «Sincronizza» (anche F9), striscia gialla «N contatti sono solo su questo computer» con «Carica sul server…».", "Composizione: A, Cc e Ccn (Opzioni → Ccn) con i suggerimenti mentre si scrive (AddressField su RawAutocomplete) e i pulsanti «A…», «Cc…», «Ccn…» che aprono la Rubrica.", "Temi di Office (File → Opzioni → Generale, Visualizza → Tema): sistema, Colorato (barra in alto blu), Bianco, Grigio scuro, Nero; il testo delle mail resta sempre su fondo bianco (MessageSurface).", "Lista: gruppi per data (o per mittente, oggetto, dimensione), conversazioni con il triangolo, selezione multipla, trascinamento; con il riquadro di lettura in basso o disattivato diventa a colonne.", "Composizione: editor flutter_quill, comandi di formato, firme, bozza salvata ogni 3 minuti, «Ritarda recapito».", "Senza rete: «Disconnesso» nella barra di stato e una striscia sopra la lista; Sposta, Elimina, Segna come letto disattivati.", "Importanza: «!» rosso e freccia blu nella lista, avviso nel riquadro di lettura, «Priorità alta/bassa» nella composizione. Zoom del solo corpo della mail 50–200% (Ctrl+rotella, Ctrl++/-/0, cursore nella barra di stato; ZoomedBody in ui/reading_zoom.dart). Stampa: File → Stampa (Ctrl+P) e Salva come PDF (print/).", "Finestra della mail (ui/message_window.dart): doppio clic o Invio; stessa ReadingPane con la barra «Messaggio», ↑ ↓ (Ctrl+, / Ctrl+.), dopo Elimina/Sposta la successiva (MailboxModel.removeAndOpenNext). Intestazioni compatte: mittente con le iniziali e senza «Da:», Rispondi/Inoltra sulla sua riga, data a destra, HTML/Testo sulla riga delle categorie.", "Le azioni irreversibili (eliminazione definitiva, invio) passano da una finestra di conferma.", "Una sola copia dell'app nella versione installata: riaprendola viene in primo piano la finestra già aperta (Linux: GApplication unica; Windows: mutex in windows/runner/main.cpp).", "Portare la finestra in primo piano lo fa il runner nativo (linux/runner/my_application.cc) tramite il canale com.dumm1969.postinovip/window."] },
+  model: { title: "MailboxModel", tag: "App", files: ["state/mailbox_model.dart"],
+    role: "Lo stato dell'app come ChangeNotifier: account, cartelle, selezione, mail aperta, ricerca, raggiungibilità di ogni server.",
+    notes: ["La mail aperta ha la sua posizione (openAccount, openFolder): un risultato della ricerca può stare in un'altra cartella o in un altro account.", "Selezione multipla (selection) e vista per conversazioni: conversations, poi messages = le loro mail della cartella aperta, così i comandi restano gli stessi.", "Posta in uscita come cartella virtuale per account (outboxFolder), riletta agli eventi outbox-changed.", "Ricerca: parte 0,4 s dopo l'ultima lettera; con «Tutti gli account» interroga ogni account in parallelo e mescola per data.", "onlineStatus arriva da GET /accounts e dagli eventi connection-status; al ritorno della rete ricarica cartelle e lista.", "Rileva la posta nuova per ogni account: UID più alto di quelli già visti e non letta.", "Le risposte arrivate dopo un cambio di account o cartella vengono scartate."] },
+  api: { title: "ApiClient", tag: "App", files: ["api/api_client.dart", "api/sse.dart"],
+    role: "L'unico punto dell'app che parla con il core, via HTTP/JSON con l'header Authorization: Bearer.",
+    notes: ["Ogni problema (rete, HTTP, formato) diventa un ApiException leggibile; 503 vuol dire «server non raggiungibile».", "forAccount(id) dà un client con il prefisso /accounts/{id}: stessa connessione HTTP e stesso token.", "search, searchServer, getCacheOrphans, rebuildCache: ricerca e copia locale.", "getConversations, send (htmlBody, quote, sendAfter, deleteDraft), saveDraft, getComposeContent, getOutbox e le sue azioni.", "events() legge il flusso SSE di /events (tutti gli account)."] },
+  launcher: { title: "CoreGate + CoreLauncher", tag: "App", files: ["core/core_gate.dart", "core/core_launcher.dart"],
+    role: "Avvia il processo del core, aspetta che sia pronto e decide cosa mostrare: attesa, errore, configurazione account o app.",
+    notes: ["Token casuale e account (Accounts__N__*, compreso il limite Cache__BodyMonths; per OAuth2 OAuth__Provider e OAuth__RefreshToken al posto della password) passati come variabili d'ambiente; quelle Accounts__* ereditate dal terminale vengono tolte.", "Porta 0: la sceglie il sistema; il core la annuncia con POSTINOVIP_READY.", "Legge sempre lo stdout del core, altrimenti la pipe si riempie e il core si blocca."] },
+  store: { title: "Account e impostazioni", tag: "App", files: ["account/account_config.dart", "account/account_setup_page.dart", "account/accounts_page.dart", "settings/app_settings.dart", "ui/settings_dialog.dart"],
+    role: "Configurazione al primo avvio, finestre «Account» e «Opzioni» e opzioni dell'utente (notifiche, segna come letto, account chiusi nell'albero).",
+    notes: ["File → Opzioni (ui/settings_dialog.dart) come Outlook: categorie a sinistra (Generale, Posta, Notifiche, Calendario), una pagina per volta, finestra di grandezza fissa; ogni opzione vale subito, quindi «Chiudi». In Posta si riattivano le conferme di Ignora conversazione.", "Finestre con «Annulla / OK» (pulsante principale pieno a destra): Account (da Opzioni → Gestisci…) tiene aggiunte, modifiche e rimozioni in sospeso fino a «OK», che le salva insieme con un solo riavvio del core; Nuovo / Modifica account è una finestra sopra Account (a pagina intera solo al primo avvio).", "File → «Risposte automatiche»: intervallo, messaggio con l'editor delle firme; barra gialla con «Disattiva» finché sono attive.", "File → «Gestisci regole e avvisi»: elenco per account, condizioni, azioni, eccezioni, «Esegui regole ora…»; «Crea regola…» dal tasto destro su una mail.", "Tipo di account IMAP o POP3, scelto solo alla creazione; per ogni server porta e «Crittografia» (la porta propone la crittografia e viceversa).", "Certificato non valido in «Verifica connessione»: «Fidarsi di questo certificato?» con l'impronta; «Nessuna» crittografia chiede una conferma al salvataggio.", "POP3: «Lascia una copia sul server», «Rimuovi dal server dopo N giorni», «…quando eliminati da Posta eliminata», «Controlla la posta ogni».", "«Tipo di account»: IMAP, POP3, Gmail (e «Outlook.com / Microsoft 365» solo se il core ha l'ID di quell'app). Con Gmail niente password né server: «Accedi con Google» apre il browser di sistema, attesa con «Annulla», poi indirizzo compilato e verifica automatica con il token.", "Striscia rossa «Accesso a Google scaduto» sopra la lista quando il fornitore rifiuta il token di rinnovo: «Accedi di nuovo» apre l'account e fa ripartire l'accesso.", "«Salva» si attiva solo dopo una verifica riuscita; nome, «Mail scaricate sul computer» e opzioni POP3 si cambiano senza rifarla.", "Finestra Account: aggiungi, modifica, rimuovi (in sospeso fino a OK), «Ricostruisci cache» (subito, solo account già salvati); sotto, «Dati di account rimossi» con «Elimina dati locali».", "Tutti gli account, password (o token di rinnovo OAuth2) comprese, sono una sola voce cifrata nel portachiavi.", "«Rimuovi» toglie l'account solo dall'app: sul server non si tocca nulla e le mail scaricate restano."] },
+  mw: { title: "Token e gestione errori", tag: "Core · Api", files: ["Api/TokenAuthMiddleware.cs", "Api/MailExceptionHandler.cs", "Api/ApiToken.cs"],
+    role: "Il filtro all'ingresso del core e la traduzione delle eccezioni in risposte JSON standard.",
+    notes: ["Senza il token giusto: 401, prima di qualsiasi altra cosa.", "Errori: 404 non trovato, 400 per campo (to, cc, attachments), 409 non consentito, 502 server mail (anche «certificato del server non valido»), 503 «Non connesso».", "Il 503 non viene registrato come errore del core: senza rete è normale.", "Unica eccezione al token: GET /oauth/callback, dove arriva il browser; vale lo «state» casuale monouso dell'accesso in corso."] },
+  ctrl: { title: "Controller", tag: "Core · Api", files: ["Api/Controllers/FoldersController.cs", "Api/Controllers/MessagesController.cs", "Api/Controllers/SearchController.cs", "Api/Controllers/CacheController.cs", "Api/Controllers/SendController.cs", "Api/Controllers/EventsController.cs"],
+    role: "Un controller per area. Ricevono la richiesta, prendono l'account dal percorso, chiamano i suoi servizi, restituiscono JSON.",
+    notes: ["Due percorsi per controller: /accounts/{id}/… e quello senza account (= primo account).", "ContactsController: …/contacts (crea, modifica, elimina), …/contacts/import e …/contacts/export; AddressesController: GET /addresses/suggest (tutti gli account) e DELETE /addresses/recent (la ✕). CardDAV: GET/POST …/contacts/sync, POST …/contacts/sync/confirm, POST /account/test-carddav («Verifica rubrica»).", "CalendarsController: …/calendars, …/calendars/sync (e /confirm), …/calendars/events (occorrenze di un periodo), …/calendars/{cal}/events[/{id}] (crea, modifica, elimina la serie); POST /account/test-caldav.", "GET /search e /search/server: ricerca locale e sul server.", "File .eml: GET …/messages/{folder}/{uid}/raw (byte originali, BODY.PEEK); EmlController: POST /eml apre un file (tenuto in memoria da EmlStore, al massimo 20, sola lettura), poi /eml/{id}, …/attachments/{n}, …/draft, DELETE; /send accetta citazione e allegati da un file aperto.", "ArchiveController: GET/PUT …/archive (cartella scelta e proposta) e POST …/messages/{folder}/archive (sposta nella cartella scelta; 409 se manca o se si è già lì).", "ConversationToolsController: GET …/messages/{folder}/{uid}/ignored, POST …/ignore, …/stop-ignoring, …/clean-up (Pulisci conversazione) e POST …/folders/{folder}/clean-up (Pulisci cartella).", "ReadReceiptController: POST …/messages/{folder}/{uid}/receipt invia (o no) la conferma di lettura e segna $MDNSent.", "POST /drafts, GET/DELETE /outbox, …/messages/{folder}/{uid}/compose, …/folders/{folder}/conversations, azioni in blocco su più mail.", "/cache/orphans e /accounts/{id}/cache/rebuild: dati degli account rimossi e ricostruzione.", "Restano corti: niente try/catch, ci pensa MailExceptionHandler.", "EventsController tiene aperta la risposta SSE e invia un ping ogni 30 s.", "OAuthController: GET /oauth/providers, POST /oauth/start (URL della pagina di accesso), GET /oauth/flows/{id} (stato; il token di rinnovo si consegna una volta sola), /oauth/callback."] },
+  svc: { title: "MailAccountRegistry e servizi mail", tag: "Core", files: ["Core/Account/MailAccountRegistry.cs", "Api/AccountsConfiguration.cs", "Core/IMailReader.cs", "Core/IMailWriter.cs", "Core/IMailSender.cs", "Core/Imap/ImapMailService.cs", "Core/Smtp/MimeMessageBuilder.cs"],
+    role: "Le caselle configurate, ognuna con i suoi servizi. Le letture passano dalla copia locale; le scritture vanno dritte alla connessione IMAP.",
+    notes: ["Con la cache attiva il Reader di un account IMAP è CachedMailReader; Cache:Enabled=false torna alla sola rete.", "Un account POP3 ha LocalMailReader e LocalMailWriter: stesse interfacce e stessi errori, tutto sul computer (l'app non distingue).", "Ogni collegamento (IMAP, SMTP, POP3) usa la crittografia dell'account e TrustedCertificate: certificato valido, oppure quello con l'impronta scelta dall'utente.", "SMTP: il core si presenta (EHLO) come [127.0.0.1], non con il nome del PC, che il server scriverebbe in ogni mail.", "Conferme di lettura (Mime/ReadReceipts.cs, RFC 8098): richiesta con Disposition-Notification-To; si propone solo se l'indirizzo è il mittente stesso; la risposta è un multipart/report; la parola chiave $MDNSent (RFC 3503) la segna sul server ($MDNReceived, scritta dal server di prova quando una conferma arriva nella stessa casella, vale come trattata).", "Il Writer (letto, sposta, elimina, cartelle, bozze, APPEND) non tocca la cache: la sincronizzazione successiva la allinea.", "ComposeBuilder (Api) costruisce il messaggio per invio, bozza e coda: HTML ripulito più testo, citazione dell'originale, immagini incorporate.", "Letture con EXAMINE e BODY.PEEK: nessun flag modificato.", "Il registro scrive account.json accanto alla cache di ogni account.", "Account OAuth2: MailAuth fa il login XOAUTH2 con il token di OAuthTokenSource, tenuto in memoria fino a 2 minuti dalla scadenza; un token di rinnovo nuovo diventa l'evento credentials-changed."] },
+  cache: { title: "Copia locale (cache)", tag: "Core", files: ["Core/Cache/CachedMailReader.cs", "Core/Cache/AccountCache.cs", "Core/Cache/FolderSynchronizer.cs", "Core/Cache/BodyCache.cs", "Core/Cache/BodyStore.cs", "Core/Cache/MailSearchQuery.cs", "Core/Cache/ServerSearch.cs"],
+    role: "La posta sul disco, per account: un database SQLite (cartelle, intestazioni, flag, indice di ricerca) e i messaggi grezzi come file .eml.",
+    notes: ["Ogni lista sincronizza prima le differenze con il server, poi legge dal database; ordine per data, mittente, oggetto o dimensione.", "Cartella grande alla prima apertura (copia locale vuota, o più di 200 mail nuove): la lista prende le 200 più recenti e lascia il resto al download in background; se il background ci sta già lavorando risponde subito dalla copia locale.", "Accanto, per account: la rubrica (contacts/, vCard; ContactStore) e gli indirizzi recenti (RecentAddresses, riempiti la prima volta dai destinatari della Posta inviata). Fuori da index.db e bodies/: restano con «Ricostruisci cache»; senza CardDAV sono l'unica copia (con CardDAV la rubrica è anche sul server: vedi «Rubrica e CardDAV»).", "Conversazioni: union-find su Message-ID, In-Reply-To e References dopo ogni cambiamento, anche tra cartelle diverse (tranne Posta eliminata e Indesiderata).", "Una mail aperta viene letta dal file .eml se c'è e l'impronta SHA-256 corrisponde; altrimenti scaricata, salvata se entro il limite e indicizzata.", "Ricerca FTS5 con accenti ignorati e prefissi; filtri da:, a:, oggetto:, allegato:, allegati:sì/no.", "Importanza (Importance, X-Priority, Priority) letta insieme alle altre intestazioni; per le mail già salvate una volta sola in sottofondo, come i References (BodyDownloader).", "Senza rete risponde dal disco; se anche la copia manca, 503.", "Schema con PRAGMA user_version e migrazioni in coda; WAL; recupero dello spazio incrementale."] },
+  conn: { title: "ImapConnection", tag: "Core", files: ["Core/Imap/ImapConnection.cs", "Core/Imap/ReconnectingSession.cs", "Api/ConnectivityService.cs"],
+    role: "La connessione IMAP persistente dei comandi di un account: riusata, un comando alla volta. Decide anche quando il server è «non connesso».",
+    notes: ["Collegamento entro 10 s e ogni risposta entro 10 s (MailKit di serie aspetterebbe 2 minuti).", "Se non riesce, per un minuto le richieste falliscono subito con MailOfflineException invece di riprovare a ogni clic.", "ConnectivityService riprova ogni 30 s gli account non connessi.", "Le letture vengono ripetute una volta se la connessione cade; le scritture mai, per non creare doppioni."] },
+  download: { title: "Download e manutenzione", tag: "Core", files: ["Core/Imap/CacheDownloadWorker.cs", "Core/Cache/BodyDownloader.cs", "Api/CacheDownloadService.cs", "Api/CacheMaintenanceService.cs"],
+    role: "Il lavoro in background su una terza connessione per account: tiene la copia locale completa e in ordine.",
+    notes: ["Un passaggio all'avvio, a ogni avviso dell'IDLE e ogni 15 minuti: INBOX per prima, poi le altre cartelle.", "Scarica dal più recente i corpi entro il limite di mesi e li aggiunge all'indice di ricerca.", "Una sola sincronizzazione alla volta per cartella, condivisa con le liste dell'app: le intestazioni a blocchi (200 su una cartella vuota, poi 500), liberando la cartella tra uno e l'altro.", "Completata una cartella alla prima sincronizzazione o lasciata dalla lista (evento interno headers-pending), manda folder-synced: l'app rilegge la lista aperta.", "Manutenzione 1 minuto dopo l'avvio e poi ogni 6 ore: quick_check, pulizia dei corpi fuori limite e dei file orfani, incremental_vacuum."] },
+  watcher: { title: "InboxWatcher + EventHub", tag: "Core", files: ["Core/Imap/InboxWatcher.cs", "Core/Events/MailboxEventHub.cs", "Api/InboxWatcherService.cs"],
+    role: "Per ogni account, una connessione IMAP che tiene INBOX in IDLE; l'EventHub smista all'app tutti gli eventi del core.",
+    notes: ["Eventi: mailbox-changed, folder-synced, watch-status, connection-status, cache-rebuilt, outbox-changed, credentials-changed, login-status, contacts-changed, calendars-changed; a chi si iscrive arrivano subito gli ultimi stati.", "Oltre all'app, li ascolta RulesService: posta nuova nella Posta in arrivo → regole.", "Nell'app: icona ⚠ accanto all'account solo se il suo IDLE non è attivo.", "IDLE rinnovato ogni 9 minuti (la RFC 2177 chiede prima di 29).", "Riconnessione con attese crescenti, da 5 secondi a 5 minuti."] },
+  stdin: { title: "Program + StdinWatcher", tag: "Core · Api", files: ["Api/Program.cs", "Api/StdinWatcher.cs", "Api/CacheLocation.cs"],
+    role: "Avvio del core e collegamento dei servizi; arresto automatico quando l'app termina.",
+    notes: ["Ascolta solo su 127.0.0.1; senza token non parte.", "Sceglie la cartella della copia locale (Cache:Directory, altrimenti quella dei dati dell'utente).", "L'app non scrive nulla sullo stdin: quando termina, anche per crash, la pipe si chiude e il core si ferma."] },
+  imap: { title: "Server IMAP", tag: "Esterno", files: ["mail.example.com:993"],
+    role: "Il server che conserva la posta. Per ogni account tre connessioni dal core: comandi, download, IDLE (gli account possono stare su server diversi).",
+    notes: ["Porta 993 con SSL/TLS dall'inizio o 143 con STARTTLS obbligatorio; il server di prova accetta anche la 143 in chiaro.", "Server IceWarp: ha UIDPLUS ma non MOVE standard, quindi gli spostamenti sono COPY + \\Deleted + UID EXPUNGE del solo messaggio.", "Bozze: APPEND in \\Drafts con \\Draft; UIDPLUS restituisce l'UID, così la bozza precedente si elimina da sola.", "SEARCH TEXT non trova mai nulla: la ricerca sul server usa SUBJECT, FROM, TO, CC e BODY.", "Niente CONDSTORE né QRESYNC: i flag si rileggono tutti a ogni sincronizzazione.", "Ruoli delle cartelle: sent = Posta inviata, trash = Posta eliminata, drafts = Bozze."] },
+  smtp: { title: "Server SMTP", tag: "Esterno", files: ["mail.example.com:587"],
+    role: "Il server che consegna le mail inviate: STARTTLS (587, 25) o SSL/TLS (465), con autenticazione o, per un relay interno, senza.",
+    notes: ["«Il server di invio richiede l'autenticazione» (attiva di default): spenta, il core non manda la password.", "Accetta messaggi fino a 50 MiB; l'app limita allegati e immagini incorporate a 25 MB per compatibilità con i destinatari.", "Una connessione nuova per ogni invio, collegamento entro 15 s.", "Server non raggiungibile: la mail va nella Posta in uscita del computer e parte quando risponde."] },
+  pop3: { title: "Casella POP3 sul computer", tag: "Core", files: ["Core/Local/LocalMailStore.cs", "Core/Local/LocalFolderSource.cs", "Core/Local/LocalMailReader.cs", "Core/Local/LocalMailWriter.cs", "Core/Pop3/Pop3Fetcher.cs", "Core/Pop3/Pop3Worker.cs", "Api/Pop3Service.cs"],
+    role: "Per gli account POP3: le mail sul disco, una cartella per cartella di posta, e il controllo periodico del server POP3.",
+    notes: ["I file .eml sono la fonte della verità; l'indice index.db si rifà da lì con la stessa FolderSynchronizer dell'IMAP (LocalFolderSource fa da «server»).", "Sposta e copia riportano letto, contrassegni, categorie e scadenza sulla mail nella nuova cartella; «Elimina» va in Posta eliminata, definitiva solo da lì.", "Pop3Fetcher: elenco UIDL, scarica nella Posta in arrivo le mail non in pop3.json (prima il file, poi la voce: al più un doppione, mai una perdita), poi DELE secondo le regole.", "Pop3Worker: all'avvio, ogni N minuti e con POST /accounts/{id}/receive (F9); mail nuove → evento mailbox-changed, come con l'IDLE.", "Eliminata da Posta eliminata con l'opzione attiva: X-UIDL letto dal file e mail tolta dal server alla connessione successiva."] },
+  pop3srv: { title: "Server POP3", tag: "Esterno", files: ["mail.example.com:995", "mail.example.com:110"],
+    role: "Il server da cui gli account POP3 scaricano la posta: una sola casella, senza cartelle né flag.",
+    notes: ["Serve UIDL: è l'identificativo stabile che permette di non scaricare due volte e di lasciare la copia sul server.", "Le rimozioni (DELE) diventano effettive solo con QUIT: se la connessione cade prima, non viene tolto nulla.", "Server di prova IceWarp: 995 SSL/TLS e 110 con STLS; TOP, UIDL, EXPIRE NEVER."] },
+  rules: { title: "Regole, risposte automatiche e posta indesiderata", tag: "Core", files: ["Core/Conversations/ConversationTools.cs", "Core/Conversations/CleanUpText.cs", "Core/Conversations/IgnoreStore.cs", "Api/Controllers/ConversationToolsController.cs", "Core/Junk/JunkFilter.cs", "Core/Junk/JunkClassifier.cs", "Core/Junk/JunkStore.cs", "Core/Junk/JunkFolders.cs", "Api/Controllers/JunkController.cs", "Core/Rules/MailRule.cs", "Core/Rules/RuleMatcher.cs", "Core/Rules/RuleRunner.cs", "Core/Rules/RuleStore.cs", "Core/AutoReply/AutoReplyRunner.cs", "Core/AutoReply/AutoReplyPolicy.cs", "Api/RulesService.cs", "Api/RuleJobs.cs", "Api/Controllers/RulesController.cs", "Api/Controllers/AutoReplyController.cs"],
+    role: "Smistano da sole la posta come le regole «solo client» di Outlook: condizioni, eccezioni e azioni, applicate dal core con il Reader e il Writer dell'account (IMAP o POP3).",
+    notes: ["Condizioni tutte vere (AND), più parole in una condizione = una basta (OR), eccezioni «tranne se»; in ordine fino a «interrompi».", "Più «sposta»: la prima sposta, le altre copiano; «elimina» prevale.", "RulesService: all'avvio, a ogni mailbox-changed della Posta in arrivo, al ritorno della rete e ogni 5 minuti; solo le mail con UID oltre l'ultimo esaminato.", "La mail si legge con GetMimeMessageAsync (BODY.PEEK o copia locale): non diventa letta.", "«Esegui regole ora» (POST /rules/run): RuleJobs la esegue in background; l'app ne legge l'avanzamento ogni 500 ms e può interromperla.", "Un solo RuleRunner per account: nuove mail ed «Esegui ora» non si sovrappongono.", "Risposte automatiche (GET/PUT /autoreply): a ogni giro prima AutoReplyRunner, poi le regole; invio con l'SMTP dell'account, una volta per mittente, filtri RFC 3834 in AutoReplyPolicy.", "Posta indesiderata (GET/PUT /junk, junk.json): a ogni giro per prima, prima delle risposte automatiche e delle regole, JunkFilter guarda le mail nuove della Posta in arrivo. Ordine: mittenti attendibili (e contatti), destinatari attendibili, mittenti bloccati, poi il livello di Outlook sul giudizio del server (X-Spam-Flag, X-Spam, X-Spam-Status; «Alta» anche vicino alla soglia).", "Cartella della posta indesiderata: quella scelta nelle opzioni, altrimenti quella del server (\\Junk) o riconosciuta dal nome (JunkFolders); GET /folders dà il ruolo «junk» solo a quella in uso.", "Ignora conversazione (ConversationTools, ignore.json): a ogni giro dopo la posta indesiderata, le mail nuove della Posta in arrivo che citano una conversazione ignorata vanno in Posta eliminata. Pulisci: una mail citata per intero da una risposta diretta (CleanUpText, solo lettere e cifre) va in Posta eliminata, mai se da leggere, contrassegnata, con categorie o firmata.", "Comandi dell'utente: Blocca mittente, Non bloccare mai… (solo elenchi), Non è posta indesiderata; parole chiave $Junk/$NotJunk come un di più (se il server non le accetta, lo spostamento si fa lo stesso). Mai il proprio indirizzo tra i bloccati: 409."] },
+  outbox: { title: "Posta in uscita e bozze in attesa", tag: "Core", files: ["Core/Outbox/OutboxStore.cs", "Api/OutboxService.cs", "Api/Controllers/OutboxController.cs", "Api/Controllers/DraftsController.cs", "Api/ComposeBuilder.cs"],
+    role: "La coda sul computer, una per account: mail da inviare più tardi (senza rete o con «Ritarda recapito») e bozze scritte senza connessione.",
+    notes: ["Ogni elemento è il messaggio già costruito (.eml) più i suoi dati (.json), scritti in modo atomico, 0700/0600.", "OutboxService passa ogni 30 s, quando si mette qualcosa in coda e quando un server torna raggiungibile.", "Inviata: tolta subito dalla coda, poi copia in Posta inviata e bozza di partenza eliminata.", "Un errore che non è di rete (es. destinatario rifiutato) resta scritto sulla mail; niente nuovi tentativi finché non si sceglie «Invia ora».", "Parte solo con l'app aperta, come in Outlook."] },
+  oauth: { title: "Google e Microsoft (OAuth2)", tag: "Esterno", files: ["accounts.google.com · oauth2.googleapis.com", "login.microsoftonline.com/common", "Core/OAuth/OAuthClient.cs", "Core/OAuth/OAuthProvider.cs", "Api/OAuthLogins.cs"],
+    role: "I servizi di accesso di Google (Gmail) e di Microsoft (Microsoft 365, Outlook.com): la pagina dove l'utente entra e il servizio che dà i token per IMAP, SMTP e POP3.",
+    notes: ["Contatti di Gmail (C4d): il permesso https://www.googleapis.com/auth/carddav si chiede solo per un account con la sincronizzazione dei contatti (POST /oauth/start con contacts); nella console Google Cloud va attivata l'API «CardDAV».", "Calendario di Gmail (G1–G3): permesso https://www.googleapis.com/auth/calendar solo per un account con la sincronizzazione del calendario (POST /oauth/start con calendar); con contatti e calendario un solo accesso; API «CalDAV» da attivare nella console.", "Gmail: permesso https://mail.google.com/ (riservato) più openid ed email; app desktop con PKCE e un client_secret che Google dichiara non segreto; il rinnovo non elenca i permessi.", "Gmail: imap.gmail.com:993, smtp.gmail.com:587 STARTTLS, pop.gmail.com:995. App in stato «Testing»: token di rinnovo valido 7 giorni, poi «Accesso scaduto».", "Token rifiutato (invalid_grant): l'account risulta needsLogin in GET /accounts e con l'evento login-status; torna normale al primo rinnovo riuscito. Senza rete non conta.", "Microsoft — permessi chiesti: IMAP.AccessAsUser.All, POP.AccessAsUser.All, SMTP.Send di outlook.office.com, più offline_access per il token di rinnovo.", "App pubblica senza segreto: PKCE S256, ritorno su http://localhost (Microsoft ignora la porta per localhost).", "Server già noti: outlook.office365.com:993 (IMAP), :995 (POP3), smtp.office365.com:587.", "Accesso revocato o scaduto (invalid_grant): «rifai Accedi con Microsoft»; servizio irraggiungibile: come senza rete.", "Microsoft: codice provato con un fornitore finto; per la prova vera serve registrare l'app in un tenant Microsoft Entra, rinviata."] },
+  keyring: { title: "Portachiavi", tag: "Sistema", files: ["flutter_secure_storage → libsecret"],
+    role: "L'archivio sicuro del sistema operativo dove l'app conserva l'elenco degli account.",
+    notes: ["Su Linux è gnome-keyring (o KWallet) tramite il Secret Service.", "Per ogni account anche il limite delle mail scaricate.", "Account OAuth2: al posto della password il token di rinnovo, aggiornato senza riavviare il core quando il fornitore ne dà uno nuovo.", "In sviluppo, con l'elenco vuoto, il core usa invece gli user-secrets di .NET."] },
+  carddav: { title: "Rubrica, calendari e DAV", tag: "Core", files: ["Core/Contacts/ContactStore.cs", "Core/Calendars/CalendarSet.cs", "Core/Calendars/CalendarStore.cs", "Core/Calendars/CalendarEvents.cs", "Core/Dav/DavClient.cs", "Core/Dav/DavSync.cs", "Core/Dav/DavWorker.cs", "Core/Calendars/CalDavSync.cs", "Api/CardDavService.cs"],
+    role: "La rubrica e i calendari di ogni account sul computer e, se attiva, la loro sincronizzazione nei due sensi con CardDAV e CalDAV, con lo stesso codice.",
+    notes: ["Si accendono per account (Accounts__N__CardDav__Enabled, …__CalDav__Enabled, indirizzo facoltativo in …__Url); spente di serie.", "DavClient con DavKind CardDAV o CalDAV: scoperta come la RFC 6764 (.well-known, principal, cartella delle raccolte; su IceWarp ricerca nelle cartelle), sync-collection o ctag ed ETag, multiget, scritture con If-Match / If-None-Match.", "DavSync lavora su IDavItemStore: la rubrica (ContactDavStore, vCard) e ogni calendario (CalendarDavStore, testo iCalendar conservato com'è, UID come chiave).", "Prima volta: solo dal server al computer finché l'utente non conferma; conflitti: vince la modifica più recente (REV o LAST-MODIFIED, se non nel futuro, altrimenti l'ora in cui il core la vede).", "Calendari: solo quelli del server che accettano appuntamenti (VEVENT); il predefinito si collega al primo, gli altri diventano calendari nuovi; un calendario sparito resta sul computer.", "CalendarEvents (Ical.Net + NodaTime): occorrenze di un periodo con ricorrenze ed eccezioni, dettaglio della serie, creazione con VTIMEZONE, modifica sul testo esistente (eccezioni tolte se cambiano inizio o ricorrenza).", "DavWorker: all'avvio, ogni 15 minuti, 2 s dopo una modifica nell'app, con Invia/ricevi; nel log solo numeri e id.", "Calendari di sola lettura (current-user-privilege-set senza write): solo dal server al computer, scritture rifiutate con 409, readOnly in GET …/calendars; il predefinito si collega al primo scrivibile.", "Gmail: con il token OAuth2 (Bearer, mandato solo al server di Google); per gli account Microsoft non ancora disponibile."] },
+  carddavsrv: { title: "Server CardDAV · CalDAV", tag: "Esterno", files: ["mail.example.com/.well-known/carddav", "mail.example.com/.well-known/caldav", "/webdav/<utente>/Contatti/", "/webdav/<utente>/Calendario/", "www.googleapis.com/.well-known/carddav", "/carddav/v1/principals/<email>/lists/default/", "apidata.googleusercontent.com/caldav/v2/<email>/user"],
+    role: "Il server dei contatti e del calendario: rubriche di vCard e calendari di iCalendar raggiungibili in HTTPS (WebDAV), con le credenziali dell'account o, per Gmail, con il token OAuth2 (Bearer).",
+    notes: ["Server di prova IceWarp: Basic o Digest, ctag, sync-token, sync-collection e multiget, nessun current-user-principal sulla radice.", "Calendari: «Calendario» (eventi), «Attività» (VTODO) e «Diario» (VJOURNAL), ognuno con un solo tipo; nessun colore.", "IceWarp scrive i suoi eventi con VTIMEZONE e TZID=Europe/Amsterdam.", "Un elemento nuovo va su <UID>.vcf o <UID>.ics: ripetere il caricamento dopo un'interruzione non lo duplica.", "Google: rubrica «Address Book» trovata con la scoperta standard; il PUT di un contatto nuovo risponde 201 con Location = il suo id, ed è quello l'indirizzo da usare; se un server rifiuta il PUT si crea con POST sulla rubrica.", "Google CalDAV: nessun .well-known, si parte dal principal; 3 calendari (il principale e due di festività in sola lettura); un appuntamento nuovo va su <UID>.ics (201 senza Location) e GET/PUT non mandano l'ETag, letto dai report.", "Google risponde 403 con il motivo: API non attiva nel progetto (il messaggio riporta il link per attivarla) o permesso dei contatti mancante («Accedi di nuovo»)."] },
+  desktop: { title: "Notifiche desktop", tag: "Sistema", files: ["flutter_local_notifications → D-Bus", "notify/window_presenter.dart", "state/reminder_model.dart"],
+    role: "I popup «Nuova mail da…» e «Promemoria: …» mostrati dal demone di notifiche del sistema; il clic riporta all'app.",
+    notes: ["Opzione: sempre, solo con la finestra non in primo piano, mai.", "Con più account il titolo dice quale: «Nuova mail da Mario · Lavoro».", "Ogni notifica di posta porta un payload {account, folder, uid}: mai contenuti; quella dei promemoria {reminder: true} e il clic apre la finestra «Promemoria».", "Promemoria (K5): solo con l'app aperta; ReminderModel rilegge ogni 5 minuti gli appuntamenti di tutti gli account e ogni 30 secondi guarda quali sono arrivati; Ignora e Rimanda restano su questo computer.", "Su Xfce il clic sul corpo del popup chiude soltanto: per aprire la mail serve il pulsante «Apri mail»."] },
+};
+
+const SCENARIOS = {
+  open: { title: "Apri una mail", steps: [
+    { n: ["ui"], e: ["e-ui-model"], t: "L'utente clicca una mail nella lista: il widget chiama model.selectMessage(uid)." },
+    { n: ["model", "api"], e: ["e-model-api"], t: "Il modello chiede i dati con il client dell'account della mail: forAccount(\"b2\").getMessage(\"INBOX\", 4556)." },
+    { n: ["api", "mw"], e: ["e-api-mw"], l: ["l-api-mw"], t: "Parte GET /accounts/b2/messages/INBOX/4556 con Authorization: Bearer <token>. Il middleware controlla il token." },
+    { n: ["ctrl", "svc", "cache"], e: ["e-mw-ctrl", "e-ctrl-svc", "e-svc-cache"], t: "MessagesController chiama il Reader dell'account b2, cioè CachedMailReader: prima si guarda nella copia locale." },
+    { n: ["cache"], e: [], t: "Il file .eml c'è e la sua impronta SHA-256 corrisponde: la mail viene letta dal disco, senza rete, in circa un centesimo di secondo." },
+    { n: ["cache", "conn", "imap"], e: ["e-cache-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "Se il file manca o è rovinato: UID FETCH BODY.PEEK[] sulla connessione dei comandi (non segna come letta), salvataggio atomico e indicizzazione, se la mail è entro il limite di mesi." },
+    { n: ["svc", "api", "model", "ui"], e: ["e-ctrl-svc", "e-api-mw", "e-model-api", "e-ui-model"], t: "HtmlBodySanitizer toglie script, iframe, form e segnala le immagini remote; il JSON torna all'app e il pannello di lettura si ridisegna." },
+    { n: ["model", "svc", "conn", "imap"], e: ["e-model-api", "e-api-mw", "e-ctrl-svc", "e-svc-conn", "e-conn-imap"], t: "La mail era non letta: secondo l'opzione «Segna come letto» il modello invia PUT …/seen. È una scrittura: va dritta alla connessione (STORE +\\Seen), la cache si allinea alla sincronizzazione successiva." },
+  ]},
+  incoming: { title: "Arriva una mail nuova", steps: [
+    { n: ["imap", "watcher"], e: ["e-watcher-imap"], l: ["l-watcher-imap"], t: "Durante l'IDLE di un account il server invia EXISTS: in quella INBOX c'è un messaggio in più." },
+    { n: ["watcher", "ctrl"], e: ["e-watcher-ctrl"], t: "InboxWatcher pubblica nell'EventHub; EventsController scrive data: {\"type\":\"mailbox-changed\",\"account\":\"b2\",…}." },
+    { n: ["api", "model"], e: ["e-sse", "e-model-api"], l: ["l-sse"], t: "ApiClient legge l'evento dal flusso SSE; il modello aggiorna il conteggio e aspetta 300 ms per raggruppare più avvisi." },
+    { n: ["model", "cache", "conn", "imap"], e: ["e-model-api", "e-api-mw", "e-ctrl-svc", "e-svc-cache", "e-cache-conn", "e-conn-imap"], t: "Se è la cartella aperta, il modello riscarica la prima pagina: la cache sincronizza solo le differenze (UID SEARCH ALL, flag, intestazioni nuove) e risponde dal database." },
+    { n: ["download", "imap", "cache"], e: ["e-download-imap", "e-download-cache"], l: ["l-download-imap"], t: "Lo stesso evento sveglia il download in background: sulla sua connessione scarica il corpo della mail nuova e lo aggiunge all'indice di ricerca." },
+    { n: ["model", "desktop"], e: ["e-model-desktop"], l: ["l-model-desktop"], t: "UID più alto di quelli già visti e non letta: parte la notifica «Nuova mail da… · Lavoro», secondo l'opzione scelta." },
+    { n: ["desktop", "model", "ui"], e: ["e-model-desktop", "e-ui-model"], l: ["l-model-desktop"], t: "Clic su «Apri mail»: la finestra torna in primo piano e openFromNotification apre quella INBOX; la mail si apre già dal disco." },
+  ]},
+  send: { title: "Invia con allegato", steps: [
+    { n: ["ui"], e: [], t: "In composizione l'utente sceglie il mittente in «Da:», scrive con l'editor (grassetto, elenchi, la firma già inserita), usa «Allega file» e conferma il riepilogo." },
+    { n: ["api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "POST /accounts/{id}/send dell'account scelto: testo, HTML, i file in base64, saveCopy, la citazione e la bozza da eliminare. Limite della richiesta: 40 MB, solo qui." },
+    { n: ["ctrl", "svc", "cache"], e: ["e-ctrl-svc", "e-svc-cache"], t: "Se è un inoltro, gli allegati originali vengono dalla copia locale (.eml) della casella del messaggio, o dal server se non è sul disco." },
+    { n: ["svc"], e: [], t: "ComposeBuilder e MimeMessageBuilder: indirizzi validati (errori per campo), HTML ripulito, immagini incollate trasformate in parti incorporate, citazione in fondo, 25 MB al massimo, Message-ID con il dominio del mittente." },
+    { n: ["svc", "smtp"], e: ["e-svc-smtp"], l: ["l-svc-smtp"], t: "SMTP: STARTTLS e autenticazione entro 15 s, poi l'invio. Da qui la mail è partita. Se il server non risponde, la mail va nella Posta in uscita (vedi «Bozza e Posta in uscita»)." },
+    { n: ["svc", "conn", "imap"], e: ["e-svc-conn", "e-conn-imap"], t: "Copia nella «Posta inviata» dell'account mittente con APPEND, nella cartella con ruolo \\Sent. Se fallisce, la risposta resta un successo con un avviso." },
+    { n: ["ui"], e: ["e-api-mw", "e-model-api"], t: "L'app mostra «Messaggio inviato e salvato in Posta inviata», oppure la finestra «non reinviarla» se la copia non è riuscita." },
+  ]},
+  search: { title: "Cerca", steps: [
+    { n: ["ui", "model"], e: ["e-ui-model"], t: "L'utente scrive «fattura da:anna» nella casella Cerca; 0,4 s dopo l'ultima lettera il modello avvia la ricerca nell'ambito scelto." },
+    { n: ["api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "GET /accounts/{id}/search?q=…&folder=INBOX. Con «Tutti gli account» parte una richiesta per account, in parallelo." },
+    { n: ["svc", "cache"], e: ["e-ctrl-svc", "e-svc-cache"], t: "MailSearchQuery traduce il testo per l'indice FTS5: ogni termine tra virgolette e come prefisso, da: cerca solo nel mittente. Il testo dell'utente non diventa mai sintassi." },
+    { n: ["cache"], e: [], t: "La ricerca gira sul database locale in qualche centesimo di secondo; per ogni mail un estratto con le parole trovate, dal più recente." },
+    { n: ["model", "ui"], e: ["e-model-api", "e-ui-model"], t: "L'app mostra i risultati con le parole in grassetto e la cartella; scorrendo arrivano da soli i successivi. Una mail si apre come in «Apri una mail»." },
+    { n: ["cache", "conn", "imap"], e: ["e-svc-cache", "e-cache-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "«Cerca anche sul server»: per le mail di cui in locale ci sono solo le intestazioni, ServerSearch sincronizza ogni cartella e chiede UID SEARCH (SUBJECT, FROM, TO, CC, BODY)." },
+    { n: ["ui"], e: ["e-api-mw", "e-model-api"], t: "Le mail trovate in più si aggiungono alla lista con l'icona della nuvola, senza doppioni." },
+  ]},
+  draft: { title: "Bozza e Posta in uscita", steps: [
+    { n: ["ui", "model"], e: ["e-ui-model"], t: "L'utente scrive e preme Ctrl+S (o passano 3 minuti con modifiche): la composizione chiede di salvare la bozza." },
+    { n: ["api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "POST /accounts/{id}/drafts con il contenuto e la bozza da sostituire (replace). Una bozza può essere incompleta: niente controllo dei destinatari." },
+    { n: ["svc", "conn", "imap"], e: ["e-ctrl-svc", "e-svc-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "APPEND in Bozze (\\Drafts) con \\Draft; solo dopo, UID EXPUNGE della bozza precedente. Un errore a metà lascia al più una bozza in più, mai nessuna." },
+    { n: ["outbox"], e: ["e-svc-outbox"], t: "Senza connessione la bozza resta nella coda del computer (pending) e va in Bozze appena il server risponde." },
+    { n: ["ui", "ctrl", "outbox"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-outbox"], t: "Con «Ritarda recapito», o se il server di invio non risponde, «Invia» mette il messaggio già costruito nella Posta in uscita; la bozza si elimina subito se c'è la connessione." },
+    { n: ["outbox", "smtp"], e: ["e-outbox-smtp"], l: ["l-outbox-smtp"], t: "OutboxService, ogni 30 s e quando un server torna raggiungibile: arrivato il momento, invia e toglie subito la mail dalla coda, così non riparte due volte." },
+    { n: ["outbox", "imap", "model"], e: ["e-outbox-imap", "e-sse"], l: ["l-outbox-imap", "l-sse"], t: "Poi la copia in Posta inviata e l'eliminazione della bozza; l'evento outbox-changed aggiorna nell'app la cartella «Posta in uscita»." },
+  ]},
+  offline: { title: "Senza rete", steps: [
+    { n: ["conn", "imap"], e: ["e-conn-imap"], l: ["l-conn-imap"], t: "La rete cade a connessione aperta: il server non risponde più. Dopo 10 s il comando fallisce e il nuovo collegamento, anch'esso entro 10 s, non riesce." },
+    { n: ["conn", "watcher"], e: ["e-watcher-ctrl"], t: "L'account diventa «non connesso»: l'EventHub pubblica connection-status con online: false." },
+    { n: ["api", "model", "ui"], e: ["e-sse", "e-model-api", "e-ui-model"], l: ["l-sse"], t: "La barra di stato dice «Disconnesso», sopra la lista compare «Non connesso: mostro la copia sul computer»; sposta, elimina e segna come letto si disattivano." },
+    { n: ["cache", "svc"], e: ["e-ctrl-svc", "e-svc-cache"], t: "Cartelle e lista arrivano dall'ultima sincronizzazione; le mail scaricate si aprono dal disco; la ricerca locale funziona." },
+    { n: ["mw"], e: ["e-mw-ctrl"], t: "Per un minuto ciò che richiede il server (una mail non scaricata, la ricerca sul server) risponde subito 503 «Non connesso», senza aspettare." },
+    { n: ["outbox"], e: ["e-svc-outbox"], t: "Si può continuare a scrivere: le mail inviate e le bozze salvate restano nella coda del computer." },
+    { n: ["conn", "imap", "model", "outbox"], e: ["e-conn-imap", "e-sse", "e-outbox-smtp", "e-outbox-imap"], l: ["l-sse", "l-outbox-smtp", "l-outbox-imap"], t: "Ogni 30 s ConnectivityService riprova. Quando il server risponde arriva online: true: cartelle e lista si ricaricano e la coda parte da sola." },
+  ]},
+  pop3: { title: "Account POP3", steps: [
+    { n: ["ui", "store"], e: [], t: "Nuovo account, tipo POP3: porta 995 con SSL/TLS proposta da sola, «Lascia una copia sul server» e «Rimuovi dopo 14 giorni» come Outlook." },
+    { n: ["api", "mw", "ctrl", "pop3srv"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "«Verifica connessione»: POST /account/test con type: Pop3. Il core si collega, controlla il certificato prima della password, fa il login e verifica UIDL; non scarica né toglie nulla." },
+    { n: ["launcher", "stdin", "svc", "pop3"], e: ["e-launch", "e-svc-pop3"], l: ["l-launch"], t: "Salvato l'account, il core riparte con Accounts__N__Type=Pop3 e Pop3__*: il registro crea la casella in mail/ con Posta in arrivo, Posta inviata, Bozze, Posta eliminata, Posta indesiderata." },
+    { n: ["pop3", "pop3srv"], e: ["e-pop3-server"], l: ["l-pop3-server"], t: "Pop3Worker controlla subito: UIDL, poi RETR delle mail non ancora in pop3.json, salvate come file con X-UIDL in testa. Le rimozioni previste dalle regole partono e diventano effettive al QUIT." },
+    { n: ["pop3", "watcher", "model", "desktop"], e: ["e-watcher-ctrl", "e-sse", "e-model-desktop"], l: ["l-sse", "l-model-desktop"], t: "Mail nuove: evento mailbox-changed sulla Posta in arrivo; la lista si aggiorna e parte la notifica, come con l'IDLE." },
+    { n: ["ui", "ctrl", "svc", "pop3"], e: ["e-ui-model", "e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-pop3"], t: "Lista, lettura, ricerca, sposta, elimina, cartelle e bozze usano gli endpoint di sempre: LocalMailReader e LocalMailWriter lavorano sui file e sull'indice, senza rete." },
+    { n: ["ui", "pop3", "pop3srv"], e: ["e-svc-pop3", "e-pop3-server"], l: ["l-pop3-server"], t: "F9 (Invia/ricevi) chiede POST /accounts/{id}/receive: il controllo parte subito invece che al prossimo giro." },
+  ]},
+  rules: { title: "Una regola smista una mail", steps: [
+    { n: ["ui", "store"], e: ["e-ui-model"], t: "Tasto destro su una mail di Anna → «Crea regola…»: il mittente è già compilato; nella scheda Azioni l'utente sceglie «sposta in Fatture» dall'albero delle cartelle." },
+    { n: ["api", "mw", "ctrl", "rules"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules"], l: ["l-api-mw"], t: "PUT /accounts/{id}/rules con l'elenco completo: il core lo controlla (nome, almeno un'azione…) e lo salva in rules.json, in modo atomico." },
+    { n: ["imap", "watcher"], e: ["e-watcher-imap"], l: ["l-watcher-imap"], t: "Arriva una nuova mail di Anna: l'IDLE avvisa e l'EventHub pubblica mailbox-changed per la Posta in arrivo (per un POP3 lo fa lo scaricamento)." },
+    { n: ["watcher", "rules"], e: ["e-watcher-rules"], l: ["l-watcher-rules"], t: "RulesService ascolta lo stesso evento, aspetta un secondo per raccogliere gli avvisi doppi e sveglia il RuleRunner dell'account." },
+    { n: ["rules", "svc", "cache", "conn", "imap"], e: ["e-svc-rules", "e-svc-cache", "e-cache-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "Il RuleRunner sincronizza la Posta in arrivo, prende gli UID oltre l'ultimo esaminato e legge ogni mail con BODY.PEEK: la valuta con RuleMatcher." },
+    { n: ["rules", "svc", "conn", "imap"], e: ["e-svc-rules", "e-svc-conn", "e-conn-imap"], t: "La regola vale: il Writer dell'account sposta la mail in Fatture (COPY + UID EXPUNGE sul server di prova); rules-state.json avanza, così non verrà rivalutata." },
+    { n: ["watcher", "model", "ui"], e: ["e-sse", "e-model-api", "e-ui-model"], l: ["l-sse"], t: "L'IDLE vede la mail sparire dalla Posta in arrivo: l'app aggiorna lista e conteggi, e la mail è già in Fatture." },
+  ]},
+  junk: { title: "Posta indesiderata", steps: [
+    { n: ["ui", "store"], e: ["e-ui-model"], t: "Home → Posta indesiderata → Opzioni: per l'account l'utente sceglie il livello «Bassa» e la cartella «Prova Indesiderata» (scheda Opzioni), poi OK." },
+    { n: ["api", "mw", "ctrl", "rules"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules"], l: ["l-api-mw"], t: "PUT /accounts/{id}/junk: il core controlla voci e cartella (mai Posta in arrivo, inviata, Bozze, eliminata) e salva junk.json; l'app rilegge le cartelle e «Prova Indesiderata» prende il ruolo «junk»." },
+    { n: ["imap", "watcher", "rules"], e: ["e-watcher-imap", "e-watcher-rules"], l: ["l-watcher-imap", "l-watcher-rules"], t: "Arriva una mail che il server ha segnato come spam: l'IDLE avvisa, RulesService sveglia il lavoro dell'account, e per primo gira JunkFilter." },
+    { n: ["rules", "svc", "cache", "conn", "imap"], e: ["e-svc-rules", "e-svc-cache", "e-cache-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "JunkFilter prende gli UID oltre l'ultimo esaminato e legge le intestazioni con BODY.PEEK: il mittente non è attendibile né bloccato, X-Spam-Flag: YES, e con «Bassa» basta." },
+    { n: ["rules", "svc", "conn", "imap"], e: ["e-svc-rules", "e-svc-conn", "e-conn-imap"], t: "Il Writer dell'account aggiunge $Junk e sposta la mail nella cartella della posta indesiderata; junk-state.json avanza. Poi girano risposte automatiche e regole, che non la vedono più in Posta in arrivo." },
+    { n: ["model", "ui"], e: ["e-sse", "e-ui-model"], l: ["l-sse"], t: "Aperta nella posta indesiderata, la mail ha la striscia «Questa mail è nella posta indesiderata…», collegamenti non cliccabili e immagini remote bloccate." },
+    { n: ["ui", "api", "ctrl", "rules", "imap"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules", "e-svc-conn", "e-conn-imap"], l: ["l-api-mw", "l-conn-imap"], t: "«Non è posta indesiderata» (POST …/messages/{cartella}/not-junk con trustSenders): $NotJunk, ritorno in Posta in arrivo e mittente tra gli attendibili, così non ci finirà più." },
+  ]},
+  archive: { title: "Archivia", steps: [
+    { n: ["ui", "model"], e: ["e-ui-model"], t: "L'utente seleziona una mail in Posta in arrivo e preme Archivia (o Backspace, se non sta scrivendo in una casella). L'account non ha ancora una cartella di archiviazione: si apre «Imposta cartella di archiviazione»." },
+    { n: ["model", "api", "mw", "ctrl", "svc"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc"], l: ["l-api-mw"], t: "GET /accounts/{id}/archive: nessuna scelta, la proposta di ArchiveFolders.Suggest (\\Archive del server, poi una cartella chiamata Archivio/Archive, per Gmail \\All) è «Archivio», già selezionata." },
+    { n: ["ui", "api", "ctrl", "svc"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc"], l: ["l-api-mw"], t: "«OK e archivia»: PUT /archive. Il core rifiuta Posta in arrivo, inviata, Bozze, eliminata e la posta indesiderata, poi salva archive.json; da qui GET /folders dà il ruolo «archive» a quella cartella." },
+    { n: ["ctrl", "svc", "conn", "imap"], e: ["e-ctrl-svc", "e-svc-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "POST …/messages/INBOX/archive {uids}: ArchiveController usa il Writer come Sposta (MOVE, o COPY + \\Deleted + UID EXPUNGE del solo UID). Letto/non letto e contrassegni restano; dall'archivio stesso: 409." },
+    { n: ["model", "ui"], e: ["e-model-api", "e-ui-model"], t: "Il modello toglie la mail dalla lista, aggiorna i conteggi e mostra «1 mail archiviata». La volta dopo Archivia sposta subito, senza finestra; nell'archivio il comando è disattivato." },
+  ]},
+  ignore: { title: "Ignora conversazione", steps: [
+    { n: ["ui", "model"], e: ["e-ui-model"], t: "L'utente seleziona una mail di una discussione che non gli interessa e preme Ignora (Home → Elimina); conferma «Ignora conversazione», eventualmente con «Non visualizzare più questo messaggio»." },
+    { n: ["model", "api", "mw", "ctrl", "rules"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules"], l: ["l-api-mw"], t: "POST …/messages/INBOX/ignore {uids}: ConversationTools prende dalla copia locale (GetThreadMembers) tutte le mail della conversazione e ne ricorda Message-ID e riferimenti in ignore.json." },
+    { n: ["rules", "svc", "conn", "imap"], e: ["e-svc-rules", "e-svc-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "Le mail della conversazione nella cartella aperta (non quelle delle altre cartelle) vanno in Posta eliminata con il Writer dell'account; l'app le toglie dalla lista e aggiorna i conteggi." },
+    { n: ["imap", "watcher", "rules"], e: ["e-watcher-imap", "e-watcher-rules"], l: ["l-watcher-imap", "l-watcher-rules"], t: "Arriva una nuova risposta: l'IDLE avvisa e, dopo la posta indesiderata e prima di risposte automatiche e regole, il filtro di Ignora vede che cita un Message-ID ignorato e la sposta in Posta eliminata (il suo Message-ID si aggiunge, così valgono anche le risposte alle risposte)." },
+    { n: ["ui", "api", "ctrl", "rules", "imap"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules", "e-svc-conn", "e-conn-imap"], l: ["l-api-mw", "l-conn-imap"], t: "In Posta eliminata il pulsante diventa «Interrompi Ignora» (GET …/{uid}/ignored): POST …/stop-ignoring dimentica la conversazione e riporta le sue mail in Posta in arrivo." },
+  ]},
+  autoreply: { title: "Risposta automatica", steps: [
+    { n: ["ui", "store"], e: ["e-ui-model"], t: "File → Risposte automatiche: l'utente scrive «Sono fuori sede fino a lunedì», sceglie l'intervallo e conferma «Attivare le risposte automatiche?»." },
+    { n: ["api", "mw", "ctrl", "rules"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-rules"], l: ["l-api-mw"], t: "PUT /accounts/{id}/autoreply: il core salva autoreply.json e, poiché sono state appena attivate, un nuovo stato con l'ora di attivazione e nessun mittente servito." },
+    { n: ["model", "ui"], e: ["e-model-api", "e-ui-model"], t: "La risposta dice active: true: sopra la lista compare la barra gialla «Le risposte automatiche sono attive», con «Modifica…» e «Disattiva»." },
+    { n: ["imap", "watcher", "rules"], e: ["e-watcher-imap", "e-watcher-rules"], l: ["l-watcher-imap", "l-watcher-rules"], t: "Arriva una mail di Bruno: l'IDLE avvisa, RulesService sveglia il giro dell'account e, prima delle regole, AutoReplyRunner." },
+    { n: ["rules", "svc", "cache", "conn", "imap"], e: ["e-svc-rules", "e-svc-cache", "e-cache-conn", "e-conn-imap"], l: ["l-conn-imap"], t: "La mail è arrivata dopo l'attivazione: viene letta con BODY.PEEK e AutoReplyPolicy controlla i filtri (mailing list, Auto-Submitted, noreply, io in A o Cc, già risposto)." },
+    { n: ["rules", "smtp"], e: ["e-rules-smtp"], l: ["l-rules-smtp"], t: "Supera i filtri: parte «Risposta automatica: …» con Auto-Submitted: auto-replied, dall'SMTP dell'account, senza copia in Posta inviata; Bruno entra tra i mittenti già serviti." },
+    { n: ["rules"], e: ["e-svc-rules"], t: "Una seconda mail di Bruno non riceve un'altra risposta; dopo la fine dell'intervallo, o con «Disattiva», non ne parte più nessuna." },
+  ]},
+  contact: { title: "Scrivi a un contatto", steps: [
+    { n: ["ui", "model"], e: ["e-ui-model"], t: "In composizione l'utente scrive «mar» nel campo A: 150 ms dopo l'ultima lettera AddressField chiede i suggerimenti per il destinatario che sta scrivendo (dall'ultima virgola al cursore)." },
+    { n: ["api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "GET /addresses/suggest?q=mar: una sola richiesta, per tutti gli account (rubriche e indirizzi recenti)." },
+    { n: ["ctrl", "svc", "cache"], e: ["e-ctrl-svc", "e-svc-cache"], t: "AddressSuggestions confronta ogni parola con l'inizio delle parole del nome e dell'indirizzo, senza maiuscole né accenti (TextFold); in cima gli indirizzi usati più spesso e di recente, poi i contatti; un indirizzo una volta sola." },
+    { n: ["ui"], e: ["e-model-api", "e-ui-model"], t: "Sotto il campo l'elenco con persona o orologio: frecce e Invio (o un clic) inseriscono «Mario Rossi <mario@…>, »; la ✕ su un recente lo toglie (DELETE /addresses/recent). «A…» apre invece la Rubrica." },
+    { n: ["svc", "smtp"], e: ["e-svc-smtp"], l: ["l-svc-smtp"], t: "All'invio i Ccn vanno nei RCPT TO ma non nel messaggio: MailKit toglie l'intestazione Bcc (verificato da un test); resta solo nella copia in Posta inviata." },
+    { n: ["svc", "cache"], e: ["e-svc-cache"], t: "Invio riuscito (anche dalla Posta in uscita): i destinatari diventano indirizzi recenti in recent-addresses.json. Le risposte automatiche no." },
+  ]},
+  carddav: { title: "Un contatto va sul server", steps: [
+    { n: ["ui", "store"], e: ["e-ui-model"], t: "Nella schermata dell'account l'utente accende «Sincronizza i contatti con il server (CardDAV)» e prova «Verifica rubrica»: POST /account/test-carddav cerca la rubrica in sola lettura e risponde «Trovata: «Contatti»»." },
+    { n: ["store", "keyring", "launcher"], e: ["e-store-keyring", "e-launch"], l: ["l-store-keyring", "l-launch"], t: "Salva: l'impostazione va nel portachiavi con l'account e il core riparte con Accounts__N__CardDav__Enabled=true." },
+    { n: ["svc", "carddav", "carddavsrv"], e: ["e-svc-carddav", "e-carddav-server"], l: ["l-carddav-server"], t: "All'avvio CardDavWorker trova la rubrica, scarica i contatti del server e collega quelli uguali; ci sono contatti solo sul computer, quindi si ferma e aspetta la conferma." },
+    { n: ["watcher", "model", "ui"], e: ["e-sse", "e-model-api", "e-ui-model"], l: ["l-sse"], t: "L'evento contacts-changed fa rileggere la rubrica: nella vista Persone compare la striscia gialla «2 contatti sono solo su questo computer»." },
+    { n: ["ui", "api", "mw", "ctrl", "carddav"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-carddav"], l: ["l-api-mw"], t: "«Carica sul server…», poi la conferma: POST …/contacts/sync/confirm. Il giro successivo carica i due contatti con If-None-Match: *." },
+    { n: ["ui", "api", "ctrl", "carddav"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-carddav"], t: "Più tardi l'utente cambia il telefono di Mario: PUT …/contacts/{id} salva il vCard sul disco e sveglia la sincronizzazione, che parte 2 secondi dopo." },
+    { n: ["carddav", "carddavsrv"], e: ["e-carddav-server"], l: ["l-carddav-server"], t: "sync-collection dice cosa è cambiato sul server dall'ultima volta; poi PUT del vCard di Mario con If-Match: se qualcuno l'ha cambiato nel frattempo il server risponde 412 e al giro dopo vince la modifica più recente." },
+    { n: ["model", "ui"], e: ["e-model-api", "e-ui-model"], t: "L'app segue lo stato ogni secondo finché il giro finisce: sotto la rubrica torna «Sincronizzata alle 10:32»." },
+  ]},
+  caldav: { title: "Un appuntamento ricorrente", steps: [
+    { n: ["ui", "api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "L'app chiede POST /accounts/{id}/calendars/{cal}/events con «Riunione», lunedì alle 9 (fuso del computer), ogni settimana per 3 volte, promemoria 15 minuti." },
+    { n: ["ctrl", "svc", "carddav"], e: ["e-ctrl-svc", "e-svc-carddav"], t: "CalendarEvents.Create costruisce il testo iCalendar con Ical.Net: UID nuovo, RRULE:FREQ=WEEKLY;COUNT=3;BYDAY=MO, VALARM con TRIGGER:-PT15M e il VTIMEZONE del fuso." },
+    { n: ["carddav"], e: ["e-svc-carddav"], t: "CalendarStore lo salva come calendars/<id>/items/<id>.ics (atomico, 0600) con l'ora della modifica: è una modifica dell'app, quindi sveglia DavWorker." },
+    { n: ["carddav", "carddavsrv"], e: ["e-carddav-server"], l: ["l-carddav-server"], t: "Due secondi dopo il giro CalDAV: sync-collection per le novità del server, poi PUT di <UID>.ics con If-None-Match: * nel «Calendario» del server." },
+    { n: ["ui", "api", "ctrl", "carddav"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-carddav"], t: "Per la vista della settimana l'app chiede GET …/calendars/events?from=…&to=…: le ricorrenze espanse, con le eccezioni, in UTC; le ore restano alle 9 anche al cambio dell'ora." },
+    { n: ["carddavsrv", "carddav", "watcher", "model"], e: ["e-carddav-server", "e-sse"], l: ["l-carddav-server", "l-sse"], t: "Se un altro programma sposta la serie sul server, il giro successivo la riporta qui (vince la modifica più recente) e l'evento calendars-changed fa ridisegnare l'app." },
+    { n: ["model", "desktop", "ui"], e: ["e-model-desktop", "e-ui-model"], l: ["l-model-desktop"], t: "Lunedì alle 8:45 ReminderModel trova il promemoria arrivato: notifica «Promemoria: Riunione» e finestra «Promemoria» con Ignora, Apri elemento e Rimanda (5 minuti … 1 settimana)." },
+  ]},
+  oauth: { title: "Accedi con Google (Gmail)", steps: [
+    { n: ["ui", "store"], e: ["e-ui-model"], t: "Nuovo account: l'app ha chiesto GET /oauth/providers e, poiché il core ha l'ID dell'app Google, «Tipo di account» offre Gmail. L'utente lo sceglie e clicca «Accedi con Google»." },
+    { n: ["api", "mw", "ctrl"], e: ["e-model-api", "e-api-mw", "e-mw-ctrl"], l: ["l-api-mw"], t: "POST /oauth/start: il core crea il verificatore PKCE e lo «state», li tiene per sé e restituisce l'indirizzo della pagina di accesso con il ritorno su http://localhost:{porta}/oauth/callback." },
+    { n: ["ui", "oauth"], e: [], t: "L'app apre quell'indirizzo nel browser di sistema e mostra «In attesa dell'accesso nel browser…» con «Annulla». La password si scrive solo nella pagina di Google." },
+    { n: ["oauth", "ctrl"], e: [], t: "Dopo il login e il consenso Google rimanda il browser a /oauth/callback con il codice: il core controlla lo «state» (monouso, 10 minuti) e mostra «Accesso riuscito»." },
+    { n: ["ctrl", "svc", "oauth"], e: ["e-ctrl-svc", "e-svc-oauth"], l: ["l-svc-oauth"], t: "OAuthClient scambia il codice, con il verificatore PKCE, per il token di accesso e quello di rinnovo; l'indirizzo arriva dall'id_token." },
+    { n: ["model", "api", "store"], e: ["e-model-api", "e-api-mw"], t: "L'app, che chiede lo stato ogni secondo (GET /oauth/flows/{id}), riceve indirizzo, server e token di rinnovo (consegnato una volta sola), compila il modulo e verifica la connessione con il token." },
+    { n: ["store", "keyring", "launcher"], e: ["e-store-keyring", "e-launch"], l: ["l-store-keyring", "l-launch"], t: "Salva: il token di rinnovo va nel portachiavi al posto della password e il core riparte con Accounts__N__OAuth__*." },
+    { n: ["svc", "oauth", "conn", "imap"], e: ["e-svc-oauth", "e-svc-conn", "e-conn-imap"], l: ["l-svc-oauth", "l-conn-imap"], t: "A ogni collegamento MailAuth usa XOAUTH2 con un token di accesso valido, rinnovato da solo quando sta per scadere; se il fornitore dà un nuovo token di rinnovo, l'evento credentials-changed lo fa salvare nel portachiavi; se lo rifiuta, l'evento login-status accende la striscia «Accesso scaduto»." },
+  ]},
+  boot: { title: "Avvio dell'app", steps: [
+    { n: ["launcher", "store", "keyring"], e: ["e-store-keyring"], l: ["l-store-keyring"], t: "main.dart prepara impostazioni e notifiche; CoreGate legge l'elenco degli account dal portachiavi." },
+    { n: ["launcher", "stdin"], e: ["e-launch"], l: ["l-launch"], t: "CoreLauncher avvia il core con token, account (Accounts__N__*), porta 0 e modalità gestita, tutto in variabili d'ambiente." },
+    { n: ["stdin", "launcher"], e: ["e-launch"], t: "Il core stampa POSTINOVIP_READY {\"port\":N}; l'app legge la riga dallo stdout e ora sa dove collegarsi." },
+    { n: ["api", "ctrl", "cache"], e: ["e-api-mw", "e-mw-ctrl", "e-ctrl-svc", "e-svc-cache"], t: "GET /accounts e le cartelle di ogni account riempiono l'albero. Alla prima apertura la copia locale fa quick_check e, se serve, le migrazioni dello schema." },
+    { n: ["watcher", "imap", "api", "model"], e: ["e-watcher-imap", "e-sse"], l: ["l-watcher-imap", "l-sse"], t: "Il core apre una connessione IDLE per account; l'app si iscrive a /events e fissa il punto di partenza della posta nuova di ogni INBOX." },
+    { n: ["download", "imap", "cache"], e: ["e-download-imap", "e-download-cache"], l: ["l-download-imap"], t: "Il download in background parte subito: INBOX per prima, poi le altre cartelle. Un minuto dopo la prima manutenzione." },
+    { n: ["launcher", "stdin"], e: ["e-launch"], t: "Alla chiusura, anche per crash, lo stdin del core si chiude e StdinWatcher lo ferma: nessun processo orfano." },
+  ]},
+};
+
+const $ = (s) => document.querySelector(s);
+let scenario = "open", step = 0, selected = "ui";
+
+function select(id) {
+  selected = id;
+  const n = NODES[id];
+  document.querySelectorAll(".node").forEach((g) => g.classList.toggle("selected", g.id === "n-" + id));
+  $("#p-title").textContent = n.title;
+  const tag = $("#p-tag");
+  tag.textContent = n.tag;
+  $("#p-role").textContent = n.role;
+  $("#p-files").innerHTML = n.files.map((f) => `<code>${f}</code>`).join("");
+  $("#p-notes").innerHTML = n.notes.map((x) => `<li>${x}</li>`).join("");
+}
+
+function render() {
+  const sc = SCENARIOS[scenario];
+  const st = sc.steps[step];
+  document.querySelectorAll(".node").forEach((g) => g.classList.toggle("lit", st.n.includes(g.id.slice(2))));
+  document.querySelectorAll(".edge").forEach((p) => p.classList.toggle("lit", st.e.includes(p.id)));
+  document.querySelectorAll(".elabel").forEach((t) => t.classList.toggle("lit", (st.l || []).includes(t.id)));
+  $("#scenario-title").textContent = sc.title;
+  $("#step-text").innerHTML = `<span class="n">${step + 1}/${sc.steps.length}</span>`;
+  $("#step-text").append(document.createTextNode(st.t));
+  $("#prev").disabled = step === 0;
+  $("#next").textContent = step === sc.steps.length - 1 ? "Ricomincia" : "Avanti";
+  $("#dots").innerHTML = sc.steps.map((_, i) =>
+    `<button class="dot${i <= step ? " on" : ""}" data-i="${i}" aria-label="Passo ${i + 1}"></button>`).join("");
+  select(st.n[0]);
+}
+
+document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+  scenario = b.dataset.scenario; step = 0;
+  document.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c === b)));
+  try { localStorage.setItem("postinovip-scenario", scenario); } catch (e) {}
+  render();
+}));
+$("#prev").addEventListener("click", () => { if (step > 0) { step--; render(); } });
+$("#next").addEventListener("click", () => { step = (step + 1) % SCENARIOS[scenario].steps.length; render(); });
+$("#dots").addEventListener("click", (ev) => {
+  const i = ev.target.closest(".dot")?.dataset.i;
+  if (i !== undefined) { step = Number(i); render(); }
+});
+document.querySelectorAll(".node").forEach((g) => {
+  const id = g.id.slice(2);
+  g.setAttribute("aria-label", NODES[id].title);
+  g.addEventListener("click", () => select(id));
+  g.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(id); } });
+});
+document.querySelectorAll(".copy").forEach((b) => b.addEventListener("click", () => {
+  const code = b.parentElement.querySelector("code");
+  const done = () => { b.textContent = "Copiato"; setTimeout(() => (b.textContent = "Copia"), 1500); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents(code); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selezionato"; };
+  if (navigator.clipboard) navigator.clipboard.writeText(code.textContent).then(done, fallback); else fallback();
+}));
+
+try {
+  const saved = localStorage.getItem("postinovip-scenario");
+  if (saved && SCENARIOS[saved]) {
+    scenario = saved;
+    document.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.scenario === saved)));
+  }
+} catch (e) {}
+render();
+</script>
+</body>
+</html>
