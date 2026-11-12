@@ -10,6 +10,8 @@ calendario e contatti.
 
 *English summary: [below](#english).*
 
+![PostinoVip: posta con barra multifunzione, cartelle, lista e riquadro di lettura](docs/immagini/posta.png)
+
 ## Cosa fa
 
 - **Posta**: IMAP e POP3, più account, invio SMTP; connessioni cifrate (SSL/TLS o STARTTLS obbligatorio), certificati
@@ -24,6 +26,12 @@ calendario e contatti.
 - Aspetto dell'Outlook classico di oggi, con cinque temi (chiari e scuri) e la barra multifunzione classica o
   semplificata. Il testo delle mail HTML è sempre su fondo bianco e senza JavaScript; le immagini remote sono bloccate
   finché non le sblocchi.
+
+| Tema scuro | Calendario |
+|---|---|
+| ![Posta con il tema Nero](docs/immagini/posta-scura.png) | ![Calendario, settimana lavorativa](docs/immagini/calendario.png) |
+
+Le schermate mostrano una casella d'esempio inventata e si rifanno con `tools/schermate.sh`.
 
 ## Limiti noti
 
@@ -121,6 +129,8 @@ Corporation, citati solo per descrivere a cosa si ispira il programma.
 ---
 
 ## English
+
+![PostinoVip main window](docs/immagini/posta.png)
 
 **PostinoVip** is a free and open-source desktop mail client for **Linux** and **Windows**, modelled on the look and
 commands of **classic Outlook for desktop**: ribbon, Favorites, message list grouped by date, reading pane, calendar and

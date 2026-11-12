@@ -5,7 +5,7 @@
     app/lib/app_info.dart (app/test/version_test.dart controlla che coincidano).
   -->
   <PropertyGroup>
-    <Version>0.0.214</Version>
+    <Version>0.0.216</Version>
     <Product>PostinoVip</Product>
     <Authors>Marcello Anderlini</Authors>
     <Copyright>© 2026 Marcello Anderlini</Copyright>

@@ -84,7 +84,7 @@ Non passare allo step successivo senza conferma dell'utente.
 
 **Dettagli di ogni fase e step** (scelte dell'utente con le etichette, verifiche, implementazione, misure, test, limiti): **`docs/storia.md`**, testo completo. Qui solo lo stato in breve. A ogni step: i dettagli in `docs/storia.md`, qui una riga di stato.
 
-### Stato (12/11/2026, 0.0.214) — pubblicazione in corso (P4)
+### Stato (12/11/2026, 0.0.216) — codice pubblicato come alpha
 
 | Parte | Stato | In `docs/storia.md` |
 |---|---|---|
@@ -112,7 +112,7 @@ Non passare allo step successivo senza conferma dell'utente.
 | Versione installata: prima sincronizzazione delle cartelle grandi (lista subito, resto in sottofondo), una sola copia dell'app | ✅ | «Versione installata: prima sincronizzazione…» |
 | Calendario K1–K5 (CalDAV, vista, finestra Appuntamento, promemoria) | ✅ | «Calendario» |
 | Aspetto come l'Outlook di oggi V0–V6 (con V3b) | ✅ chiusa il 12/11/2026 (decisioni di tutti i sotto-step confermate); prova su Windows non fatta | «Aspetto come l'Outlook di oggi» |
-| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | **in corso**: P1 dati reali tolti dai file versionati ✅, P2 README alpha, SECURITY.md, «Tema» ✅, P3 script di esportazione `tools/esporta-pubblico.sh` ✅ (verificato dall'utente), P4 repository pubblico **in corso** (scelte 1a 2a 3a) | «Pubblicazione su GitHub» |
+| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
 
 ### Aspetto come l'Outlook di oggi ✅ (11–12/11/2026)
 
@@ -222,7 +222,7 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\build-installer.ps1  
 
 ## Documentazione
 
-- `docs/architettura.html`: guida per chi entra nel progetto, con schema interattivo dei componenti e percorsi passo per passo. Aggiornarla quando cambia l'architettura e ripubblicarla allo stesso URL (artifact privato «Architettura PostinoVip», ultima: versione 26 del 12/11/2026, alla chiusura della tappa «Aspetto»): https://claude.ai/artifact/GX8HnzybXuJArXLNaPUUxC. Elenco degli aggiornamenti in `docs/storia.md`.
+- `docs/architettura.html`: guida per chi entra nel progetto, con schema interattivo dei componenti e percorsi passo per passo. Aggiornarla quando cambia l'architettura e ripubblicarla allo stesso URL (artifact privato «Architettura PostinoVip», ultima: versione 27 del 12/11/2026, alla pubblicazione del codice): https://claude.ai/artifact/GX8HnzybXuJArXLNaPUUxC. Elenco degli aggiornamenti in `docs/storia.md`.
 - `docs/api.md`: endpoint del core. `docs/storia.md`: storia dettagliata di fasi e step.
 - Repository GitHub **privato** di sviluppo: `dummy1969/postinovip-dev` (era `dummy1969/postinovip`, rinominato il 12/11/2026, scelta 1a; remote locale aggiornato). Repository **pubblico**: `dummy1969/postinovip` (P4), clone locale in `~/sources/postinovip-pubblico`, aggiornato solo con `tools/esporta-pubblico.sh`. Dal 12/11/2026 (scelte 1a e 2b) i file versionati non contengono più dati reali; la **cronologia** sì (mail vere, server, indirizzi): questo repository resta privato. La versione pubblica sarà un repository **nuovo**, riempito solo da esportazioni ripulite di questo (script con ricerca dei dati vietati e conferma), un commit per pubblicazione; lo sviluppo resta qui.
 
