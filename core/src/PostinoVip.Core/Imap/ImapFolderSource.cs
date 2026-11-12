@@ -5,9 +5,15 @@ using PostinoVip.Core.Models;
 
 namespace PostinoVip.Core.Imap;
 
-/// <summary>IFolderSource su una cartella MailKit già aperta in sola lettura (EXAMINE).</summary>
-internal sealed class ImapFolderSource(IMailFolder folder) : IFolderSource
+/// <summary>
+/// IFolderSource su una cartella MailKit già aperta in sola lettura (EXAMINE). La struttura (BODYSTRUCTURE: allegati,
+/// anteprima) si chiede sempre a parte dalle intestazioni, attraverso <see cref="StructureGuard"/>: una mail con la
+/// struttura illeggibile non blocca la lista.
+/// </summary>
+internal sealed class ImapFolderSource(IMailFolder folder, StructureGuard? guard = null) : IFolderSource
 {
+    private readonly StructureGuard _guard = guard ?? new StructureGuard();
+
     private const MessageSummaryItems HeaderItems =
         MessageSummaryItems.UniqueId | MessageSummaryItems.Envelope | MessageSummaryItems.Flags |
         MessageSummaryItems.Size | MessageSummaryItems.InternalDate |
@@ -30,11 +36,24 @@ internal sealed class ImapFolderSource(IMailFolder folder) : IFolderSource
     {
         if (uids.Count == 0)
             return [];
-        var items = HeaderItems | MessageSummaryItems.BodyStructure | (withPreview ? MessageSummaryItems.PreviewText : 0);
         // Più le intestazioni dell'importanza (P1): MailKit le chiede insieme a REFERENCES in BODY.PEEK[HEADER.FIELDS (…)].
         var summaries = await folder.FetchAsync(uids.Select(u => new UniqueId(u)).ToList(),
-            new FetchRequest(items, MailImportanceHeaders.Ids), ct);
-        return summaries.Select(MessageHeaderMapper.ToRecord).ToList();
+            new FetchRequest(HeaderItems, MailImportanceHeaders.Ids), ct);
+        // Struttura (allegati) e anteprima a parte: le mail sospette o illeggibili restano senza, le completa il background.
+        var items = MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure | (withPreview ? MessageSummaryItems.PreviewText : 0);
+        var structures = (await _guard.FetchAsync(folder, uids, new FetchRequest(items), probe: false, ct))
+            .ToDictionary(s => s.UniqueId.Id);
+        return summaries.Select(s =>
+        {
+            var record = MessageHeaderMapper.ToRecord(s);
+            return structures.TryGetValue(record.Uid, out var b)
+                ? record with
+                {
+                    Preview = b.PreviewText is null ? null : MessageHeaderMapper.CleanPreview(b.PreviewText),
+                    HasAttachments = MessageHeaderMapper.HasAttachments(b),
+                }
+                : record;
+        }).ToList();
     }
 
     public async Task<IReadOnlyList<PreviewRecord>> FetchPreviewsAsync(IReadOnlyList<uint> uids, CancellationToken ct)
@@ -42,7 +61,8 @@ internal sealed class ImapFolderSource(IMailFolder folder) : IFolderSource
         if (uids.Count == 0)
             return [];
         var request = new FetchRequest(MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure | MessageSummaryItems.PreviewText);
-        var summaries = await folder.FetchAsync(uids.Select(u => new UniqueId(u)).ToList(), request, ct);
+        // probe: è il download in background, che può permettersi di cercare la mail difettosa tra i gruppi sospetti.
+        var summaries = await _guard.FetchAsync(folder, uids, request, probe: true, ct);
         return summaries
             .Select(s => new PreviewRecord(s.UniqueId.Id, MessageHeaderMapper.CleanPreview(s.PreviewText), MessageHeaderMapper.HasAttachments(s)))
             .ToList();
@@ -114,8 +134,8 @@ internal sealed class ImapFolderSource(IMailFolder folder) : IFolderSource
         // A blocchi come le intestazioni: la struttura di un messaggio può essere lunga.
         foreach (var batch in uids.Chunk(500))
         {
-            var structures = await folder.FetchAsync(batch.Select(u => new UniqueId(u)).ToList(),
-                new FetchRequest(MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure), ct);
+            var structures = await _guard.FetchAsync(folder, batch,
+                new FetchRequest(MessageSummaryItems.UniqueId | MessageSummaryItems.BodyStructure), probe: false, ct);
             foreach (var s in structures)
                 result[s.UniqueId.Id] = s.Attachments.Any();
         }

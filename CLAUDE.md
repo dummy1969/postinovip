@@ -84,7 +84,7 @@ Non passare allo step successivo senza conferma dell'utente.
 
 **Dettagli di ogni fase e step** (scelte dell'utente con le etichette, verifiche, implementazione, misure, test, limiti): **`docs/storia.md`**, testo completo. Qui solo lo stato in breve. A ogni step: i dettagli in `docs/storia.md`, qui una riga di stato.
 
-### Stato (12/11/2026, 0.0.217) — codice pubblicato come alpha
+### Stato (12/11/2026, 0.0.219) — codice pubblicato come alpha
 
 | Parte | Stato | In `docs/storia.md` |
 |---|---|---|
@@ -113,6 +113,7 @@ Non passare allo step successivo senza conferma dell'utente.
 | Calendario K1–K5 (CalDAV, vista, finestra Appuntamento, promemoria) | ✅ | «Calendario» |
 | Aspetto come l'Outlook di oggi V0–V6 (con V3b) | ✅ chiusa il 12/11/2026 (decisioni di tutti i sotto-step confermate); prova su Windows non fatta | «Aspetto come l'Outlook di oggi» |
 | Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
+| Posta in arrivo bloccata da una mail con BODYSTRUCTURE non valido (IceWarp): struttura chiesta a parte, mail difettosa isolata (`StructureGuard`, scelta 1a) | ✅ 0.0.218, verificata su Linux con l'account vero e dall'utente su Windows | «Posta in arrivo bloccata da una mail…» |
 
 ### Aspetto come l'Outlook di oggi ✅ (11–12/11/2026)
 
@@ -274,6 +275,10 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\build-installer.ps1  
 - Un `ButtonStyle.textStyle` (o un `TextStyle` dato al posto di quello del tema) **sostituisce** lo stile del tema invece di unirsi: senza `fontFamily` il testo prende il carattere predefinito del motore, non quello dell'app (nei test esce come rettangoli). Partire da `Theme.of(context).textTheme…copyWith(...)`. Vale anche dentro `ThemeData`: `fontFamily` arriva al `textTheme`, **non** agli stili dati ai temi dei componenti (`filledButtonTheme`, `dialogTheme`…): il V1 è uscito con i pulsanti nel carattere sbagliato, trovato dalle schermate del V2. `tools/schermate.sh` ora segnala i testi senza carattere.
 - Una richiesta che resta aperta (SSE `/events`) va chiusa anche all'arresto del core (`IHostApplicationLifetime.ApplicationStopping`), non solo quando il client se ne va: Kestrel aspetta la fine delle richieste fino al tempo massimo di arresto (30 s in .NET 10) e l'app, che dava al core 5 s, si chiudeva lentamente (trovato il 12/11/2026). Misurare l'arresto con un client collegato, non a vuoto.
 - Uno script che lavora su una versione committata va riprovato **dopo** il commit, sulla versione appena creata: `tools/esporta-pubblico.sh` provato sulla 0.0.210 è uscito in silenzio sulla 0.0.211, che aggiungeva un file di soli commenti (`grep -v` senza righe = codice 1, fatale con `set -e` + `pipefail`; trovato dall'utente il 12/11/2026). Negli script con `set -e` mettere un `trap … ERR` che dica la riga: niente uscite mute.
+- Server di prova IceWarp (12/11/2026): per una parte di testo vuota il BODYSTRUCTURE ha il numero di righe `NIL` (RFC 3501 vuole un numero); MailKit 4.18.2 e 5.0.0 la rifiutano con `ImapProtocolException` e **chiudono la connessione**: una sola mail bloccava la cartella. Mai chiedere la struttura insieme alle intestazioni: passa da `StructureGuard`.
+- Un `finally` che usa la connessione (CLOSE della cartella) dopo un errore che l'ha fatta cadere lancia un'eccezione nuova e **nasconde quella vera** («The ImapClient is not connected»). E `ServiceNotConnectedException` è una `InvalidOperationException`: nei `switch` sulle eccezioni va messa prima.
+- Leggere una password o un indirizzo con il semplice `read` in uno script: un tasto accentato cancellato lascia mezzo carattere UTF-8 invisibile. Usare `read -e` e controllare i caratteri.
+- Dopo aver rinominato un repository su GitHub, **ogni clone** (anche quello su Windows) va puntato al nome nuovo (`git remote set-url origin …/postinovip-dev.git`): il vecchio nome `dummy1969/postinovip` ora è il repository pubblico, e `git pull` dà `refusing to merge unrelated histories` (12/11/2026). Mai `--allow-unrelated-histories`.
 - I test Api devono fare `Dispose` della `WebApplicationFactory`: ogni host apre file watcher e Linux ha un limite di 128 inotify.
 
 ## Punti aperti da verificare (non dare per scontati)

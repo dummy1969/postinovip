@@ -48,6 +48,10 @@ public sealed class MailExceptionHandler(IProblemDetailsService problemDetails, 
             TimeoutException => (StatusCodes.Status503ServiceUnavailable, "Non connesso",
                 "Il server non risponde: l'operazione potrebbe non essere stata eseguita."),
             FormatException e => (StatusCodes.Status400BadRequest, "Richiesta non valida", e.Message),
+            // Connessione caduta: MailKit la segnala con una InvalidOperationException, che sotto diventerebbe un 409
+            // «Operazione non consentita» (successo il 12/11/2026): va prima.
+            ServiceNotConnectedException => (StatusCodes.Status502BadGateway, "Errore del server mail",
+                $"{exception.GetType().Name}: {exception.Message}"),
             // Operazione non consentita in questo stato (es. eliminazione definitiva fuori da Posta eliminata).
             InvalidOperationException e => (StatusCodes.Status409Conflict, "Operazione non consentita", e.Message),
             NotSupportedException e => (StatusCodes.Status501NotImplemented, "Non supportato dal server", e.Message),
@@ -60,7 +64,7 @@ public sealed class MailExceptionHandler(IProblemDetailsService problemDetails, 
             AuthenticationException => (StatusCodes.Status502BadGateway, "Autenticazione con il server mail fallita",
                 "Controllare username e password."),
             ImapCommandException or SmtpCommandException or ProtocolException or SslHandshakeException
-                or SocketException or IOException or ServiceNotConnectedException =>
+                or SocketException or IOException =>
                 (StatusCodes.Status502BadGateway, "Errore del server mail", $"{exception.GetType().Name}: {exception.Message}"),
             ArgumentException e => (StatusCodes.Status500InternalServerError, "Configurazione non valida", e.Message),
             _ => (StatusCodes.Status500InternalServerError, "Errore interno", "Errore imprevisto, vedere il log del core."),

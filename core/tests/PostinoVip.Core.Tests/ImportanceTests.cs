@@ -119,7 +119,7 @@ public sealed class ImportanceTests : IDisposable
         var source = new ImapFolderSource(client.Inbox);
 
         var record = (await source.FetchHeadersAsync([1], withPreview: false, CancellationToken.None)).Single();
-        var fetch = server.Commands.Single(c => c.Contains("UID FETCH"));
+        var fetch = server.Commands.Single(c => c.Contains("UID FETCH") && c.Contains("BODY.PEEK["));
         Assert.Contains("BODY.PEEK[HEADER.FIELDS (", fetch);
         foreach (var name in new[] { "REFERENCES", "IMPORTANCE", "X-PRIORITY", "PRIORITY" })
             Assert.Contains(name, fetch.ToUpperInvariant());
@@ -168,6 +168,11 @@ public sealed class ImportanceTests : IDisposable
                     await Send($"* LIST () \"/\" INBOX\r\n{tag} OK fatto\r\n");
                 else if (command.StartsWith("EXAMINE"))
                     await Send($"* 1 EXISTS\r\n* 0 RECENT\r\n* OK [UIDVALIDITY 7] v\r\n* OK [UIDNEXT 2] n\r\n* FLAGS ()\r\n{tag} OK [READ-ONLY] fatto\r\n");
+                else if (command.StartsWith("UID FETCH") && !command.Contains("BODY.PEEK["))
+                {
+                    // Struttura chiesta a parte dalle intestazioni (StructureGuard, 12/11/2026).
+                    await Send($"* 1 FETCH (UID 1 BODYSTRUCTURE (\"TEXT\" \"PLAIN\" (\"CHARSET\" \"utf-8\") NIL NIL \"7BIT\" 5 1 NIL NIL NIL NIL))\r\n{tag} OK fatto\r\n");
+                }
                 else if (command.StartsWith("UID FETCH"))
                 {
                     var section = command[(command.IndexOf("BODY.PEEK[", StringComparison.Ordinal) + "BODY.PEEK".Length)..];

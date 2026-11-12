@@ -97,7 +97,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -155,7 +155,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -178,7 +178,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -191,11 +191,12 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         var folder = await OpenAsync(folderName, FolderAccess.ReadOnly, ct);
         try
         {
-            return await action(new ImapFolderSource(folder));
+            var guard = StructureGuard.For($"{_settings.Host}:{_settings.Port}:{_settings.Username}", folder.FullName, folder.UidValidity);
+            return await action(new ImapFolderSource(folder, guard));
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -209,6 +210,18 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
             return $"CONDSTORE {YesNo(ImapCapabilities.CondStore)}, QRESYNC {YesNo(ImapCapabilities.QuickResync)}, " +
                    $"ESEARCH {YesNo(ImapCapabilities.ESearch)}, IDLE {YesNo(ImapCapabilities.Idle)}";
         }
+    }
+
+    /// <summary>
+    /// Chiude la cartella senza EXPUNGE (nei <c>finally</c>). Se un comando ha fatto cadere la connessione (errore di
+    /// protocollo, tempo scaduto) MailKit l'ha già chiusa: CLOSE lancerebbe ServiceNotConnectedException e
+    /// nasconderebbe l'errore vero (trovato il 12/11/2026: «The ImapClient is not connected» sulla Posta in arrivo).
+    /// </summary>
+    private async Task CloseFolderAsync(IMailFolder folder, CancellationToken ct)
+    {
+        if (!_client.IsConnected || !folder.IsOpen)
+            return;
+        await folder.CloseAsync(expunge: false, ct);
     }
 
     private async Task<IMailFolder> OpenAsync(string folderName, FolderAccess access, CancellationToken ct)
@@ -304,7 +317,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -332,7 +345,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         finally
         {
             // expunge: false -> nessun messaggio con \Deleted viene rimosso.
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -382,7 +395,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -426,7 +439,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -469,7 +482,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
@@ -503,7 +516,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         finally
         {
-            await folder.CloseAsync(expunge: false, ct);
+            await CloseFolderAsync(folder, ct);
         }
     }
 
