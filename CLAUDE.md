@@ -84,7 +84,7 @@ Non passare allo step successivo senza conferma dell'utente.
 
 **Dettagli di ogni fase e step** (scelte dell'utente con le etichette, verifiche, implementazione, misure, test, limiti): **`docs/storia.md`**, testo completo. Qui solo lo stato in breve. A ogni step: i dettagli in `docs/storia.md`, qui una riga di stato.
 
-### Stato (12/11/2026, 0.0.216) — codice pubblicato come alpha
+### Stato (12/11/2026, 0.0.217) — codice pubblicato come alpha
 
 | Parte | Stato | In `docs/storia.md` |
 |---|---|---|
