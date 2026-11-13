@@ -32,6 +32,43 @@ class FolderActions {
     messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
   }
 
+  /// "Svuota cartella" (Posta eliminata e Posta indesiderata) con conferma: non reversibile.
+  static Future<void> empty(BuildContext context, String account, MailFolder folder) async {
+    final model = context.read<MailboxModel>();
+    final messenger = ScaffoldMessenger.of(context);
+    final subfolders = folder.role == 'trash' ? model.subfoldersOf(account, folder).length : 0;
+    final mails = switch (folder.count) {
+      null => 'Tutte le mail',
+      1 => 'L\'unica mail',
+      final n => 'Tutte le $n mail',
+    };
+    final also = switch (subfolders) {
+      0 => '',
+      1 => ' e la sottocartella, con le sue mail,',
+      final n => ' e le $n sottocartelle, con le loro mail,',
+    };
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.delete_forever),
+        title: Text('Svuotare "${folder.name}"?'),
+        content: Text('$mails di "${folder.name}"$also verranno cancellate dal server.\nL\'operazione non è reversibile.'),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          TextButton(
+            key: const Key('empty-folder-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+            child: const Text('Svuota cartella'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final outcome = await model.emptyFolder(account, folder);
+    messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
+  }
+
   static Future<bool> _confirm(BuildContext context, String name, bool permanent) async {
     final result = await showDialog<bool>(
       context: context,

@@ -137,4 +137,28 @@ public sealed class FoldersController(MailAccountRegistry accounts, ILogger<Fold
         }
         return Ok(new FolderDeleteResponse(result.MovedTo, result.Permanent, result.Separator.ToString()));
     }
+
+    /// <summary>
+    /// POST [/accounts/{accountId}]/folders/{folder}/empty — MODIFICA la casella, NON reversibile: «Svuota cartella» come
+    /// Outlook. Solo Posta eliminata (anche le sottocartelle) e la Posta indesiderata in uso per l'account; le altre -> 409.
+    /// </summary>
+    [HttpPost("{folder}/empty")]
+    public async Task<ActionResult<FolderEmptyResponse>> EmptyFolder(string folder, CancellationToken ct)
+    {
+        var account = CurrentAccount;
+        var name = FolderName.FromRoute(folder);
+        var folders = PostinoVip.Core.Junk.JunkFolders.WithRole(await account.Reader.GetFoldersAsync(ct), account.Junk?.Load().Folder);
+        var info = folders.FirstOrDefault(f => string.Equals(f.FullName, name, StringComparison.Ordinal))
+            ?? throw new MailNotFoundException($"Cartella '{name}' non trovata.");
+        if (info.SpecialUse is not ("trash" or "junk"))
+            throw new InvalidOperationException("Si possono svuotare solo Posta eliminata e Posta indesiderata.");
+
+        var result = await account.Writer.EmptyFolderAsync(info.FullName, subfolders: info.SpecialUse == "trash", ct);
+        if (account.Bodies?.Cache is { } cache)
+            foreach (var removed in result.RemovedFolders)
+                cache.RemoveFolderTree(removed, result.Separator);
+        logger.LogInformation("[{Account}] SVUOTA {Folder}: {Count} mail, {Folders} sottocartelle", account.Id, info.FullName,
+            result.Messages, result.RemovedFolders.Count);
+        return Ok(new FolderEmptyResponse(result.Messages, result.RemovedFolders, result.Separator.ToString()));
+    }
 }

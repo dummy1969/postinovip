@@ -11,3 +11,9 @@ public sealed record FolderChange(string FullName, char Separator);
 /// oppure eliminata definitivamente (<see cref="Permanent"/>, solo se era già dentro Posta eliminata).
 /// </summary>
 public sealed record FolderDeletion(string? MovedTo, bool Permanent, char Separator);
+
+/// <summary>
+/// Esito di "Svuota cartella": mail eliminate definitivamente dalla cartella e sottocartelle eliminate (nomi completi,
+/// solo per Posta eliminata), con il separatore della gerarchia.
+/// </summary>
+public sealed record FolderEmptied(int Messages, IReadOnlyList<string> RemovedFolders, char Separator);

@@ -765,6 +765,51 @@ class MailboxModel extends ChangeNotifier {
     }
   }
 
+  /// "Svuota cartella" (12/11/2026, scelta 3a) come il tasto destro di Outlook: solo Posta eliminata e Posta
+  /// indesiderata, con la connessione.
+  bool canEmptyFolder(String account, MailFolder folder) =>
+      !actionInProgress && isOnline(account) && (folder.role == 'trash' || folder.role == 'junk');
+
+  /// Sottocartelle di [folder] (tutti i livelli) note all'app.
+  List<MailFolder> subfoldersOf(String account, MailFolder folder) {
+    final separator = folder.separator ?? _separatorOf(account);
+    if (separator == null) return const [];
+    return [
+      for (final f in foldersByAccount[account] ?? const <MailFolder>[])
+        if (f.fullName.startsWith('${folder.fullName}$separator')) f,
+    ];
+  }
+
+  /// MODIFICA la casella, NON reversibile: elimina definitivamente le mail di [folder] e, in Posta eliminata, le
+  /// sottocartelle. Chi chiama ha già chiesto conferma.
+  Future<({bool ok, String message})> emptyFolder(String account, MailFolder folder) async {
+    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    actionInProgress = true;
+    notifyListeners();
+    try {
+      final result = await _apiFor(account).emptyFolder(folder.fullName);
+      for (final removed in result.removedFolders) {
+        _forgetFolder(account, removed, result.separator);
+      }
+      await _refreshFolderCounts(account);
+      if (selectedAccount == account && selectedFolder == folder.fullName) {
+        await selectFolder(folder.fullName, account: account);
+      }
+      final mails = result.messages == 1 ? '1 mail eliminata' : '${result.messages} mail eliminate';
+      final folders = switch (result.removedFolders.length) {
+        0 => '',
+        1 => ' e 1 cartella',
+        final n => ' e $n cartelle',
+      };
+      return (ok: true, message: '"${folder.name}" svuotata: $mails$folders definitivamente');
+    } on ApiException catch (e) {
+      return (ok: false, message: e.statusCode == 503 ? offlineMessage : 'Cartella non svuotata: $e');
+    } finally {
+      actionInProgress = false;
+      notifyListeners();
+    }
+  }
+
   /// Cartella madre di [folder] (null se è in cima all'account).
   static String? parentOf(MailFolder folder) {
     final separator = folder.separator;
@@ -1278,6 +1323,86 @@ class MailboxModel extends ChangeNotifier {
     } else {
       unawaited(_openRow(next));
     }
+  }
+
+  /// Home / Fine (12/11/2026, scelta 1a): la prima o l'ultima riga diventa l'unica selezionata (e si apre); con
+  /// [extend] (Maiusc) la selezione va dall'ultima cliccata (o dalla riga della tastiera) fino a lì. Fine carica prima
+  /// il resto della lista dalla copia locale, come Outlook, che ha sempre tutta la cartella nella lista.
+  Future<void> moveCursorToEdge({required bool end, bool extend = false}) async {
+    if (end && !await _loadAll()) return;
+    final rows = _navRows;
+    if (rows.isEmpty) return;
+    _moveCursorTo(rows, end ? rows.length - 1 : 0, extend: extend);
+    onListJump?.call(end ? ListJump.end : ListJump.start);
+  }
+
+  /// Pag↑ / Pag↓ ([direction] -1/+1): la riga della tastiera si sposta di una pagina della lista ([pageRows], dalla
+  /// lista mostrata); con [extend] come Maiusc+frecce. In fondo alle righe caricate carica la pagina successiva.
+  Future<void> moveCursorPage(int direction, {bool extend = false}) async {
+    var rows = _navRows;
+    if (rows.isEmpty) return;
+    final step = (pageRows?.call() ?? 10).clamp(1, 1000);
+    final at = _navIndex(rows, cursorConversation, cursor);
+    final more = searchActive ? searchHasMore : hasMore;
+    if (direction > 0 && at + step >= rows.length && more) {
+      await (searchActive ? loadMoreResults() : loadMore());
+      if (_disposed) return;
+      rows = _navRows;
+      if (rows.isEmpty) return;
+    }
+    onListJump?.call(direction > 0 ? ListJump.pageDown : ListJump.pageUp);
+    _moveCursorTo(rows, ((at < 0 ? 0 : at) + direction * step).clamp(0, rows.length - 1), extend: extend);
+  }
+
+  /// La lista scorre per un salto della tastiera: lo fa la lista mostrata, che conosce lo scorrimento (null senza lista).
+  void Function(ListJump jump)? onListJump;
+
+  /// Righe su cui si muove la tastiera nella lista mostrata (per stimare la pagina di Pag↑ / Pag↓).
+  int get navRowCount => _navRows.length;
+
+  /// Righe che stanno in una pagina della lista mostrata (per Pag↑ / Pag↓); null senza lista.
+  int Function()? pageRows;
+
+  /// Dopo un salto della tastiera la riga della tastiera va mostrata anche se viene costruita solo adesso (prima era
+  /// fuori dalla parte disegnata della lista); la riga lo consuma.
+  bool revealCursor = false;
+
+  void _moveCursorTo(List<_Nav> rows, int index, {required bool extend}) {
+    final next = rows[index];
+    revealCursor = true;
+    if (!extend) {
+      unawaited(_openRow(next));
+      return;
+    }
+    // Maiusc senza un punto di partenza: dalla riga della tastiera, o dalla prima.
+    var a = _navIndex(rows, _anchorConversation, _anchor);
+    if (a < 0) {
+      final from = _navIndex(rows, cursorConversation, cursor);
+      a = from < 0 ? 0 : from;
+      _anchor = rows[a].ref;
+      _anchorConversation = rows[a].conversation;
+    }
+    _setSelection(_refsBetween(rows, a, index), _anchor, anchorConversation: _anchorConversation, cursor: next);
+  }
+
+  /// Carica tutte le pagine della lista mostrata (cartella o ricerca); false se nel frattempo la lista è cambiata.
+  Future<bool> _loadAll() async {
+    final search = searchActive;
+    final generation = search ? _searchGeneration : _generation;
+    bool same() => !_disposed && searchActive == search && (search ? _searchGeneration : _generation) == generation;
+    int loaded() => search ? searchResults.length : (conversationView ? conversations.length : messages.length);
+    for (var guard = 0; guard < 10000 && same(); guard++) {
+      if (search ? searching : loadingMessages) {
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        continue;
+      }
+      final error = search ? searchError : messagesError;
+      if (!(search ? searchHasMore : hasMore) || error != null) return true;
+      final before = loaded();
+      await (search ? loadMoreResults() : loadMore());
+      if (loaded() == before && !(search ? searching : loadingMessages)) return same();
+    }
+    return same();
   }
 
   /// Tasto destro su una riga: se fa parte di una selezione multipla la si tiene (il menu vale per
@@ -2319,3 +2444,6 @@ class MessageRef {
   @override
   int get hashCode => Object.hash(account, folder, uid);
 }
+
+/// Salti della tastiera nella lista (Home, Fine, Pag↑, Pag↓): la lista mostrata scorre di conseguenza.
+enum ListJump { start, end, pageUp, pageDown }

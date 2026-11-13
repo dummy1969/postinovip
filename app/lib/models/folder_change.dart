@@ -25,6 +25,21 @@ class FolderDeletion {
   );
 }
 
+/// Esito di "Svuota cartella": mail eliminate definitivamente e sottocartelle eliminate (solo Posta eliminata).
+class FolderEmptied {
+  const FolderEmptied(this.messages, this.removedFolders, this.separator);
+
+  final int messages;
+  final List<String> removedFolders;
+  final String separator;
+
+  factory FolderEmptied.fromJson(Map<String, dynamic> json) => FolderEmptied(
+    json['messages'] as int? ?? 0,
+    [for (final f in json['removedFolders'] as List<dynamic>? ?? const []) f as String],
+    json['separator'] as String? ?? '/',
+  );
+}
+
 /// Nome [name] dopo che la cartella [from] è diventata [to]: la cartella stessa e le sottocartelle
 /// cambiano, le altre no (null). Confronto sul prefisso con il separatore: "Clienti2" non è dentro "Clienti".
 String? renamedPath(String name, String from, String to, String separator) {

@@ -94,4 +94,12 @@ public interface IMailWriter
     /// dentro la cartella stessa o che non ammette sottocartelle -> InvalidOperationException.
     /// </summary>
     Task<FolderChange> MoveFolderAsync(string folder, string? newParent, CancellationToken ct = default);
+
+    /// <summary>
+    /// "Svuota cartella" come Outlook: elimina DEFINITIVAMENTE tutte le mail della cartella (solo gli UID trovati, mai
+    /// EXPUNGE dell'intera cartella) e, con <paramref name="subfolders"/>, le sue sottocartelle con le loro mail. Non
+    /// reversibile. Ammessa solo per Posta eliminata (con le sottocartelle) e Posta indesiderata: lo controlla chi chiama,
+    /// che conosce la cartella della posta indesiderata scelta per l'account.
+    /// </summary>
+    Task<FolderEmptied> EmptyFolderAsync(string folder, bool subfolders, CancellationToken ct = default);
 }

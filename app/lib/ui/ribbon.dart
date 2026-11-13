@@ -195,6 +195,8 @@ class _RibbonState extends State<Ribbon> {
     final target = FolderActions.selected(model);
     final online = target != null && model.isOnline(target.account);
     final editable = target != null && model.canEditFolder(target.account, target.folder);
+    final emptiable = target != null && model.canEmptyFolder(target.account, target.folder);
+    final trashOrJunk = target?.folder.role == 'trash' || target?.folder.role == 'junk';
     final offlineHint = target != null && !online ? MailboxModel.offlineMessage : null;
     final specialHint = target != null && online && !editable
         ? 'Posta in arrivo, Posta inviata, Posta eliminata e le altre cartelle speciali non si possono rinominare né eliminare'
@@ -232,6 +234,18 @@ class _RibbonState extends State<Ribbon> {
                         ? 'Elimina dal server, senza possibilità di recupero'
                         : 'Sposta la cartella, con il suo contenuto, in Posta eliminata'),
                 onPressed: editable ? () => FolderActions.delete(context, target.account, target.folder) : null,
+              ),
+              // Svuota cartella (12/11/2026): in Outlook qui si chiama «Elimina tutto»; solo Posta eliminata e indesiderata.
+              RibbonSmallButton(
+                key: const Key('ribbon-empty-folder'),
+                icon: FluentIcons.delete_dismiss_20_regular,
+                label: 'Svuota cartella',
+                tooltip:
+                    offlineHint ??
+                    (trashOrJunk
+                        ? 'Elimina dal server tutte le mail della cartella, senza possibilità di recupero'
+                        : 'Solo per Posta eliminata e Posta indesiderata'),
+                onPressed: emptiable ? () => FolderActions.empty(context, target.account, target.folder) : null,
               ),
             ],
           ),

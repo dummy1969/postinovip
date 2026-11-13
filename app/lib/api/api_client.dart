@@ -955,6 +955,15 @@ class ApiClient {
     (json) => FolderDeletion.fromJson(json as Map<String, dynamic>),
   );
 
+  /// MODIFICA la casella, NON reversibile: "Svuota cartella" (solo Posta eliminata, con le sottocartelle, e Posta
+  /// indesiderata; le altre: 409).
+  Future<FolderEmptied> emptyFolder(String folder) => _send(
+    'POST',
+    '$_mail/folders/${Uri.encodeComponent(folder)}/empty',
+    null,
+    (json) => FolderEmptied.fromJson(json as Map<String, dynamic>),
+  );
+
   /// Eventi in tempo reale di tutti gli account (Server-Sent Events). Lo stream termina se la connessione
   /// si chiude; chi lo usa decide se e quando riconnettersi.
   Stream<MailboxEvent> events() async* {

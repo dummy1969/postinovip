@@ -35,7 +35,7 @@ class SelectCore {
   late final client = MockClient.streaming((request, bodyStream) async {
     final path = Uri.decodeComponent(request.url.path);
     final text = await bodyStream.bytesToString();
-    final body = text.isEmpty ? null : jsonDecode(text) as Map<String, dynamic>;
+    final body = text.isEmpty ? null : jsonDecode(text) as Map<String, dynamic>?;
     http.StreamedResponse json(Object value, [int status = 200]) => http.StreamedResponse(
       Stream.value(utf8.encode(jsonEncode(value))),
       status,
@@ -57,13 +57,18 @@ class SelectCore {
             'unread': items.where((m) => m['seen'] != true).length,
             if (name == 'INBOX') 'specialUse': 'inbox',
             if (name == 'Posta eliminata') 'specialUse': 'trash',
+            if (name == 'Posta indesiderata') 'specialUse': 'junk',
           },
       ]);
     }
     final list = RegExp(r'^/accounts/a1/folders/(.+)/messages$').firstMatch(path);
     if (list != null) {
+      // A pagine come il core (offset, limit): la lista lunga dei tasti Fine e Pag↓ si carica a più riprese.
       final items = mail[list[1]!]!;
-      return json({'total': items.length, 'offset': 0, 'limit': 50, 'items': items});
+      final offset = int.tryParse(request.url.queryParameters['offset'] ?? '') ?? 0;
+      final limit = int.tryParse(request.url.queryParameters['limit'] ?? '') ?? 50;
+      final page = items.skip(offset).take(limit).toList();
+      return json({'total': items.length, 'offset': offset, 'limit': limit, 'items': page});
     }
     final detail = RegExp(r'^/accounts/a1/messages/(.+)/(\d+)$').firstMatch(path);
     if (detail != null && request.method == 'GET') {
@@ -91,6 +96,16 @@ class SelectCore {
     // Ignora conversazione (C2): in Posta eliminata l'app chiede se la conversazione è ignorata (sola lettura).
     if (request.method == 'GET' && path.endsWith('/ignored')) return json({'ignored': false});
     writes.add('${request.method} $path $text');
+    // Svuota cartella: le mail e (Posta eliminata) le sottocartelle spariscono.
+    final empty = RegExp(r'^/accounts/a1/folders/(.+)/empty$').firstMatch(path);
+    if (empty != null) {
+      final folder = empty[1]!;
+      final count = mail[folder]!.length;
+      mail[folder] = [];
+      final removed = [for (final k in mail.keys) if (k.startsWith('$folder/')) k];
+      removed.forEach(mail.remove);
+      return json({'messages': count, 'removedFolders': removed, 'separator': '/'});
+    }
     // Sposta cartella (3.5c): la cartella e le sottocartelle cambiano nome, le mail restano.
     final moveFolder = RegExp(r'^/accounts/a1/folders/(.+)/move$').firstMatch(path);
     if (moveFolder != null) {

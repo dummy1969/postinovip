@@ -67,9 +67,12 @@ class MessageListPane extends StatelessWidget {
         if (!model.searchActive && context.watch<AppSettings>().readingPane != ReadingPanePosition.right)
           _ColumnHeader(extraLeft: model.conversationView ? _toggleWidth - 6 : 0),
         Expanded(
-          child: model.searchActive
-              ? _searchBody(model)
-              : (model.conversationView ? _conversationBody(model) : _folderBody(model)),
+          child: _KeyboardScroll(
+            model: model,
+            child: model.searchActive
+                ? _searchBody(model)
+                : (model.conversationView ? _conversationBody(model) : _folderBody(model)),
+          ),
         ),
       ],
     );
@@ -120,6 +123,7 @@ class MessageListPane extends StatelessWidget {
     return MessageContextMenu(
       builder: (context, openMenu) => ListView.builder(
         key: messageListKey,
+        primary: true, // lo scorrimento di _KeyboardScroll (Home, Fine, Pag)
         itemCount: rows.length + (footer ? 1 : 0),
         itemBuilder: (context, i) {
           // Scorrimento continuo sull'indice del messaggio (un'intestazione conta come il primo del suo gruppo).
@@ -230,6 +234,7 @@ class MessageListPane extends StatelessWidget {
     return MessageContextMenu(
       builder: (context, openMenu) => ListView.builder(
         key: messageListKey,
+        primary: true, // lo scorrimento di _KeyboardScroll (Home, Fine, Pag)
         itemCount: rows.length + (footer ? 1 : 0),
         itemBuilder: (context, i) {
           final index = i < rows.length ? rows[i].message : model.conversations.length;
@@ -351,6 +356,7 @@ class MessageListPane extends StatelessWidget {
     final more = model.searchHasMore || model.searchError != null;
     return ListView.separated(
       key: searchResultsKey,
+      primary: true, // lo scorrimento di _KeyboardScroll (Home, Fine, Pag)
       // In fondo: il caricamento dei risultati locali successivi (se ce ne sono) e la ricerca sul server.
       itemCount: results.length + (more ? 2 : 1),
       separatorBuilder: (_, _) => const Divider(height: 1),
@@ -668,6 +674,97 @@ class _ServerSearchFooter extends StatelessWidget {
 /// Una riga della lista: intestazione di gruppo oppure messaggio. [message] è l'indice in
 /// [MailboxModel.messages] (per un'intestazione, quello del primo messaggio del gruppo); in vista
 /// conversazioni è l'indice in [MailboxModel.conversations] e [member] quello della mail aperta sotto.
+/// Scorrimento della lista mostrata per i salti della tastiera (Home, Fine, Pag↑, Pag↓): le liste lo prendono come
+/// PrimaryScrollController. La ListView costruisce solo le righe vicine a quelle visibili: per una riga lontana la
+/// lista prima scorre, poi la riga costruita si mostra da sola ([MailboxModel.revealCursor]).
+class _KeyboardScroll extends StatefulWidget {
+  const _KeyboardScroll({required this.model, required this.child});
+
+  final MailboxModel model;
+  final Widget child;
+
+  @override
+  State<_KeyboardScroll> createState() => _KeyboardScrollState();
+}
+
+class _KeyboardScrollState extends State<_KeyboardScroll> {
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _attach(widget.model);
+  }
+
+  @override
+  void didUpdateWidget(_KeyboardScroll old) {
+    super.didUpdateWidget(old);
+    if (old.model != widget.model) {
+      _detach(old.model);
+      _attach(widget.model);
+    }
+  }
+
+  @override
+  void dispose() {
+    _detach(widget.model);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _attach(MailboxModel model) {
+    model.onListJump = _jump;
+    model.pageRows = _pageRows;
+  }
+
+  void _detach(MailboxModel model) {
+    if (model.onListJump == _jump) model.onListJump = null;
+    if (model.pageRows == _pageRows) model.pageRows = null;
+  }
+
+  void _jump(ListJump jump) {
+    if (!_scroll.hasClients) return;
+    final p = _scroll.position;
+    switch (jump) {
+      case ListJump.start:
+        _scroll.jumpTo(0);
+      case ListJump.end:
+        _toEnd(6);
+      case ListJump.pageDown:
+        _scroll.jumpTo((p.pixels + p.viewportDimension).clamp(0.0, p.maxScrollExtent));
+      case ListJump.pageUp:
+        _scroll.jumpTo((p.pixels - p.viewportDimension).clamp(0.0, p.maxScrollExtent));
+    }
+  }
+
+  /// In fondo: l'altezza della lista è stimata sulle righe costruite, quindi si ripete finché non è davvero in fondo.
+  void _toEnd(int tries) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final p = _scroll.position;
+      if (p.pixels < p.maxScrollExtent) {
+        _scroll.jumpTo(p.maxScrollExtent);
+        if (tries > 1) _toEnd(tries - 1);
+      }
+    });
+  }
+
+  /// Righe in una pagina: altezza visibile diviso altezza media stimata di una riga, meno una (la riga in fondo
+  /// resta visibile dopo il salto).
+  int _pageRows() {
+    if (!_scroll.hasClients) return 10;
+    final p = _scroll.position;
+    final rows = widget.model.navRowCount;
+    if (rows == 0) return 10;
+    final average = (p.maxScrollExtent + p.viewportDimension) / rows;
+    if (average <= 0) return 10;
+    return ((p.viewportDimension / average).floor() - 1).clamp(1, 1000);
+  }
+
+  @override
+  Widget build(BuildContext context) => PrimaryScrollController(controller: _scroll, child: widget.child);
+}
+
 class _Row {
   const _Row.group(String this.group, this.message) : member = null;
   const _Row.message(this.message) : group = null, member = null;
@@ -990,16 +1087,32 @@ class _MessageTileState extends State<_MessageTile> {
   double _listWidth = double.infinity;
 
   @override
+  void initState() {
+    super.initState();
+    // Riga costruita solo dopo un salto della tastiera (Home, Fine, Pag): va mostrata anche lei.
+    final model = context.read<MailboxModel>();
+    if (widget.isCursor && model.revealCursor) {
+      model.revealCursor = false;
+      _reveal();
+    }
+  }
+
+  void _reveal() {
+    // Dopo il frame: la riga è al suo posto. Le due regole insieme scorrono il minimo indispensabile
+    // (in giù se la riga è sotto, in su se è sopra, niente se è già visibile).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+      Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);
+    });
+  }
+
+  @override
   void didUpdateWidget(_MessageTile old) {
     super.didUpdateWidget(old);
     if (widget.isCursor && !old.isCursor) {
-      // Dopo il frame: la riga è al suo posto. Le due regole insieme scorrono il minimo indispensabile
-      // (in giù se la riga è sotto, in su se è sopra, niente se è già visibile).
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
-        Scrollable.ensureVisible(context, alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);
-      });
+      context.read<MailboxModel>().revealCursor = false;
+      _reveal();
     }
   }
 

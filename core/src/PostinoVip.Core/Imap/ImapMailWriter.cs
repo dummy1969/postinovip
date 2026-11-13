@@ -65,4 +65,7 @@ public sealed class ImapMailWriter(ImapConnection connection) : IMailWriter
 
     public Task<BatchResult> DeletePermanentlyAsync(string folder, IReadOnlyCollection<uint> uids, CancellationToken ct = default) =>
         connection.WriteAsync(s => s.DeletePermanentlyAsync(folder, uids, ct), ct);
+
+    public Task<FolderEmptied> EmptyFolderAsync(string folder, bool subfolders, CancellationToken ct = default) =>
+        connection.WriteAsync(s => s.EmptyFolderAsync(folder, subfolders, ct), ct);
 }

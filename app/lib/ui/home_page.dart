@@ -192,6 +192,15 @@ class _HomePageState extends State<HomePage> {
       const SingleActivator(LogicalKeyboardKey.arrowUp): _mail((_, m) => m.moveCursor(-1)),
       const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): _mail((_, m) => m.moveCursor(1, extend: true)),
       const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true): _mail((_, m) => m.moveCursor(-1, extend: true)),
+      // Home, Fine, Pag↑, Pag↓ (12/11/2026, scelta 1a): con Maiusc la selezione si allarga; Fine carica tutta la lista.
+      const SingleActivator(LogicalKeyboardKey.home): _mail((_, m) => m.moveCursorToEdge(end: false)),
+      const SingleActivator(LogicalKeyboardKey.end): _mail((_, m) => m.moveCursorToEdge(end: true)),
+      const SingleActivator(LogicalKeyboardKey.home, shift: true): _mail((_, m) => m.moveCursorToEdge(end: false, extend: true)),
+      const SingleActivator(LogicalKeyboardKey.end, shift: true): _mail((_, m) => m.moveCursorToEdge(end: true, extend: true)),
+      const SingleActivator(LogicalKeyboardKey.pageUp): _mail((_, m) => m.moveCursorPage(-1)),
+      const SingleActivator(LogicalKeyboardKey.pageDown): _mail((_, m) => m.moveCursorPage(1)),
+      const SingleActivator(LogicalKeyboardKey.pageUp, shift: true): _mail((_, m) => m.moveCursorPage(-1, extend: true)),
+      const SingleActivator(LogicalKeyboardKey.pageDown, shift: true): _mail((_, m) => m.moveCursorPage(1, extend: true)),
       // Invio apre la mail selezionata nella sua finestra, come Outlook (con qualsiasi riquadro di lettura).
       const SingleActivator(LogicalKeyboardKey.enter): _mail((_, _) => _openMessage()),
       const SingleActivator(LogicalKeyboardKey.numpadEnter): _mail((_, _) => _openMessage()),

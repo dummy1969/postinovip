@@ -257,6 +257,42 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
         return Task.FromResult(new FolderChange(moved, Separator));
     }
 
+    /// <summary>Svuota: elimina DEFINITIVAMENTE i file delle mail e, con <paramref name="subfolders"/>, le sottocartelle.</summary>
+    public async Task<FolderEmptied> EmptyFolderAsync(string folder, bool subfolders, CancellationToken ct = default)
+    {
+        folder = Resolve(folder);
+        var removed = new List<string>();
+        var uidls = new List<string>();
+        if (subfolders)
+        {
+            var tree = store.FolderTree(folder).Where(n => n != folder).ToList();
+            if (tree.FirstOrDefault(n => store.GetFolder(n).Role is not null) is { } special)
+                throw new InvalidOperationException($"'{folder}' contiene la cartella speciale '{special}': non si svuota.");
+            foreach (var child in tree.Where(n => LocalMailStore.ParentOf(n) == folder))
+            {
+                if (removedPermanently is not null)
+                    uidls.AddRange(UidlsIn(child));
+                store.DeleteFolder(child);
+            }
+            removed.AddRange(tree.OrderByDescending(n => n.Length));
+        }
+
+        var count = 0;
+        foreach (var uid in store.GetUids(folder))
+        {
+            var uidl = removedPermanently is null ? null : store.ReadHeader(folder, uid, Pop3.Pop3Fetcher.UidlHeader);
+            if (!store.Delete(folder, uid))
+                continue;
+            count++;
+            if (uidl is not null)
+                uidls.Add(uidl);
+        }
+        await reader.SyncAsync(folder, ct);
+        if (uidls.Count > 0)
+            removedPermanently?.Invoke(uidls);
+        return new FolderEmptied(count, removed, Separator);
+    }
+
     /// <summary>Cartelle con un ruolo (o che ne contengono una): non si rinominano, spostano né eliminano.</summary>
     private void RequireOrdinary(string folder)
     {

@@ -1,4 +1,5 @@
 using MailKit;
+using MailKit.Search;
 using MailKit.Net.Imap;
 using MailKit.Security;
 using MimeKit;
@@ -605,6 +606,53 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         var target = FolderNames.FirstFree(folder.Name, siblings.Select(f => f.Name));
         await folder.RenameAsync(trash, target, ct);
         return new FolderDeletion(folder.FullName, false, separator);
+    }
+
+    /// <summary>
+    /// Svuota la cartella: tutte le mail (UID SEARCH ALL, \Deleted e UID EXPUNGE dei soli UID trovati: una mail arrivata
+    /// nel frattempo resta) e, con <paramref name="subfolders"/>, le sottocartelle (DELETE, dalle più profonde: DELETE
+    /// non elimina le sottocartelle, RFC 3501 6.3.4). Se tra le sottocartelle c'è una cartella speciale non tocca niente.
+    /// </summary>
+    public async Task<FolderEmptied> EmptyFolderAsync(string folderName, bool subfolders, CancellationToken ct = default)
+    {
+        RequireUidPlus();
+        var folder = await GetFolderAsync(folderName, ct);
+        var separator = folder.DirectorySeparator;
+        var inner = new List<IMailFolder>();
+        if (subfolders)
+        {
+            var all = await _client.GetFoldersAsync(_client.PersonalNamespaces[0], StatusItems.None, subscribedOnly: false, ct);
+            var prefix = folder.FullName + separator;
+            inner = all.Where(f => f.Exists && f.FullName.StartsWith(prefix, StringComparison.Ordinal))
+                .OrderByDescending(f => f.FullName.Count(c => c == separator)).ToList();
+            if (inner.FirstOrDefault(f => SpecialUse.FromAttributes(f.Attributes, f.FullName) is not null) is { } special)
+                throw new InvalidOperationException($"'{folder.FullName}' contiene la cartella speciale '{special.FullName}': non si svuota.");
+        }
+
+        int count;
+        await folder.OpenAsync(FolderAccess.ReadWrite, ct);
+        try
+        {
+            var uids = folder.Count == 0 ? [] : await folder.SearchAsync(SearchQuery.All, ct);
+            if (uids.Count > 0)
+            {
+                await folder.StoreAsync(uids, new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true }, ct);
+                await folder.ExpungeAsync(uids, ct); // UID EXPUNGE: solo questi UID
+            }
+            count = uids.Count;
+        }
+        finally
+        {
+            await CloseFolderAsync(folder, ct);
+        }
+
+        var removed = new List<string>();
+        foreach (var sub in inner)
+        {
+            await sub.DeleteAsync(ct);
+            removed.Add(sub.FullName);
+        }
+        return new FolderEmptied(count, removed, separator);
     }
 
     /// <summary>

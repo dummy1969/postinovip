@@ -24,3 +24,6 @@ public sealed record FolderChangeResponse(string FullName, string Separator);
 
 /// <summary>Esito di "Elimina cartella": MovedTo se spostata in Posta eliminata, Permanent se eliminata.</summary>
 public sealed record FolderDeleteResponse(string? MovedTo, bool Permanent, string Separator);
+
+/// <summary>Esito di "Svuota cartella": mail eliminate definitivamente e sottocartelle eliminate (solo Posta eliminata).</summary>
+public sealed record FolderEmptyResponse(int Messages, IReadOnlyList<string> RemovedFolders, string Separator);

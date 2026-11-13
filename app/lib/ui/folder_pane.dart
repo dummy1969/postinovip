@@ -217,6 +217,13 @@ class FolderPane extends StatelessWidget {
                   ? () => ConversationToolActions.cleanUpFolder(context, account: account.id, folder: folder.fullName)
                   : null,
             ),
+            // Svuota cartella (12/11/2026): solo Posta eliminata e Posta indesiderata, come Outlook.
+            if (folder.role == 'trash' || folder.role == 'junk')
+              _item(
+                FluentIcons.delete_dismiss_20_regular,
+                'Svuota cartella',
+                model.canEmptyFolder(account.id, folder) ? () => FolderActions.empty(context, account.id, folder) : null,
+              ),
             _item(
               FluentIcons.delete_20_regular,
               'Elimina cartella',

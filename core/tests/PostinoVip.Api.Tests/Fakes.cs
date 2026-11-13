@@ -350,6 +350,14 @@ public sealed class FakeMailWriter : IMailWriter
         return Task.FromResult(new FolderChange(to, '/'));
     }
 
+    public List<(string Folder, bool Subfolders)> EmptiedFolders { get; } = [];
+
+    public Task<FolderEmptied> EmptyFolderAsync(string folder, bool subfolders, CancellationToken ct = default)
+    {
+        EmptiedFolders.Add((folder, subfolders));
+        return Task.FromResult(new FolderEmptied(2, subfolders ? [$"{folder}/Vecchia"] : [], '/'));
+    }
+
     public Task<FolderDeletion> DeleteFolderAsync(string folder, CancellationToken ct = default)
     {
         RequireOrdinary(folder);
