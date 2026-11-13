@@ -20,4 +20,10 @@ public sealed record ComposeDraft(
     /// incorporate come "data:"): l'app la mostra sotto l'editor; all'invio il core la ricostruisce dall'originale.
     /// </summary>
     public string? QuoteHtml { get; init; }
+
+    /// <summary>
+    /// L'originale è di solo testo (nessuna parte text/html): come Outlook, la risposta o l'inoltro si scrivono in
+    /// testo normale (13/11/2026, scelta 3a).
+    /// </summary>
+    public bool PlainText { get; init; }
 }

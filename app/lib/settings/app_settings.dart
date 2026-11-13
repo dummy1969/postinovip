@@ -140,6 +140,7 @@ class AppSettings extends ChangeNotifier {
   static const _remindersKey = 'reminders';
   static const _zoomKey = 'readingZoom';
   static const _requestReceiptKey = 'requestReadReceipt';
+  static const _composePlainKey = 'composePlainText';
   static const _receiptModeKey = 'receiptMode';
   static const _confirmIgnoreKey = 'confirmIgnore';
   static const _confirmStopIgnoringKey = 'confirmStopIgnoring';
@@ -297,6 +298,16 @@ class AppSettings extends ChangeNotifier {
     showBcc = value;
     notifyListeners();
     await _store.write(_showBccKey, '$value');
+  }
+
+  /// «Componi messaggi in questo formato» (13/11/2026, scelta 2a): true = Testo normale; predefinito HTML.
+  /// Vale per i messaggi nuovi; risposte e inoltri prendono il formato dell'originale.
+  bool composePlainText = false;
+
+  Future<void> setComposePlainText(bool value) async {
+    composePlainText = value;
+    notifyListeners();
+    await _store.write(_composePlainKey, '$value');
   }
 
   /// «Chiedi sempre la conferma di lettura» (R2): «Richiedi conferma di lettura» acceso nei nuovi messaggi.
@@ -501,6 +512,7 @@ class AppSettings extends ChangeNotifier {
       reminders = const ReminderState();
     }
     requestReadReceipt = await _store.read(_requestReceiptKey) == 'true';
+    composePlainText = await _store.read(_composePlainKey) == 'true';
     confirmIgnore = await _store.read(_confirmIgnoreKey) != 'false';
     confirmStopIgnoring = await _store.read(_confirmStopIgnoringKey) != 'false';
     final savedReceipt = await _store.read(_receiptModeKey);

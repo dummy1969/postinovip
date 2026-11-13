@@ -182,10 +182,33 @@ class _SettingsDialogState extends State<SettingsDialog> {
     ];
   }
 
-  /// Posta: firme, Segna come letto, conferme di lettura, conferme di Ignora conversazione.
+  /// Posta: formato dei messaggi, firme, Segna come letto, conferme di lettura, conferme di Ignora conversazione.
   List<Widget> _mail(BuildContext context) {
     final settings = context.watch<AppSettings>();
     return [
+      // Come Outlook: File → Opzioni → Posta → Composizione messaggi (13/11/2026, scelta 2a).
+      Text('Composizione messaggi', style: Theme.of(context).textTheme.titleSmall),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: DropdownButtonFormField<bool>(
+          key: const ValueKey('settings-compose-format'),
+          isExpanded: true,
+          initialValue: settings.composePlainText,
+          decoration: const InputDecoration(
+            labelText: 'Componi messaggi in questo formato',
+            helperText: 'Per i messaggi nuovi; risposte e inoltri hanno il formato del messaggio originale',
+            border: OutlineInputBorder(),
+          ),
+          items: const [
+            DropdownMenuItem(value: false, child: Text('HTML')),
+            DropdownMenuItem(value: true, child: Text('Testo normale')),
+          ],
+          onChanged: (v) {
+            if (v != null) settings.setComposePlainText(v);
+          },
+        ),
+      ),
+      const Divider(height: 32),
       Text('Firme', style: Theme.of(context).textTheme.titleSmall),
       ListTile(
         contentPadding: EdgeInsets.zero,

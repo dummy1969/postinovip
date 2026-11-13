@@ -152,7 +152,7 @@ class _ComposePageState extends State<ComposePage> {
     // ignore: experimental_member_use
     config: QuillControllerConfig(
       // ignore: experimental_member_use
-      clipboardConfig: QuillClipboardConfig(onImagePaste: (bytes) async => pastedImageUrl(bytes)),
+      clipboardConfig: QuillClipboardConfig(onImagePaste: (bytes) async => _plain ? null : pastedImageUrl(bytes)),
     ),
   );
   final _editorFocus = FocusNode(debugLabel: 'Testo del messaggio');
@@ -160,6 +160,55 @@ class _ComposePageState extends State<ComposePage> {
 
   /// Citazione dell'originale (risposta o inoltro), finché non la si toglie con "Rimuovi citazione".
   late String? _quoteHtml = widget.draft.quoteHtml;
+
+  /// Testo normale (13/11/2026, scelte 1a 2a 3a): dalla bozza (risposta a una mail di solo testo, bozza senza
+  /// HTML), altrimenti da File → Opzioni → Posta. Si cambia da Formato testo → Formato.
+  late bool _plain = widget.draft.plainText ?? context.read<AppSettings>().composePlainText;
+  bool _stripping = false;
+
+  /// In testo normale la formattazione arrivata dopo (incolla, firma, scorciatoie) si toglie subito.
+  void _keepPlain() {
+    if (!_plain || _stripping || !hasFormatting(_editor.document)) return;
+    _stripping = true;
+    try {
+      stripFormatting(_editor);
+    } finally {
+      _stripping = false;
+    }
+  }
+
+  /// Citazione da mostrare in testo normale: quella in testo che il core aggiunge all'invio (risposte e
+  /// inoltri); null se non c'è (bozza riaperta: allora si vede quella HTML).
+  String? get _plainQuote {
+    final text = widget.draft.body.trim();
+    return widget.draft.mode != null && widget.draft.quoteHtml != null && text.isNotEmpty ? text : null;
+  }
+
+  /// Formato testo → HTML / Testo normale. Verso il testo normale, se c'è qualcosa da perdere, chiede conferma.
+  Future<void> _setPlain(bool plain) async {
+    if (plain == _plain) return;
+    if (plain && (hasFormatting(_editor.document) || _quoteHtml != null)) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          key: const Key('plain-text-confirm'),
+          title: const Text('Passare a testo normale?'),
+          content: const Text(
+            'La formattazione e le immagini nel testo andranno perse, anche tornando a HTML. '
+            'Il messaggio originale citato verrà aggiunto come testo.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Continua')),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    setState(() => _plain = plain);
+    _keepPlain();
+    _editorFocus.requestFocus();
+  }
 
   String get _bodyText => documentToPlainText(_editor.document);
 
@@ -244,6 +293,7 @@ class _ComposePageState extends State<ComposePage> {
     '${_sendAfter?.millisecondsSinceEpoch}',
     _importance.name,
     '$_readReceipt',
+    '$_plain',
   ];
 
   /// «Priorità alta» / «Priorità bassa» (P1), come nella scheda Messaggio di Outlook.
@@ -276,13 +326,17 @@ class _ComposePageState extends State<ComposePage> {
   @override
   void initState() {
     super.initState();
+    _keepPlain(); // testo normale: la firma entra senza formattazione
     _saved; // fissa i valori iniziali prima di qualunque modifica
     _autosave = Timer.periodic(ComposePage.autosaveInterval, (_) {
       if (_dirty && !_sending && !_savingDraft) _saveDraft(auto: true);
     });
     // Testo cambiato: "Scartare il messaggio?" e il limite degli allegati dipendono da lì.
     _editorChanges = _editor.document.changes.listen((_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      // Dopo la modifica, non durante: il documento sta ancora notificando.
+      if (_plain && !_stripping) scheduleMicrotask(() => mounted ? _keepPlain() : null);
+      setState(() {});
     });
   }
 
@@ -337,7 +391,7 @@ class _ComposePageState extends State<ComposePage> {
             if (!_sending && !_savingDraft) _saveDraft();
           },
           const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
-            if (!_sending) FormatCommands.insertLink(context, _editor);
+            if (!_sending && !_plain) FormatCommands.insertLink(context, _editor);
           },
         },
         child: Scaffold(
@@ -367,7 +421,7 @@ class _ComposePageState extends State<ComposePage> {
 
   /// Comandi della barra multifunzione (le firme arrivano con la 3.7c).
   List<Widget> _ribbonGroups() {
-    final format = FormatCommands(_editor, enabled: !_sending, onEdited: _editorFocus.requestFocus);
+    final format = FormatCommands(_editor, enabled: !_sending && !_plain, onEdited: _editorFocus.requestFocus);
     final attach = RibbonLargeButton(
       icon: FluentIcons.attach_24_regular,
       label: 'Allega file',
@@ -420,12 +474,12 @@ class _ComposePageState extends State<ComposePage> {
           label: 'Includi',
           children: [
             attach,
-            FormatCommands.linkButton(context, _editor, enabled: !_sending),
+            FormatCommands.linkButton(context, _editor, enabled: !_sending && !_plain),
             _signatureMenu(),
           ],
         ),
       ],
-      2 => format.formatTab(),
+      2 => [_formatGroup(), ...format.formatTab()],
       _ => [
         RibbonGroup(
           label: 'Mostra campi',
@@ -462,6 +516,29 @@ class _ComposePageState extends State<ComposePage> {
       ],
     };
   }
+
+  /// Gruppo «Formato» della scheda Formato testo, come Outlook (senza Rich Text, scelta 4a).
+  Widget _formatGroup() => RibbonGroup(
+    label: 'Formato',
+    children: [
+      RibbonLargeButton(
+        key: const Key('compose-format-html'),
+        icon: FluentIcons.code_24_regular,
+        label: 'HTML',
+        selected: !_plain,
+        tooltip: 'Testo formattato, con immagini e collegamenti',
+        onPressed: _sending ? null : () => _setPlain(false),
+      ),
+      RibbonLargeButton(
+        key: const Key('compose-format-plain'),
+        icon: FluentIcons.text_t_24_regular,
+        label: 'Testo normale',
+        selected: _plain,
+        tooltip: 'Solo testo, senza formattazione: lo leggono tutti i programmi di posta',
+        onPressed: _sending ? null : () => _setPlain(true),
+      ),
+    ],
+  );
 
   /// "Firma" come Outlook: le firme salvate e, in fondo, "Firme…" per crearle e modificarle.
   Widget _signatureMenu() {
@@ -614,7 +691,7 @@ class _ComposePageState extends State<ComposePage> {
                 ),
               ),
             ),
-            if (_quoteHtml case final quote?) Expanded(flex: 2, child: _quotePreview(context, quote)),
+            if (_quoteHtml case final quote?) Expanded(flex: 2, child: _quotePreview(context, quote, text: _plain ? _plainQuote : null)),
             if (_error != null) ...[
               const SizedBox(height: 8),
               Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
@@ -694,7 +771,7 @@ class _ComposePageState extends State<ComposePage> {
   }
 
   /// Citazione dell'originale sotto l'editor (scelta 6a): com'era, non modificabile, rimovibile.
-  Widget _quotePreview(BuildContext context, String html) {
+  Widget _quotePreview(BuildContext context, String html, {String? text}) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       key: ComposePage.quoteKey,
@@ -724,7 +801,9 @@ class _ComposePageState extends State<ComposePage> {
             child: MessageSurface(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-                child: HtmlBodyView(html: html, allowRemoteImages: false),
+                child: text != null
+                    ? SelectableText(text, key: const Key('compose-quote-text'))
+                    : HtmlBodyView(html: html, allowRemoteImages: false),
               ),
             ),
           ),
@@ -825,7 +904,7 @@ class _ComposePageState extends State<ComposePage> {
         bcc: bcc,
         subject: _subject.text,
         body: _bodyText,
-        htmlBody: documentToHtml(_editor.document),
+        htmlBody: _plain ? null : documentToHtml(_editor.document),
         quote: _quote,
         inReplyTo: widget.draft.inReplyTo,
         references: widget.draft.references,
@@ -903,7 +982,7 @@ class _ComposePageState extends State<ComposePage> {
         bcc: splitAddresses(_bcc.text),
         subject: _subject.text,
         body: _bodyText,
-        htmlBody: documentToHtml(_editor.document),
+        htmlBody: _plain ? null : documentToHtml(_editor.document),
         quote: _quote,
         inReplyTo: widget.draft.inReplyTo,
         references: widget.draft.references,

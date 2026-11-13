@@ -193,6 +193,7 @@ class EmlPage extends StatelessWidget {
           quoteHtml: draft.quoteHtml,
           quoteInline: true,
           mode: mode,
+          plainText: draft.plainText,
         ),
       );
     } on ApiException catch (e) {

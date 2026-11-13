@@ -108,6 +108,46 @@ String documentToPlainText(Document document) {
   return buffer.toString().trimRight();
 }
 
+/// Testo normale (13/11/2026): il documento ha formattazione (stili, elenchi, allineamenti) o immagini che
+/// passando a testo normale andrebbero perse.
+bool hasFormatting(Document document) =>
+    document.toDelta().toList().any((op) => op.data is! String || (op.attributes?.isNotEmpty ?? false));
+
+/// Testo normale: toglie dal documento ogni formattazione e le immagini, lasciando il testo e gli a capo
+/// (e il cursore dov'è). Usato passando a testo normale e dopo ogni modifica (incolla, firma, scorciatoie).
+void stripFormatting(QuillController controller) {
+  final ops = controller.document.toDelta().toList();
+  final embeds = <int>[];
+  final formatted = <({int offset, int length, String key})>[];
+  var offset = 0;
+  for (final op in ops) {
+    final length = op.length ?? 0;
+    if (op.data is! String) {
+      embeds.add(offset);
+    } else {
+      for (final key in op.attributes?.keys ?? const <String>[]) {
+        formatted.add((offset: offset, length: length, key: key));
+      }
+    }
+    offset += length;
+  }
+  for (final f in formatted) {
+    final remove = Attribute.fromKeyValue(f.key, null) ?? Attribute(f.key, AttributeScope.inline, null);
+    controller.formatText(f.offset, f.length, remove);
+  }
+  // Immagini dalla fine, così le posizioni di quelle prima non cambiano.
+  for (final at in embeds.reversed) {
+    final sel = controller.selection;
+    int shift(int o) => o > at ? o - 1 : o;
+    controller.replaceText(
+      at,
+      1,
+      '',
+      TextSelection(baseOffset: shift(sel.baseOffset), extentOffset: shift(sel.extentOffset)),
+    );
+  }
+}
+
 bool _hasEmbeds(Document document) => document.toDelta().toList().any((op) => op.data is! String);
 
 /// Immagine incollata dagli appunti: diventa un'immagine "data:" nel documento (il core la trasforma

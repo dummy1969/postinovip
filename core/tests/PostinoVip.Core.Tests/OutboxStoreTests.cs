@@ -114,6 +114,20 @@ public class ComposeReaderTests
     }
 
     [Fact]
+    public void BozzaNostraInTestoNormaleRiapertaConLaCitazioneNelTesto()
+    {
+        // Testo normale (13/11/2026): niente HTML; la citazione è parte del testo, come in Outlook.
+        var quote = new MessageQuote("\n\n> vecchio", "<p>vecchio</p>", []);
+        var draft = MimeMessageBuilder.Build(new OutgoingMessage("me@example.com", ["mario@example.com"], [], "Re: x",
+            "Nuovo", Quote: quote), draft: true);
+
+        var c = ComposeReader.Read(draft);
+        Assert.Null(c.Html); // l'app la riapre in testo normale
+        Assert.Null(c.QuoteHtml);
+        Assert.Equal("Nuovo\n\n> vecchio", c.Text);
+    }
+
+    [Fact]
     public void CitazioneGiaProntaInHtmlConLeSueImmagini()
     {
         const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";

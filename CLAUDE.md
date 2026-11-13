@@ -84,7 +84,7 @@ Non passare allo step successivo senza conferma dell'utente.
 
 **Dettagli di ogni fase e step** (scelte dell'utente con le etichette, verifiche, implementazione, misure, test, limiti): **`docs/storia.md`**, testo completo. Qui solo lo stato in breve. A ogni step: i dettagli in `docs/storia.md`, qui una riga di stato.
 
-### Stato (13/11/2026, 0.0.224) — codice pubblicato come alpha
+### Stato (13/11/2026, 0.0.230) — codice pubblicato come alpha
 
 | Parte | Stato | In `docs/storia.md` |
 |---|---|---|
@@ -112,9 +112,11 @@ Non passare allo step successivo senza conferma dell'utente.
 | Versione installata: prima sincronizzazione delle cartelle grandi (lista subito, resto in sottofondo), una sola copia dell'app | ✅ | «Versione installata: prima sincronizzazione…» |
 | Calendario K1–K5 (CalDAV, vista, finestra Appuntamento, promemoria) | ✅ | «Calendario» |
 | Aspetto come l'Outlook di oggi V0–V6 (con V3b) | ✅ chiusa il 12/11/2026 (decisioni di tutti i sotto-step confermate); provata su Windows dall'utente il 12/11/2026: tutto ok | «Aspetto come l'Outlook di oggi» |
-| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva; ultima pubblicata: **0.0.219**, commit `a1dc679`); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
+| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva; ultima pubblicata: **0.0.224**, commit `70ddbbf`); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
 | Posta in arrivo bloccata da una mail con BODYSTRUCTURE non valido (IceWarp): struttura chiesta a parte, mail difettosa isolata (`StructureGuard`, scelta 1a) | ✅ 0.0.218, verificata su Linux con l'account vero e dall'utente su Windows | «Posta in arrivo bloccata da una mail…» |
 | Posta: tasti della lista e Svuota cartella (scelte 1a 2a 3a 4a) | ✅ S1 core (0.0.222), S2 app (0.0.223); verificata dall'utente il 13/11/2026, decisioni a–d confermate | «Posta: tasti della lista e Svuota cartella» |
+| Posta: formato del messaggio HTML / testo normale (scelte 1a 2a 3a 4a) | ✅ T1 core (0.0.226), T2 app (0.0.227); verificata dall'utente il 13/11/2026, decisioni a–f confermate | «Posta: formato del messaggio» |
+| Aggiornamento di `archive` 4.7.0 (1a) e di tre pacchetti (2a) | `archive` ✅ (0.0.229, stampa verificata); `flutter_local_notifications` 23.0.2 e `shared_preferences_android`/`_foundation` (0.0.230) **da verificare** (notifiche, impostazioni) | «Aggiornamento di archive e di tre pacchetti» |
 
 ### Aspetto come l'Outlook di oggi ✅ (11–12/11/2026)
 
@@ -128,7 +130,7 @@ Ripresa dopo la pausa (11/11/2026): uso reale con la 0.0.197 «per ora tutto ok�
 - **V5** (0.0.205, **da verificare**, decisioni a–e confermate): riquadro di lettura (vale anche per la finestra della mail e i .eml): oggetto in semigrassetto, cerchio con le iniziali e il colore del mittente (`ui/sender_avatar.dart`), nome in grassetto e indirizzo senza «Da:», data a destra con il giorno, HTML/Testo sulla riga delle categorie, allegati come schede (`AttachmentCard`). 
 - **V6** (0.0.206, decisioni a–e confermate): scala dei caratteri di Office nel tema (testo normale, caselle e menu a tendina a 14), caselle di testo basse (`isDense`, bordo scelto da ogni casella), comandi grandi della barra larghi secondo l'etichetta (60–100 px: «Nuovo appuntamento» andava a capo a metà parola). 
 - **Tappa chiusa** il 12/11/2026 su richiesta dell'utente (0.0.207): decisioni di tutti i sotto-step confermate, guida dell'architettura alla versione 26. Pacchetti di rilascio rifatti dall'utente: «tutto ok». **0.0.208**: corretta la chiusura lenta dell'app (il core aspettava 30 s la fine della richiesta `/events`; ora esce in 0,1 s), da verificare con i pacchetti. Aspetto **provato su Windows** dall'utente il 12/11/2026 (Segoe UI, barra semplificata, Ctrl+F1): «tutto ok». **Prossimo passo: da scegliere con l'utente.**
-- **Da tenere d'occhio:** Gmail in modalità Testing (token di rinnovo che scade ogni 7 giorni: «Accedi di nuovo» nella striscia rossa); O3 OAuth2 Microsoft sospesa (serve un tenant); i 9 pacchetti Dart «newer versions incompatible» fissati da altri (dal 13/11/2026 anche `shared_preferences_android`, solo Android) (scelta **2a** dell'11/11/2026: lasciarli, ricontrollare a ogni aggiornamento di Flutter; `dependency_overrides` provato e scartato).
+- **Da tenere d'occhio:** Gmail in modalità Testing (token di rinnovo che scade ogni 7 giorni: «Accedi di nuovo» nella striscia rossa); O3 OAuth2 Microsoft sospesa (serve un tenant); gli 8 pacchetti Dart «newer versions incompatible» fissati da altri; l'elenco di `pub get` mostra anche versioni solo **aggiornabili** (`flutter pub outdated`, colonna Upgradable): il 13/11/2026 aggiornati `archive` 4.7.0, `flutter_local_notifications` 23.0.2, `shared_preferences_android` 2.5.5 e `shared_preferences_foundation` 2.6.2: restano solo gli 8 (scelta **2a** dell'11/11/2026: lasciarli, ricontrollare a ogni aggiornamento di Flutter; `dependency_overrides` provato e scartato).
 - Ricreare i pacchetti: `packaging/linux/build-deb.sh` (poi `sudo apt install ./dist/linux/postinovip_<ver>_amd64.deb`), su Windows `packaging\windows\build-installer.ps1`. Nella versione installata una sola copia aperta; copia locale in `~/.local/share/postinovip` (sviluppo: `postinovip-dev`).
 
 ### Versione installata: prima sincronizzazione e una sola copia ✅ (11/11/2026)

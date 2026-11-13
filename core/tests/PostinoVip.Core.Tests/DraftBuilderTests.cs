@@ -169,4 +169,15 @@ public class DraftBuilderTests
         Assert.StartsWith("\n\nIl ", q.Text);
         Assert.Empty(q.Inline);
     }
+
+    [Fact]
+    public void RispostaInTestoNormaleSeLOriginaleNonHaHtml()
+    {
+        Assert.True(DraftBuilder.Build(Original(), DraftMode.Reply, Me).PlainText);
+        Assert.True(DraftBuilder.Build(Original(), DraftMode.Forward, Me).PlainText);
+        Assert.False(DraftBuilder.Build(HtmlOriginal(), DraftMode.Reply, Me).PlainText);
+        var htmlOnly = Original();
+        htmlOnly.Body = new TextPart("html") { Text = "<p>x</p>" };
+        Assert.False(DraftBuilder.Build(htmlOnly, DraftMode.ReplyAll, Me).PlainText);
+    }
 }

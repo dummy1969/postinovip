@@ -180,6 +180,39 @@ public class MimeMessageBuilderTests
     }
 
     [Fact]
+    public void TestoNormaleConAllegatoECitazioneConImmaginiSenzaParteHtml()
+    {
+        // Testo normale (13/11/2026): niente HtmlBody; le immagini della citazione restano fuori.
+        var quote = new MessageQuote("\n\n> originale", "<div>originale <img src=\"cid:img1@x\"></div>",
+            [new InlinePart("img1@x", "image/png", Convert.FromBase64String(Png))]);
+        var mime = MimeMessageBuilder.Build(Msg(["dest@example.com"]) with
+        {
+            Body = "Risposta",
+            Quote = quote,
+            Attachments = [new OutgoingAttachment("a.txt", "text/plain", "x"u8.ToArray())],
+        });
+
+        Assert.Null(mime.HtmlBody);
+        Assert.Equal("Risposta\n\n> originale", mime.TextBody);
+        Assert.DoesNotContain(mime.BodyParts.OfType<MimePart>(), p => p.ContentId == "img1@x");
+        Assert.DoesNotContain(mime.BodyParts, p => p.ContentType.MimeType == "text/html");
+        Assert.Single(mime.Attachments);
+
+        var alone = MimeMessageBuilder.Build(Msg(["dest@example.com"]) with { Body = "Solo", Quote = quote });
+        Assert.Equal("text/plain", alone.Body.ContentType.MimeType); // senza allegati: una sola parte
+
+        // Le immagini della citazione, che in testo normale non partono, non contano nel limite di 25 MB.
+        var big = new InlinePart("big@x", "image/png", new byte[MimeMessageBuilder.MaxAttachmentBytes + 1]);
+        var withBig = MimeMessageBuilder.Build(Msg(["dest@example.com"]) with
+        {
+            Body = "Risposta",
+            Quote = new MessageQuote("\n\n> originale", "<img src=\"cid:big@x\">", [big]),
+            Attachments = [new OutgoingAttachment("a.txt", "text/plain", "x"u8.ToArray())],
+        });
+        Assert.Null(withBig.HtmlBody);
+    }
+
+    [Fact]
     public void ImmaginiIncorporateContanoNelLimiteDegliAllegati()
     {
         var big = new InlinePart("big@x", "image/png", new byte[MimeMessageBuilder.MaxAttachmentBytes + 1]);

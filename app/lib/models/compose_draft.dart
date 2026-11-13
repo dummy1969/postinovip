@@ -53,6 +53,7 @@ class ComposeDraft {
     this.draftRef,
     this.importance = MailImportance.normal,
     this.readReceipt,
+    this.plainText,
   });
 
   final List<String> to;
@@ -94,6 +95,10 @@ class ComposeDraft {
   /// «Richiedi conferma di lettura» (R2): null = la scelta di File → Opzioni («Chiedi sempre…»).
   final bool? readReceipt;
 
+  /// Testo normale (13/11/2026): true per le risposte e gli inoltri di una mail di solo testo (dal core, scelta
+  /// 3a) e per le bozze riaperte senza HTML; null = la scelta di File → Opzioni → Posta (messaggi nuovi).
+  final bool? plainText;
+
   /// Collega la bozza al messaggio originale (il core non lo ripete nella bozza).
   ComposeDraft withForwardSource(String folder, int uid, {String? account, DraftMode? mode}) => ComposeDraft(
     to: to,
@@ -108,6 +113,7 @@ class ComposeDraft {
     forwardAccount: account,
     quoteHtml: quoteHtml,
     mode: mode,
+    plainText: plainText,
   );
 
   factory ComposeDraft.fromJson(Map<String, dynamic> json) => ComposeDraft(
@@ -118,6 +124,7 @@ class ComposeDraft {
     inReplyTo: json['inReplyTo'] as String?,
     references: (json['references'] as List).cast<String>(),
     quoteHtml: json['quoteHtml'] as String?,
+    plainText: json['plainText'] as bool? ?? false, // core precedente: HTML, come prima
     forwardAttachments: [
       for (final a in (json['forwardAttachments'] as List?) ?? const [])
         AttachmentInfo.fromJson(a as Map<String, dynamic>),

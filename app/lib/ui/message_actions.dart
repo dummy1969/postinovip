@@ -110,6 +110,7 @@ class MessageActions {
           draftRef: DraftRef(uid: uid),
           importance: content.importance,
           readReceipt: content.readReceipt,
+          plainText: content.html == null, // bozza di solo testo: si riapre in testo normale
         ),
       );
     } on ApiException catch (e) {

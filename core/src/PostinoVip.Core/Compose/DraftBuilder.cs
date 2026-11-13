@@ -13,14 +13,15 @@ public static partial class DraftBuilder
 {
 
     /// <param name="ownAddress">Indirizzo dell'account: escluso dai destinatari di "rispondi a tutti".</param>
-    /// QuoteHtml: anteprima formattata della citazione (3.7b); Body: la citazione in testo (app precedenti).
+    /// QuoteHtml: anteprima formattata della citazione (3.7b); Body: la citazione in testo (app precedenti, testo normale).
+    /// PlainText: l'originale non ha una parte HTML.
     public static ComposeDraft Build(MimeMessage original, DraftMode mode, string ownAddress) => (mode switch
     {
         DraftMode.Reply => Reply(original, ownAddress, all: false),
         DraftMode.ReplyAll => Reply(original, ownAddress, all: true),
         DraftMode.Forward => Forward(original),
         _ => throw new ArgumentOutOfRangeException(nameof(mode)),
-    }) with { QuoteHtml = QuoteBuilder.DisplayHtml(original) };
+    }) with { QuoteHtml = QuoteBuilder.DisplayHtml(original), PlainText = original.HtmlBody is null };
 
     /// <summary>Citazione in testo semplice da aggiungere sotto quello che si scrive (anche per la parte text/plain).</summary>
     public static string QuoteText(MimeMessage original, DraftMode mode) => mode == DraftMode.Forward

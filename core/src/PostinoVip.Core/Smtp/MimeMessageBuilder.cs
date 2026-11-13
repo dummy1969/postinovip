@@ -73,7 +73,9 @@ public static partial class MimeMessageBuilder
         // Testo formattato (3.7b): HTML ripulito, immagini incollate ("data:") trasformate in parti
         // collegate, citazione dell'originale in fondo con le sue immagini incorporate.
         string? html = null;
-        var inline = new List<InlinePart>(msg.Quote?.Inline ?? []);
+        // In testo normale (senza HtmlBody) le immagini della citazione non hanno dove stare: restano fuori, come in
+        // Outlook (prima finivano come parti collegate senza HTML).
+        var inline = new List<InlinePart>(msg.HtmlBody is null ? [] : msg.Quote?.Inline ?? []);
         if (msg.HtmlBody is not null)
         {
             string Embed(string clean) => DataImage().Replace(clean, m =>
