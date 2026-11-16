@@ -68,25 +68,39 @@ public static partial class HtmlBodySanitizer
         // "display" sulle parti di una tabella (es. <td style="display: block">, usato da molte newsletter per
         // centrare il contenuto): il visualizzatore HTML dell'app (flutter_widget_from_html_core 0.17.4) non
         // disegna più nulla della tabella, cioè di solito l'intera mail. Le celle restano celle.
+        // "min-width" sulle tabelle (le mail di Google: <table style="max-width: 516px; min-width: 220px"> con le
+        // colonnine vuote da 8 px ai lati): il visualizzatore divide la larghezza minima in parti uguali tra tutte le
+        // colonne e non misura più il contenuto, e il testo finisce in una colonna di 30-70 px, una sillaba per riga.
+        // Senza "min-width" misura le celle e la tabella si allarga fino a "max-width" come in un browser.
         sanitizer.PostProcessNode += (_, e) =>
         {
-            if (e.Node is AngleSharp.Dom.IElement element && TableParts.Contains(element.LocalName)
-                && element.GetAttribute("style") is { } style && DisplayProperty().IsMatch(style))
-            {
-                var cleaned = DisplayProperty().Replace(style, "").Trim().TrimEnd(';').Trim();
-                if (cleaned.Length == 0)
-                    element.RemoveAttribute("style");
-                else
-                    element.SetAttribute("style", cleaned);
-            }
+            if (e.Node is not AngleSharp.Dom.IElement element || !TableParts.Contains(element.LocalName))
+                return;
+            RemoveStyleProperty(element, DisplayProperty());
+            if (element.LocalName == "table")
+                RemoveStyleProperty(element, MinWidthProperty());
         };
         return sanitizer;
+    }
+
+    private static void RemoveStyleProperty(AngleSharp.Dom.IElement element, Regex property)
+    {
+        if (element.GetAttribute("style") is not { } style || !property.IsMatch(style))
+            return;
+        var cleaned = property.Replace(style, "").Trim().TrimEnd(';').Trim();
+        if (cleaned.Length == 0)
+            element.RemoveAttribute("style");
+        else
+            element.SetAttribute("style", cleaned);
     }
 
     private static readonly HashSet<string> TableParts = ["table", "thead", "tbody", "tfoot", "tr", "td", "th"];
 
     [GeneratedRegex(@"(?<![\w-])display\s*:\s*[^;]*;?", RegexOptions.IgnoreCase)]
     private static partial Regex DisplayProperty();
+
+    [GeneratedRegex(@"(?<![\w-])min-width\s*:\s*[^;]*;?", RegexOptions.IgnoreCase)]
+    private static partial Regex MinWidthProperty();
 
     [GeneratedRegex(@"cid:(?<id>[^""'\s)>]+)", RegexOptions.IgnoreCase)]
     private static partial Regex CidReference();

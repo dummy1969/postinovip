@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sandbox spenta (scelta 1a del 14/11/2026): l'app avvia il core C# come processo separato in ascolto su
+	     127.0.0.1, come i client di posta distribuiti fuori dall'App Store. Senza sandbox non servono i permessi
+	     network.client / network.server. allow-jit serve alla VM Dart in debug con l'Hardened Runtime. -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+</dict>
+</plist>

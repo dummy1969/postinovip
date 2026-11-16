@@ -10,8 +10,8 @@ abstract interface class WindowPresenter {
 }
 
 /// Chiede al codice nativo del runner di mostrare la finestra (Linux: linux/runner/my_application.cc;
-/// Windows: windows/runner/flutter_window.cpp). Dart da solo non può farlo: serve il sistema di
-/// finestre (GTK, Win32, Cocoa).
+/// Windows: windows/runner/flutter_window.cpp; macOS: macos/Runner/MainFlutterWindow.swift). Dart da solo non
+/// può farlo: serve il sistema di finestre (GTK, Win32, Cocoa).
 class NativeWindowPresenter implements WindowPresenter {
   static const _channel = MethodChannel('com.dumm1969.postinovip/window');
 
@@ -28,7 +28,7 @@ class NativeWindowPresenter implements WindowPresenter {
             : 'finestra portata in primo piano',
       );
     } on MissingPluginException {
-      // Runner senza il canale (per ora macOS).
+      // Runner senza il canale.
       notifyLog('primo piano non disponibile su ${Platform.operatingSystem}');
     } on PlatformException catch (e) {
       notifyLog('primo piano non riuscito: ${e.message}');

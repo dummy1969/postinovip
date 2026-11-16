@@ -185,6 +185,17 @@ class CoreLauncher {
     for (final c in candidates) {
       if (File(c).existsSync()) return File(c).absolute.path;
     }
+    // macOS: l'app di sviluppo sta in app/build/macos/Build/Products/Debug/PostinoVip.app/Contents/MacOS/ e la
+    // cartella corrente non è detto che sia app/: si risale da lì fino alla cartella che contiene core/.
+    if (Platform.isMacOS) {
+      var dir = File(Platform.resolvedExecutable).parent;
+      for (var i = 0; i < 12; i++) {
+        final c = File('${dir.path}/core/src/PostinoVip.Api/bin/Debug/net10.0/$name');
+        if (c.existsSync()) return c.absolute.path;
+        if (dir.parent.path == dir.path) break;
+        dir = dir.parent;
+      }
+    }
     return null;
   }
 }

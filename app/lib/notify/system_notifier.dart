@@ -17,7 +17,9 @@ abstract interface class MailNotifier {
 void notifyLog(String message) => debugPrint('[notifiche] $message');
 
 /// Notifiche tramite flutter_local_notifications (Linux: specifica Desktop Notifications via D-Bus;
-/// Windows: toast, che richiedono nome app, AppUserModelId e GUID).
+/// Windows: toast, che richiedono nome app, AppUserModelId e GUID; macOS: User Notifications di Apple).
+/// Su macOS il permesso si chiede al primo avvio (scelta 1a, come Outlook e Mail): la domanda di sistema compare una
+/// volta sola, poi vale la scelta fatta in Impostazioni di Sistema → Notifiche. Niente numero sul Dock (scelta 2a).
 class SystemNotifier implements MailNotifier {
   SystemNotifier._(this._plugin, this._clicks);
 
@@ -31,7 +33,7 @@ class SystemNotifier implements MailNotifier {
   /// null se la piattaforma non è supportata o l'inizializzazione fallisce: l'app funziona lo stesso,
   /// ma il motivo viene scritto nel terminale.
   static Future<SystemNotifier?> create() async {
-    if (!(Platform.isLinux || Platform.isWindows)) {
+    if (!(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
       notifyLog('non disponibili su ${Platform.operatingSystem}');
       return null;
     }
@@ -49,6 +51,9 @@ class SystemNotifier implements MailNotifier {
             appUserModelId: 'Dumm1969.PostinoVip',
             guid: '37423cc0-f2cf-4175-a8bf-7870e7cd5491', // fisso: identifica l'app nelle notifiche di Windows
           ),
+          // Anche con la finestra in primo piano: se mostrarla lo decide l'opzione dell'app (NotifyMode), come su
+          // Linux e Windows. Il macOS predefinito del pacchetto chiederebbe anche il numero sul Dock: no (2a).
+          macOS: DarwinInitializationSettings(requestBadgePermission: false, defaultPresentBadge: false),
         ),
         onDidReceiveNotificationResponse: (response) {
           notifyLog('clic sulla notifica ${response.id}');
@@ -56,7 +61,13 @@ class SystemNotifier implements MailNotifier {
         },
       );
       if (ok == false) {
-        notifyLog('inizializzazione rifiutata dal plugin: notifiche disattivate');
+        // Su macOS false = permesso negato (ora o in passato): si riattiva in Impostazioni di Sistema → Notifiche →
+        // PostinoVip, poi si riavvia l'app.
+        notifyLog(
+          Platform.isMacOS
+              ? 'permesso negato su macOS (Impostazioni di Sistema → Notifiche): notifiche disattivate'
+              : 'inizializzazione rifiutata dal plugin: notifiche disattivate',
+        );
         return null;
       }
       notifyLog('pronte (initialize = $ok)');

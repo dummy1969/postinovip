@@ -50,13 +50,20 @@ class HtmlBodyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return HtmlWidget(
-      html,
-      buildAsync: buildAsync,
-      // factoryBuilder deve restituire un'istanza nuova a ogni chiamata.
-      factoryBuilder: () => SafeWidgetFactory(allowRemoteImages: allowRemoteImages),
-      onTapUrl: linksEnabled ? _openLink : (_) => true,
-      textStyle: const TextStyle(height: 1.4),
+    // Align: il corpo può usare *fino a* tutta la larghezza, senza esserne obbligato. Con una larghezza imposta
+    // (es. Column con stretch nel riquadro di lettura) il pacchetto divide la larghezza della tabella in parti uguali
+    // tra le colonne, anche le colonnine vuote da 8 px ai lati delle mail di Google, e non misura più il contenuto:
+    // il testo finiva in una colonna di 130 px. Con la larghezza libera misura le celle come un browser.
+    return Align(
+      alignment: Alignment.topLeft,
+      child: HtmlWidget(
+        html,
+        buildAsync: buildAsync,
+        // factoryBuilder deve restituire un'istanza nuova a ogni chiamata.
+        factoryBuilder: () => SafeWidgetFactory(allowRemoteImages: allowRemoteImages),
+        onTapUrl: linksEnabled ? _openLink : (_) => true,
+        textStyle: const TextStyle(height: 1.4),
+      ),
     );
   }
 

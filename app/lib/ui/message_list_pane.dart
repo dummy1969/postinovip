@@ -298,7 +298,7 @@ class MessageListPane extends StatelessWidget {
             leading: _ConversationToggle(expanded: expanded, onTap: () => model.toggleConversation(c.id)),
             onTap: () {
               _focusMail(context);
-              if (_isDoubleClick(c.id)) WidgetsBinding.instance.addPostFrameCallback((_) => _open(context));
+              if (_isDoubleClick(model, c.id)) WidgetsBinding.instance.addPostFrameCallback((_) => _open(context));
               final keys = HardwareKeyboard.instance;
               model.clickConversation(
                 c,
@@ -396,21 +396,26 @@ class MessageListPane extends StatelessWidget {
   /// l'intervallo (scelta 3.5-1a, come Outlook).
   static void _click(BuildContext context, MailboxModel model, MessageRef ref) {
     _focusMail(context);
-    if (_isDoubleClick(ref)) WidgetsBinding.instance.addPostFrameCallback((_) => _open(context));
+    if (_isDoubleClick(model, ref)) WidgetsBinding.instance.addPostFrameCallback((_) => _open(context));
     final keys = HardwareKeyboard.instance;
     model.clickMessage(ref, toggle: keys.isControlPressed || keys.isMetaPressed, range: keys.isShiftPressed);
   }
 
   // Doppio clic misurato a mano (come nella finestra "Sposta elementi"): onDoubleTap ritarderebbe ogni clic semplice.
+  // Si ricorda anche il modello: nei test ogni app ha il suo, e un clic del test precedente sulla stessa riga (stesso
+  // MessageRef) non deve valere come primo clic. Su un Mac M1 tra due test passano meno di 300 ms reali (macOS M1).
   static Object? _lastClicked;
+  static MailboxModel? _lastModel;
   static DateTime _lastClickAt = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Secondo clic sulla stessa riga entro [kDoubleTapTimeout]: la mail si apre nella sua finestra (MessageWindow),
   /// come Outlook.
-  static bool _isDoubleClick(Object row) {
+  static bool _isDoubleClick(MailboxModel model, Object row) {
     final now = DateTime.now();
-    final double = row == _lastClicked && now.difference(_lastClickAt) <= kDoubleTapTimeout;
+    final double =
+        identical(model, _lastModel) && row == _lastClicked && now.difference(_lastClickAt) <= kDoubleTapTimeout;
     _lastClicked = double ? null : row;
+    _lastModel = model;
     _lastClickAt = now;
     return double;
   }

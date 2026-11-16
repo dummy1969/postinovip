@@ -84,7 +84,7 @@ Non passare allo step successivo senza conferma dell'utente.
 
 **Dettagli di ogni fase e step** (scelte dell'utente con le etichette, verifiche, implementazione, misure, test, limiti): **`docs/storia.md`**, testo completo. Qui solo lo stato in breve. A ogni step: i dettagli in `docs/storia.md`, qui una riga di stato.
 
-### Stato (13/11/2026, 0.0.230) — codice pubblicato come alpha
+### Stato (14/11/2026, 0.0.234) — codice pubblicato come alpha
 
 | Parte | Stato | In `docs/storia.md` |
 |---|---|---|
@@ -112,11 +112,14 @@ Non passare allo step successivo senza conferma dell'utente.
 | Versione installata: prima sincronizzazione delle cartelle grandi (lista subito, resto in sottofondo), una sola copia dell'app | ✅ | «Versione installata: prima sincronizzazione…» |
 | Calendario K1–K5 (CalDAV, vista, finestra Appuntamento, promemoria) | ✅ | «Calendario» |
 | Aspetto come l'Outlook di oggi V0–V6 (con V3b) | ✅ chiusa il 12/11/2026 (decisioni di tutti i sotto-step confermate); provata su Windows dall'utente il 12/11/2026: tutto ok | «Aspetto come l'Outlook di oggi» |
-| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva; ultima pubblicata: **0.0.224**, commit `70ddbbf`); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
+| Pubblicazione su GitHub (repository pubblico nuovo da esportazioni ripulite) | ✅ 12/11/2026: `github.com/dummy1969/postinovip` pubblico (0.0.214, solo sorgente, segnalazione privata delle vulnerabilità attiva; ultima pubblicata: **0.0.230**, commit `8dc8f6b`); sviluppo in `postinovip-dev` (privato) | «Pubblicazione su GitHub» |
 | Posta in arrivo bloccata da una mail con BODYSTRUCTURE non valido (IceWarp): struttura chiesta a parte, mail difettosa isolata (`StructureGuard`, scelta 1a) | ✅ 0.0.218, verificata su Linux con l'account vero e dall'utente su Windows | «Posta in arrivo bloccata da una mail…» |
 | Posta: tasti della lista e Svuota cartella (scelte 1a 2a 3a 4a) | ✅ S1 core (0.0.222), S2 app (0.0.223); verificata dall'utente il 13/11/2026, decisioni a–d confermate | «Posta: tasti della lista e Svuota cartella» |
 | Posta: formato del messaggio HTML / testo normale (scelte 1a 2a 3a 4a) | ✅ T1 core (0.0.226), T2 app (0.0.227); verificata dall'utente il 13/11/2026, decisioni a–f confermate | «Posta: formato del messaggio» |
-| Aggiornamento di `archive` 4.7.0 (1a) e di tre pacchetti (2a) | `archive` ✅ (0.0.229, stampa verificata); `flutter_local_notifications` 23.0.2 e `shared_preferences_android`/`_foundation` (0.0.230) **da verificare** (notifiche, impostazioni) | «Aggiornamento di archive e di tre pacchetti» |
+| macOS M1: prima build di sviluppo (sandbox spenta, scelta 1a) | ✅ verificata sul Mac il 14/11/2026 da Claude Code sul Mac (0.0.233): `tools/verifica-macos.sh` 10 OK, 0 errori (Flutter 3.47.9, .NET 10.0.404 in `~/.dotnet`), app avviata con `flutter run -d macos` e account reale; corretto il doppio clic nei test (falliva a caso sul Mac, più veloce); **notifiche su Mac** ✅ 0.0.234 (scelte 1a permesso al primo avvio, 2a niente numero sul Dock), verificate dall'utente il 14/11/2026 (notifica e clic → primo piano); restano `PostinoVip.app` dal Finder, pacchetto `.dmg` | «macOS: prima build di sviluppo» |
+| Mail di Google strette nel riquadro di lettura (anche su Linux e Windows) | ✅ 0.0.233 (sul Mac): `min-width` tolto dalle tabelle nel core, corpo HTML in `Align` nell'app; verificata dall'utente sul Mac il 14/11/2026; **da guardare su Linux e Windows** (Google e qualche newsletter) | «Mail di Google strette nel riquadro di lettura» |
+| Pubblicazione della 0.0.234 (con la 0.0.233) sul repository pubblico | **da fare dal PC Linux** (sul Mac manca `tools/dati-privati.txt`): istruzioni in `docs/storia.md`, «Pubblicazione su GitHub», ultima voce | «Pubblicazione su GitHub» |
+| Aggiornamento di `archive` 4.7.0 (1a) e di tre pacchetti (2a) | ✅ `archive` (0.0.229, stampa verificata); `flutter_local_notifications` 23.0.2 e `shared_preferences_android`/`_foundation` (0.0.230) verificati dall'utente il 13/11/2026 (notifiche, impostazioni: «tutto ok») | «Aggiornamento di archive e di tre pacchetti» |
 
 ### Aspetto come l'Outlook di oggi ✅ (11–12/11/2026)
 

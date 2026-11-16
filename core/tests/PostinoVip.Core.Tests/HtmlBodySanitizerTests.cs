@@ -70,4 +70,20 @@ public class HtmlBodySanitizerTests
         Assert.Contains("<td>B</td>", clean); // style rimasto vuoto: tolto
         Assert.Contains("display: block\">D", clean); // fuori dalle tabelle resta
     }
+
+    [Fact]
+    public void MinWidthSulleTabelleTolto()
+    {
+        // Avvisi di sicurezza di Google: con "min-width" sulla tabella il testo finiva in una colonna di pochi pixel.
+        var html = "<table style=\"padding-bottom: 20px; max-width: 516px; min-width: 220px;\"><tr>" +
+                   "<td style=\"min-width: 50px\">A</td></tr></table>" +
+                   "<table style=\"min-width:348px\"><tr><td>B</td></tr></table><div style=\"min-width: 10px\">D</div>";
+
+        var clean = HtmlBodySanitizer.Sanitize(html).Html;
+
+        Assert.Contains("<table style=\"padding-bottom: 20px; max-width: 516px\">", clean);
+        Assert.Contains("<table><tbody><tr><td>B</td>", clean); // style rimasto vuoto: tolto
+        Assert.Contains("<td style=\"min-width: 50px\">A</td>", clean); // solo sulle tabelle
+        Assert.Contains("min-width: 10px\">D", clean); // fuori dalle tabelle resta
+    }
 }

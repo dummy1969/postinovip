@@ -336,7 +336,7 @@ abstract interface class AccountStore {
   Future<void> save(List<AccountConfig> accounts);
 }
 
-/// Portachiavi di sistema (Linux: libsecret -> gnome-keyring/KWallet; Windows: archivio protetto).
+/// Portachiavi di sistema (Linux: libsecret -> gnome-keyring/KWallet; Windows: archivio protetto; macOS: Portachiavi).
 /// Tutti gli account stanno in una sola voce cifrata, password comprese: si salvano sempre insieme,
 /// quindi non possono restare a metà (es. elenco aggiornato ma password mancante).
 class SecureAccountStore implements AccountStore {
@@ -345,7 +345,10 @@ class SecureAccountStore implements AccountStore {
   /// Voce del formato a un account (fino al punto 7a): convertita al primo avvio.
   static const _legacyKey = 'postinovip.account';
 
-  final _storage = const FlutterSecureStorage();
+  // macOS: portachiavi classico (usesDataProtectionKeychain: false), come consiglia il README del pacchetto per le
+  // app senza condivisione del portachiavi: quello «data protection» chiede il permesso keychain-access-groups e
+  // quindi un profilo di provisioning Apple. Le altre piattaforme ignorano mOptions.
+  final _storage = const FlutterSecureStorage(mOptions: MacOsOptions(usesDataProtectionKeychain: false));
 
   @override
   Future<List<AccountConfig>> load() async {

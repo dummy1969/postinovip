@@ -37,7 +37,8 @@ Le schermate mostrano una casella d'esempio inventata e si rifanno con `tools/sc
 
 - Provato a fondo con **un solo server** (IceWarp) e con Gmail. Spostare ed eliminare mail su altri server (Dovecot,
   Exchange, …) dovrebbe funzionare ma non è stato provato.
-- **Windows** provato poco, **macOS** mai.
+- **Windows** provato poco. **macOS** (Apple Silicon): compila e si avvia in sviluppo (`flutter run -d macos`), con
+  le notifiche; non c'è ancora un pacchetto da installare.
 - **Microsoft 365 / Outlook.com** con OAuth2: il codice c'è, ma non è stato provato con un account vero.
 - **Gmail**: serve un'app registrata nella console di Google (vedi [Gmail e OAuth2](#gmail-e-oauth2)); il repository non
   ne contiene una.
@@ -150,7 +151,7 @@ contacts.
   stopped by the UI.
 
 Build: .NET SDK 10 and Flutter 3.47; on Linux also `libsecret-1-dev` and Flutter's Linux dependencies. Then
-`cd core && dotnet build`, `cd app && flutter run -d linux` (or `-d windows`). Packages: `packaging/linux/build-deb.sh`,
+`cd core && dotnet build`, `cd app && flutter run -d linux` (or `-d windows`; `-d macos` runs in development, no package yet). Packages: `packaging/linux/build-deb.sh`,
 `packaging/linux/build-appimage.sh`, `packaging\windows\build-installer.ps1`.
 
 Security issues: see [SECURITY.md](SECURITY.md). License: [AGPL-3.0-or-later](LICENSE). Not affiliated with or endorsed
