@@ -38,7 +38,7 @@ public sealed class CacheController(MailAccountRegistry accounts, CacheSettings 
         var account = accounts.Get(accountId);
         // POP3 (4.2, scelta 5a): non c'è un server da cui ricostruire, le mail sono solo sul computer.
         if (account.IsPop3)
-            throw new InvalidOperationException("Account POP3: le mail sono solo sul computer, non c'è una copia da ricostruire dal server.");
+            throw new InvalidOperationException("Account POP3: le mail sono solo sul computer, non c'è una copia da ricostruire dal server.").WithCode("accountPop3LeMailSono");
         var bodies = account.Bodies ?? throw new NotSupportedException("Cache locale disattivata (Cache:Enabled=false).");
         bodies.Cache.Reset();
         hub.Publish(MailboxEvent.CacheRebuilt(account.Id));

@@ -49,7 +49,7 @@ public sealed class ContactStore(string directory)
     public Contact Get(string id)
     {
         lock (_lock)
-            return Loaded().TryGetValue(id, out var c) ? c : throw new MailNotFoundException("Contatto non trovato.");
+            return Loaded().TryGetValue(id, out var c) ? c : throw new MailNotFoundException("Contatto non trovato.").WithCode("contattoNonTrovato");
     }
 
     public Contact Create(Contact input)
@@ -58,7 +58,7 @@ public sealed class ContactStore(string directory)
         lock (_lock)
         {
             if (Loaded().Count >= MaxContacts)
-                throw new FieldValidationException("contact", $"La rubrica ha già {MaxContacts} contatti.");
+                throw new FieldValidationException("contact", $"La rubrica ha già {MaxContacts} contatti.").WithCode("laRubricaHaGiaContatti", ("maxContacts", MaxContacts));
             var created = Save(clean with { Id = NewId(), Updated = DateTimeOffset.UtcNow }, uid: "urn:uuid:" + Guid.NewGuid(), extra: []);
             Notify();
             return created;
@@ -71,7 +71,7 @@ public sealed class ContactStore(string directory)
         var clean = Validate(input);
         lock (_lock)
         {
-            var old = Loaded().TryGetValue(id, out var c) ? c : throw new MailNotFoundException("Contatto non trovato.");
+            var old = Loaded().TryGetValue(id, out var c) ? c : throw new MailNotFoundException("Contatto non trovato.").WithCode("contattoNonTrovato");
             var updated = Save(clean with { Id = id, Updated = DateTimeOffset.UtcNow }, old.VCardUid, old.Extra);
             Notify();
             return updated;
@@ -83,7 +83,7 @@ public sealed class ContactStore(string directory)
         lock (_lock)
         {
             if (!Loaded().Remove(id))
-                throw new MailNotFoundException("Contatto non trovato.");
+                throw new MailNotFoundException("Contatto non trovato.").WithCode("contattoNonTrovato");
             File.Delete(PathOf(id));
         }
         Notify();
@@ -101,7 +101,7 @@ public sealed class ContactStore(string directory)
         {
             "vcf" => VCard.Parse(text),
             "csv" => ContactCsv.Parse(text, out invalid),
-            _ => throw new FieldValidationException("format", "Formato non riconosciuto: usare vcf o csv."),
+            _ => throw new FieldValidationException("format", "Formato non riconosciuto: usare vcf o csv.").WithCode("formatoNonRiconosciutoUsareVcf"),
         };
         int imported = 0, duplicates = 0;
         lock (_lock)
@@ -147,7 +147,7 @@ public sealed class ContactStore(string directory)
         {
             "vcf" => Encoding.UTF8.GetBytes(string.Concat(contacts.Select(VCard.Write))),
             "csv" => [.. Encoding.UTF8.GetPreamble(), .. Encoding.UTF8.GetBytes(ContactCsv.Write(contacts))],
-            _ => throw new FieldValidationException("format", "Formato non riconosciuto: usare vcf o csv."),
+            _ => throw new FieldValidationException("format", "Formato non riconosciuto: usare vcf o csv.").WithCode("formatoNonRiconosciutoUsareVcf"),
         };
     }
 
@@ -182,7 +182,7 @@ public sealed class ContactStore(string directory)
             {
                 if (lenient)
                     continue;
-                throw new FieldValidationException("emails", $"Indirizzo non valido: {address}");
+                throw new FieldValidationException("emails", $"Indirizzo non valido: {address}").WithCode("indirizzoNonValido", ("address", address));
             }
             if (emails.Any(x => x.Address.Equals(address, StringComparison.OrdinalIgnoreCase)))
                 continue;
@@ -206,7 +206,7 @@ public sealed class ContactStore(string directory)
             Text(c.DisplayName, "displayName"), emails, phones, Text(c.Company, "company"), Text(c.Notes, "notes", MaxNotesLength),
             c.Updated);
         if (clean.GivenName is null && clean.FamilyName is null && clean.DisplayName is null && clean.Company is null && emails.Count == 0)
-            throw new FieldValidationException("contact", "Scrivere almeno un nome, la società o un indirizzo.");
+            throw new FieldValidationException("contact", "Scrivere almeno un nome, la società o un indirizzo.").WithCode("scrivereAlmenoUnNomeLa");
         return clean;
     }
 
@@ -336,7 +336,7 @@ public sealed class ContactStore(string directory)
     }
 
     private string PathOf(string id) =>
-        IsValidId(id) ? Path.Combine(Directory, id + ".vcf") : throw new MailNotFoundException("Contatto non trovato.");
+        IsValidId(id) ? Path.Combine(Directory, id + ".vcf") : throw new MailNotFoundException("Contatto non trovato.").WithCode("contattoNonTrovato");
 
     public static bool IsValidId(string id) => id.Length is > 0 and <= 32 && id.All(char.IsAsciiHexDigitLower);
 

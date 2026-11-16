@@ -107,7 +107,7 @@ public static class CalendarEvents
         string? localZone = null)
     {
         if (to <= from || (to - from).TotalDays > MaxDays)
-            throw new FieldValidationException("to", $"Periodo non valido: al massimo {MaxDays} giorni, con la fine dopo l'inizio.");
+            throw new FieldValidationException("to", $"Periodo non valido: al massimo {MaxDays} giorni, con la fine dopo l'inizio.").WithCode("periodoNonValidoAlMassimo", ("maxDays", MaxDays));
         localZone ??= LocalTimeZone();
         var result = new List<EventOccurrence>();
         var truncated = false;
@@ -186,7 +186,7 @@ public static class CalendarEvents
     public static EventDetail Detail(string calendarId, CalendarItem item, string? localZone = null)
     {
         localZone ??= LocalTimeZone();
-        var cal = Load(item) ?? throw new MailNotFoundException("Appuntamento non leggibile.");
+        var cal = Load(item) ?? throw new MailNotFoundException("Appuntamento non leggibile.").WithCode("appuntamentoNonLeggibile");
         var master = cal.Events.FirstOrDefault(e => e.RecurrenceId is null) ?? cal.Events.First();
         var allDay = master.IsAllDay;
         var (start, end, tz) = StartEnd(master, localZone);
@@ -226,7 +226,7 @@ public static class CalendarEvents
         if (!master.DtStart!.HasTime)
             return new CalDateTime(ParseDate(recurrenceId.Length >= 10 ? recurrenceId[..10] : recurrenceId, "recurrenceId"));
         if (!DateTimeOffset.TryParse(recurrenceId, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var instant))
-            throw new FieldValidationException("recurrenceId", "Occorrenza non valida.");
+            throw new FieldValidationException("recurrenceId", "Occorrenza non valida.").WithCode("occorrenzaNonValida");
         if (master.DtStart.IsUtc)
             return new CalDateTime(instant.UtcDateTime, "UTC");
         var zoneId = master.DtStart.TzId is { } z ? NormalizeZone(z) ?? localZone : localZone;
@@ -240,10 +240,10 @@ public static class CalendarEvents
     private static (Ical.Net.Calendar Cal, CalendarEvent Master, CalDateTime Original, CalendarEvent? Override) Occurrence(
         string text, string recurrenceId, string localZone)
     {
-        var cal = CalendarText.Load(text) ?? throw new FieldValidationException("event", "Appuntamento non leggibile.");
-        var master = cal.Events.FirstOrDefault(e => e.RecurrenceId is null) ?? throw new FieldValidationException("event", "Serie non trovata.");
+        var cal = CalendarText.Load(text) ?? throw new FieldValidationException("event", "Appuntamento non leggibile.").WithCode("appuntamentoNonLeggibile");
+        var master = cal.Events.FirstOrDefault(e => e.RecurrenceId is null) ?? throw new FieldValidationException("event", "Serie non trovata.").WithCode("serieNonTrovata");
         if (master.RecurrenceRule is null && !master.RecurrenceDates.GetAllDates().Any())
-            throw new InvalidOperationException("L'appuntamento non è ricorrente: si modifica tutto.");
+            throw new InvalidOperationException("L'appuntamento non è ricorrente: si modifica tutto.").WithCode("appuntamentoNonRicorrenteSiModifica");
         var original = OriginalStart(master, recurrenceId, localZone);
         var over = cal.Events.FirstOrDefault(e => e.RecurrenceId is { } r && SameOccurrence(r, original));
         return (cal, master, original, over);
@@ -493,8 +493,8 @@ public static class CalendarEvents
     /// </summary>
     public static string Update(string text, EventInput input, string? localZone = null)
     {
-        var cal = CalendarText.Load(text) ?? throw new FieldValidationException("event", "Appuntamento non leggibile.");
-        var master = cal.Events.FirstOrDefault(e => e.RecurrenceId is null) ?? throw new FieldValidationException("event", "Serie non trovata.");
+        var cal = CalendarText.Load(text) ?? throw new FieldValidationException("event", "Appuntamento non leggibile.").WithCode("appuntamentoNonLeggibile");
+        var master = cal.Events.FirstOrDefault(e => e.RecurrenceId is null) ?? throw new FieldValidationException("event", "Serie non trovata.").WithCode("serieNonTrovata");
         Apply(cal, master, input, localZone ?? LocalTimeZone(), isNew: false);
         return Serialize(cal);
     }
@@ -512,9 +512,9 @@ public static class CalendarEvents
         var summary = Clean(input.Summary, "summary", 500);
         var location = Clean(input.Location, "location", 500);
         var description = string.IsNullOrWhiteSpace(input.Description) ? null : input.Description.Length <= 20_000
-            ? input.Description.TrimEnd() : throw new FieldValidationException("description", "Al massimo 20000 caratteri.");
+            ? input.Description.TrimEnd() : throw new FieldValidationException("description", "Al massimo 20000 caratteri.").WithCode("alMassimo20000Caratteri");
         if (input.ReminderMinutes is < 0 or > 40320)
-            throw new FieldValidationException("reminderMinutes", "Promemoria non valido (da 0 minuti a 4 settimane prima).");
+            throw new FieldValidationException("reminderMinutes", "Promemoria non valido (da 0 minuti a 4 settimane prima).").WithCode("promemoriaNonValidoDaMinuti");
 
         var zone = input.AllDay ? null : NormalizeZone(input.TimeZone) ?? (input.TimeZone is null ? localZone
             : throw new FieldValidationException("timeZone", "Fuso orario sconosciuto."));
@@ -524,7 +524,7 @@ public static class CalendarEvents
             var s = ParseDate(input.Start, "start");
             var e = ParseDate(input.End, "end");
             if (e < s)
-                throw new FieldValidationException("end", "La fine è prima dell'inizio.");
+                throw new FieldValidationException("end", "La fine è prima dell'inizio.").WithCode("laFinePrimaDellInizio");
             start = new CalDateTime(s);
             end = new CalDateTime(e.AddDays(1)); // DTEND escluso (RFC 5545 3.6.1)
         }
@@ -533,7 +533,7 @@ public static class CalendarEvents
             var s = ParseLocal(input.Start, "start");
             var e = ParseLocal(input.End, "end");
             if (e < s)
-                throw new FieldValidationException("end", "La fine è prima dell'inizio.");
+                throw new FieldValidationException("end", "La fine è prima dell'inizio.").WithCode("laFinePrimaDellInizio");
             start = new CalDateTime(s, zone, true);
             end = new CalDateTime(e, zone, true);
         }
@@ -605,5 +605,5 @@ public static class CalendarEvents
             ? DateTime.SpecifyKind(d, DateTimeKind.Unspecified) : throw new FieldValidationException(field, "Ora non valida (aaaa-mm-ggThh:mm).");
 
     private static string Serialize(Ical.Net.Calendar cal) =>
-        CalendarText.Normalize(new CalendarSerializer().SerializeToString(cal) ?? throw new InvalidOperationException("Serializzazione non riuscita."));
+        CalendarText.Normalize(new CalendarSerializer().SerializeToString(cal) ?? throw new InvalidOperationException("Serializzazione non riuscita.").WithCode("serializzazioneNonRiuscita"));
 }

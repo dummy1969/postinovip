@@ -31,7 +31,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     public ImapMailService(ImapSettings settings, TimeSpan? operationTimeout = null)
     {
         if (string.IsNullOrWhiteSpace(settings.Host))
-            throw new ArgumentException("Host IMAP non configurato.", nameof(settings));
+            throw new ArgumentException("Host IMAP non configurato.", nameof(settings)).WithCode("hostImapNonConfigurato");
         if (string.IsNullOrWhiteSpace(settings.Username) || (string.IsNullOrEmpty(settings.Password) && settings.AccessToken is null))
             throw new ArgumentException("Credenziali IMAP mancanti (Imap:Username / Imap:Password).", nameof(settings));
 
@@ -125,7 +125,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         // Scarica di nuovo tutto il messaggio: semplice, da ottimizzare (BODYSTRUCTURE + singola parte) con la cache.
         var message = await LoadMessageAsync(folderName, uid, ct);
         return Attachments.Extract(message, index)
-            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.");
+            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio", ("index", index), ("uid", uid));
     }
 
     public async Task<IReadOnlyList<AttachmentContent>> GetAttachmentsAsync(string folderName, uint uid, IReadOnlyList<int> indexes,
@@ -134,7 +134,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         var message = await LoadMessageAsync(folderName, uid, ct);
         return indexes
             .Select(i => Attachments.Extract(message, i)
-                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}."))
+                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio2", ("i", i), ("uid", uid)))
             .ToList();
     }
 
@@ -152,7 +152,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         catch (MessageNotFoundException ex)
         {
-            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.", ex);
+            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.", ex).WithCode("messaggioNonTrovatoIn3", ("uid", uid), ("folderName", folderName));
         }
         finally
         {
@@ -175,7 +175,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         catch (MessageNotFoundException ex)
         {
-            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.", ex);
+            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.", ex).WithCode("messaggioNonTrovatoIn3", ("uid", uid), ("folderName", folderName));
         }
         finally
         {
@@ -300,7 +300,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
             var userDefined = folder.PermanentFlags.HasFlag(MessageFlags.UserDefined);
             var unknown = keywords.Where(k => !userDefined && !folder.PermanentKeywords.Contains(k)).ToList();
             if (unknown.Count > 0)
-                throw new NotSupportedException($"Il server non permette di salvare le parole chiave {string.Join(", ", unknown)} in '{folderName}'.");
+                throw new NotSupportedException($"Il server non permette di salvare le parole chiave {string.Join(", ", unknown)} in '{folderName}'.").WithCode("ilServerNonPermetteDi", ("value", string.Join(", ", unknown)), ("folderName", folderName));
 
             var ids = ToIds(uids);
             foreach (var (action, flags) in new[] { (StoreAction.Add, add), (StoreAction.Remove, remove) })
@@ -326,7 +326,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         CancellationToken ct = default) =>
         (await UpdateFlagsAsync(folderName, [uid], add, remove, ct)).TryGetValue(uid, out var flags)
             ? flags
-            : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.");
+            : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.").WithCode("messaggioNonTrovatoIn3", ("uid", uid), ("folderName", folderName));
 
     /// <summary>Imposta o toglie \Seen su una o più mail; restituisce lo stato letto dal server, solo per le mail trovate.</summary>
     public async Task<IReadOnlyDictionary<uint, bool>> SetSeenAsync(string folderName, IReadOnlyCollection<uint> uids, bool seen,
@@ -353,13 +353,13 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     public async Task<bool> SetSeenAsync(string folderName, uint uid, bool seen, CancellationToken ct = default) =>
         (await SetSeenAsync(folderName, [uid], seen, ct)).TryGetValue(uid, out var result)
             ? result
-            : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.");
+            : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.").WithCode("messaggioNonTrovatoIn3", ("uid", uid), ("folderName", folderName));
 
     /// <summary>APPEND nella cartella con ruolo \Sent (scelta per ruolo, mai per nome).</summary>
     public async Task<string> AppendToSentAsync(MimeMessage message, CancellationToken ct = default)
     {
         var sent = await FindSpecialAsync(FolderAttributes.Sent, ct)
-            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Sent (Posta inviata): copia non salvata.");
+            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Sent (Posta inviata): copia non salvata.").WithCode("ilServerNonDichiaraUna");
 
         // APPEND non richiede di aprire la cartella; \Seen: la propria mail inviata è già "letta".
         await sent.AppendAsync(new AppendRequest(message, MessageFlags.Seen), ct);
@@ -373,7 +373,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     public async Task<DraftSaved> SaveDraftAsync(MimeMessage message, uint? replaceUid, CancellationToken ct = default)
     {
         var drafts = await FindSpecialAsync(FolderAttributes.Drafts, ct)
-            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Drafts (Bozze): bozza non salvata.");
+            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Drafts (Bozze): bozza non salvata.").WithCode("ilServerNonDichiaraUna2");
         var uid = await drafts.AppendAsync(new AppendRequest(message, MessageFlags.Draft | MessageFlags.Seen), ct);
         if (replaceUid is { } old && old != uid?.Id)
             await DeleteDraftAsync(old, ct);
@@ -383,7 +383,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     public async Task DeleteDraftAsync(uint uid, CancellationToken ct = default)
     {
         var drafts = await FindSpecialAsync(FolderAttributes.Drafts, ct)
-            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Drafts (Bozze).");
+            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Drafts (Bozze).").WithCode("ilServerNonDichiaraUna3");
         RequireUidPlus();
         var folder = await OpenAsync(drafts.FullName, FolderAccess.ReadWrite, ct);
         try
@@ -410,7 +410,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         CancellationToken ct = default)
     {
         if (string.Equals(folderName, destinationName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.");
+            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.").WithCode("cartellaDiOrigineDestinazioneCoincidono");
 
         var destination = await GetFolderAsync(destinationName, ct);
         return new BatchResult(destination.FullName, await MoveToAsync(folderName, uids, destination, ct));
@@ -427,7 +427,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         CancellationToken ct = default)
     {
         if (string.Equals(folderName, destinationName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.");
+            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.").WithCode("cartellaDiOrigineDestinazioneCoincidono");
 
         var destination = await GetFolderAsync(destinationName, ct);
         var folder = await OpenAsync(folderName, FolderAccess.ReadOnly, ct);
@@ -448,9 +448,9 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     public async Task<BatchResult> MoveToTrashAsync(string folderName, IReadOnlyCollection<uint> uids, CancellationToken ct = default)
     {
         var trash = await FindSpecialAsync(FolderAttributes.Trash, ct)
-            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Trash (Posta eliminata).");
+            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Trash (Posta eliminata).").WithCode("ilServerNonDichiaraUna4");
         if (string.Equals(trash.FullName, folderName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Il messaggio è già in Posta eliminata: usare l'eliminazione definitiva.");
+            throw new InvalidOperationException("Il messaggio è già in Posta eliminata: usare l'eliminazione definitiva.").WithCode("ilMessaggioGiaInPosta");
 
         return new BatchResult(trash.FullName, await MoveToAsync(folderName, uids, trash, ct));
     }
@@ -467,7 +467,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     {
         var trash = await FindSpecialAsync(FolderAttributes.Trash, ct);
         if (trash is null || !string.Equals(trash.FullName, folderName, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("L'eliminazione definitiva è consentita solo in Posta eliminata.");
+            throw new InvalidOperationException("L'eliminazione definitiva è consentita solo in Posta eliminata.").WithCode("eliminazioneDefinitivaConsentitaSoloIn");
         RequireUidPlus();
 
         var folder = await OpenAsync(folderName, FolderAccess.ReadWrite, ct);
@@ -525,7 +525,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     {
         if (!_client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
             throw new NotSupportedException(
-                "Il server non supporta MOVE né UIDPLUS: operazione rifiutata per non cancellare altri messaggi.");
+                "Il server non supporta MOVE né UIDPLUS: operazione rifiutata per non cancellare altri messaggi.").WithCode("ilServerNonSupportaMove");
     }
 
     private static IList<UniqueId> ToIds(IEnumerable<uint> uids) => uids.Distinct().Select(u => new UniqueId(u)).ToList();
@@ -539,7 +539,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
 
     /// <summary>Per le operazioni su una sola mail: se non c'era, MailNotFoundException (404) come prima.</summary>
     private static BatchResult Single(BatchResult result, string folderName, uint uid) =>
-        result.Uids.Contains(uid) ? result : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.");
+        result.Uids.Contains(uid) ? result : throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folderName}'.").WithCode("messaggioNonTrovatoIn3", ("uid", uid), ("folderName", folderName));
 
     // ---------------------------------------------------------------------------------------------
     // Cartelle (3.4b): creare, rinominare, eliminare. MODIFICANO la casella.
@@ -550,13 +550,13 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
     {
         var parent = parentName is null ? _client.GetFolder(_client.PersonalNamespaces[0]) : await GetFolderAsync(parentName, ct);
         if (parent.Attributes.HasFlag(FolderAttributes.NoInferiors))
-            throw new InvalidOperationException($"La cartella '{parent.FullName}' non può contenere sottocartelle.");
+            throw new InvalidOperationException($"La cartella '{parent.FullName}' non può contenere sottocartelle.").WithCode("laCartellaNonPuoContenere", ("fullName", parent.FullName));
         var separator = parent.DirectorySeparator;
         var clean = FolderNames.Validate(name, separator, topLevel: parentName is null);
         await RequireFreeNameAsync(parent, clean, except: null, ct);
 
         var created = await parent.CreateAsync(clean, isMessageFolder: true, ct)
-            ?? throw new InvalidOperationException($"Il server non ha creato la cartella '{clean}'.");
+            ?? throw new InvalidOperationException($"Il server non ha creato la cartella '{clean}'.").WithCode("ilServerNonHaCreato", ("clean", clean));
         return new FolderChange(created.FullName, separator);
     }
 
@@ -588,7 +588,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         var all = await RequireOrdinaryAsync(folder, ct);
         var separator = folder.DirectorySeparator;
         var trash = all.FirstOrDefault(f => f.Attributes.HasFlag(FolderAttributes.Trash))
-            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Trash (Posta eliminata).");
+            ?? throw new MailNotFoundException("Il server non dichiara una cartella \\Trash (Posta eliminata).").WithCode("ilServerNonDichiaraUna4");
 
         if (folder.FullName.StartsWith(trash.FullName + trash.DirectorySeparator, StringComparison.Ordinal))
         {
@@ -626,7 +626,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
             inner = all.Where(f => f.Exists && f.FullName.StartsWith(prefix, StringComparison.Ordinal))
                 .OrderByDescending(f => f.FullName.Count(c => c == separator)).ToList();
             if (inner.FirstOrDefault(f => SpecialUse.FromAttributes(f.Attributes, f.FullName) is not null) is { } special)
-                throw new InvalidOperationException($"'{folder.FullName}' contiene la cartella speciale '{special.FullName}': non si svuota.");
+                throw new InvalidOperationException($"'{folder.FullName}' contiene la cartella speciale '{special.FullName}': non si svuota.").WithCode("contieneLaCartellaSpecialeNon2", ("fullName", folder.FullName), ("fullName2", special.FullName));
         }
 
         int count;
@@ -666,16 +666,16 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         var parent = newParentName is null ? _client.GetFolder(_client.PersonalNamespaces[0]) : await GetFolderAsync(newParentName, ct);
 
         if (parent.FullName == folder.FullName || parent.FullName.StartsWith(folder.FullName + separator, StringComparison.Ordinal))
-            throw new InvalidOperationException($"'{folder.FullName}' non può andare dentro sé stessa o una sua sottocartella.");
+            throw new InvalidOperationException($"'{folder.FullName}' non può andare dentro sé stessa o una sua sottocartella.").WithCode("nonPuoAndareDentroSe2", ("fullName", folder.FullName));
         if (parent.Attributes.HasFlag(FolderAttributes.NoInferiors))
-            throw new InvalidOperationException($"La cartella '{parent.FullName}' non può contenere sottocartelle.");
+            throw new InvalidOperationException($"La cartella '{parent.FullName}' non può contenere sottocartelle.").WithCode("laCartellaNonPuoContenere", ("fullName", parent.FullName));
         var current = await GetParentAsync(folder, ct);
         if (current.FullName == parent.FullName)
             return new FolderChange(folder.FullName, separator); // già lì: nessun cambiamento
 
         var topLevel = string.IsNullOrEmpty(parent.FullName);
         if (topLevel && folder.Name.Equals("INBOX", StringComparison.OrdinalIgnoreCase))
-            throw new FieldValidationException("parent", "\"INBOX\" è il nome riservato della Posta in arrivo.");
+            throw new FieldValidationException("parent", "\"INBOX\" è il nome riservato della Posta in arrivo.").WithCode("inboxIlNomeRiservatoDella");
 
         var target = folder.Name;
         if (parent.Attributes.HasFlag(FolderAttributes.Trash))
@@ -711,7 +711,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
                     : $"'{folder.FullName}' contiene la cartella speciale '{f.FullName}': non si può rinominare, spostare né eliminare.");
         }
         if (SpecialUse.FromAttributes(folder.Attributes, folder.FullName) is not null)
-            throw new InvalidOperationException($"'{folder.FullName}' è una cartella speciale: non si può rinominare, spostare né eliminare.");
+            throw new InvalidOperationException($"'{folder.FullName}' è una cartella speciale: non si può rinominare, spostare né eliminare.").WithCode("unaCartellaSpecialeNonSi", ("fullName", folder.FullName));
         return all;
     }
 
@@ -747,7 +747,7 @@ public sealed class ImapMailService : IMailboxSource, IAsyncDisposable
         }
         catch (FolderNotFoundException ex)
         {
-            throw new MailNotFoundException($"Cartella '{folderName}' non trovata.", ex);
+            throw new MailNotFoundException($"Cartella '{folderName}' non trovata.", ex).WithCode("cartellaNonTrovata4", ("folderName", folderName));
         }
     }
 

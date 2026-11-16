@@ -19,7 +19,8 @@ public sealed record SearchTerm(SearchField? Field, string Text, bool IsPhrase);
 /// - parole: tutte devono comparire, ognuna anche come inizio di parola ("fatt" trova "fattura");
 /// - "frase esatta" tra virgolette;
 /// - filtri: da: (mittente), a: (destinatari A e Cc), oggetto:, allegato: (nomi degli allegati),
-///   allegati:sì / allegati:no.
+///   allegati:sì / allegati:no; anche in inglese, in tutte e due le lingue dell'app (tappa «Lingua», L6d, scelta 4a):
+///   from:, to:, subject:, attachment:, hasattachments:yes / hasattachments:no.
 /// Un filtro sconosciuto (es. "ore 10:30", "http://...") viene cercato come testo normale.
 /// Tradotta per l'indice locale (<see cref="Match"/>, FTS5) e per il server (IMAP SEARCH, in
 /// ImapFolderSource). Il testo dell'utente non entra mai nella sintassi FTS5: ogni termine diventa
@@ -33,7 +34,15 @@ public sealed partial record MailSearchQuery(IReadOnlyList<SearchTerm> Terms, bo
         ["a"] = SearchField.Recipients,
         ["oggetto"] = SearchField.Subject,
         ["allegato"] = SearchField.Attachments,
+        ["from"] = SearchField.Sender,
+        ["to"] = SearchField.Recipients,
+        ["subject"] = SearchField.Subject,
+        ["attachment"] = SearchField.Attachments,
     };
+
+    /// <summary>Filtro «ha allegati» nelle due lingue.</summary>
+    private static bool IsAttachmentsFilter(string prefix) =>
+        prefix.Equals("allegati", StringComparison.OrdinalIgnoreCase) || prefix.Equals("hasattachments", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Nessuna condizione: non si cerca nulla (invece di restituire tutta la casella).</summary>
     public bool IsEmpty => Terms.Count == 0 && HasAttachments is null;
@@ -51,7 +60,7 @@ public sealed partial record MailSearchQuery(IReadOnlyList<SearchTerm> Terms, bo
             var isPhrase = m.Groups["phrase"].Success;
             var value = isPhrase ? m.Groups["phrase"].Value : m.Groups["word"].Value;
 
-            if (prefix is not null && prefix.Equals("allegati", StringComparison.OrdinalIgnoreCase) && !isPhrase
+            if (prefix is not null && IsAttachmentsFilter(prefix) && !isPhrase
                 && YesNo(value) is { } yes)
             {
                 hasAttachments = yes;
@@ -96,8 +105,8 @@ public sealed partial record MailSearchQuery(IReadOnlyList<SearchTerm> Terms, bo
 
     private static bool? YesNo(string value) => value.ToLowerInvariant() switch
     {
-        "sì" or "si" or "s" => true,
-        "no" or "n" => false,
+        "sì" or "si" or "s" or "yes" or "y" or "true" => true,
+        "no" or "n" or "false" => false,
         _ => null,
     };
 

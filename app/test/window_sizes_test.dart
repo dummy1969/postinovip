@@ -12,6 +12,7 @@ import 'package:postinovip/ui/message_window.dart';
 import 'package:provider/provider.dart';
 
 import 'message_list_test.dart' as ml;
+import 'package:postinovip/l10n/language.dart';
 
 class _NoWindow implements WindowPresenter {
   @override
@@ -21,16 +22,25 @@ class _NoWindow implements WindowPresenter {
 /// Finestre piccole (09/11/2026): dalla minima (640x480, fissata nei programmi nativi di Linux e Windows) in su, con
 /// il riquadro di lettura nelle tre posizioni, né la finestra principale né quella della mail né la composizione
 /// traboccano (prima: barra di ricerca, filtri sopra la lista, date della lista, schede della barra).
+/// Anche in inglese (tappa «Lingua», L2a): le parole inglesi hanno lunghezze diverse.
 void main() {
+  // E con la barra semplificata (16/11/2026): un pulsante fatto a mano traboccava solo lì.
+  for (final (language, newMessage, layout) in const [
+    (AppLanguage.italian, 'Nuovo messaggio', RibbonLayout.classic),
+    (AppLanguage.english, 'New Email', RibbonLayout.classic),
+    (AppLanguage.italian, 'Nuovo messaggio', RibbonLayout.simplified),
+  ]) {
   for (final pane in ReadingPanePosition.values) {
     for (final size in const [Size(640, 480), Size(800, 500)]) {
-      testWidgets('nessun trabocco: riquadro ${pane.name}, ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+      testWidgets('nessun trabocco: ${language.name}, barra ${layout.name}, riquadro ${pane.name}, ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.reset);
         final core = ml.ListCore();
         final settings = AppSettings(MemorySettingsStore())
           ..readingPane = pane
+          ..language = language
+          ..ribbonLayout = layout
           ..readMode = ReadMode.manual; // il core finto non ha «segna come letto»
         await tester.pumpWidget(
           PostinoVipApp(api: ApiClient(httpClient: core.client), settings: settings, windowPresenter: _NoWindow()),
@@ -52,12 +62,13 @@ void main() {
         noOverflow('finestra della mail');
         Navigator.of(tester.element(find.byKey(const ValueKey('message-window')))).pop();
         await tester.pumpAndSettle();
-        await tester.tap(find.text('Nuovo messaggio').first); // composizione
+        await tester.tap(find.text(newMessage).first); // composizione
         await tester.pumpAndSettle();
 
         noOverflow('composizione');
         await core.sse.close();
       });
     }
+  }
   }
 }

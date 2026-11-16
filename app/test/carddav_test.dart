@@ -15,6 +15,7 @@ import 'package:postinovip/settings/app_settings.dart';
 import 'package:postinovip/state/contacts_model.dart';
 
 import 'people_test.dart' as pt;
+import 'package:postinovip/l10n/app_localizations.dart';
 
 // Contatti C4c: stato della sincronizzazione CardDAV nella vista Persone, «Sincronizza» e F9, conferma della
 // prima volta, evento contacts-changed; impostazioni CardDAV dell'account (variabili per il core, JSON).
@@ -161,7 +162,7 @@ void main() {
         oauthProvider: 'google', refreshToken: 'RT1', cardDavEnabled: true);
     await start(tester,
         editing: AccountsEditing(accounts: [gmail], coreAddress: '', save: (_) async {}),
-        status: {'state': 'error', 'error': error});
+        status: {'state': 'error', 'error': error, 'errorCode': 'accountScopeMissingContacts', 'errorArgs': {'provider': 'Google'}});
     expect(find.byKey(const Key('carddav-relogin-strip')), findsOneWidget);
     expect(text(tester, status), error);
     await tester.tap(find.byKey(const Key('carddav-relogin')));
@@ -213,6 +214,8 @@ void main() {
       smtpHost: 'smtp.example.com',
     );
     await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
       home: AccountSetupPage(api: api, initial: initial, onSave: (a) async => saved = a),
     ));
     await tester.pumpAndSettle();

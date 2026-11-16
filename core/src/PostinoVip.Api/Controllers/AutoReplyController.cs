@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PostinoVip.Core.Account;
 using PostinoVip.Core.AutoReply;
+using PostinoVip.Core;
 
 namespace PostinoVip.Api.Controllers;
 
@@ -19,7 +20,7 @@ public sealed record AutoReplyResponse(bool Enabled, DateTimeOffset? Start, Date
 public sealed class AutoReplyController(MailAccountRegistry accounts) : MailControllerBase(accounts)
 {
     private AutoReplyStore Store =>
-        CurrentAccount.AutoReply ?? throw new NotSupportedException("Le risposte automatiche richiedono la copia locale.");
+        CurrentAccount.AutoReply ?? throw new NotSupportedException("Le risposte automatiche richiedono la copia locale.").WithCode("leRisposteAutomaticheRichiedonoLa");
 
     [HttpGet]
     public ActionResult<AutoReplyResponse> Get() => Ok(ToResponse(Store.Load()));

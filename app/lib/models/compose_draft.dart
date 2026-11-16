@@ -1,17 +1,23 @@
+import '../l10n/app_localizations.dart';
 import 'attachment_info.dart';
 import 'mail_importance.dart';
 import 'send_result.dart';
 
 /// Modalità delle bozze generate dal core (valori del parametro ?mode=).
 enum DraftMode {
-  reply('reply', 'Rispondi'),
-  replyAll('replyAll', 'Rispondi a tutti'),
-  forward('forward', 'Inoltra');
+  reply('reply'),
+  replyAll('replyAll'),
+  forward('forward');
 
-  const DraftMode(this.query, this.label);
+  const DraftMode(this.query);
 
   final String query;
-  final String label;
+
+  String label(AppLocalizations l) => switch (this) {
+    DraftMode.reply => l.reply,
+    DraftMode.replyAll => l.replyAll,
+    DraftMode.forward => l.forward,
+  };
 }
 
 /// Citazione da aggiungere in fondo all'invio: dall'originale ([folder], [uid], [mode]) oppure già pronta in

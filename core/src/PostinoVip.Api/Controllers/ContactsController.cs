@@ -31,7 +31,7 @@ public sealed class ContactsController(MailAccountRegistry accounts) : MailContr
     public const long MaxImportBytes = 10 * 1024 * 1024;
 
     private ContactStore Store =>
-        CurrentAccount.Contacts ?? throw new NotSupportedException("I contatti richiedono la copia locale (Cache:Enabled=false).");
+        CurrentAccount.Contacts ?? throw new NotSupportedException("I contatti richiedono la copia locale (Cache:Enabled=false).").WithCode("contattiRichiedonoLaCopiaLocale");
 
     [HttpGet]
     public ActionResult<ContactListResponse> List() => Ok(new ContactListResponse(Store.List()));
@@ -68,10 +68,10 @@ public sealed class ContactsController(MailAccountRegistry accounts) : MailContr
         }
         catch (FormatException)
         {
-            throw new FieldValidationException("data", "Contenuto del file non valido.");
+            throw new FieldValidationException("data", "Contenuto del file non valido.").WithCode("contenutoDelFileNonValido");
         }
         if (data.Length > MaxImportBytes)
-            throw new FieldValidationException("data", "File troppo grande (al massimo 10 MB).");
+            throw new FieldValidationException("data", "File troppo grande (al massimo 10 MB).").WithCode("fileTroppoGrandeAlMassimo");
         return Ok(Store.Import(data, request.Format ?? ""));
     }
 
@@ -103,7 +103,7 @@ public sealed class ContactsController(MailAccountRegistry accounts) : MailContr
     }
 
     private DavWorker Worker() =>
-        CurrentAccount.CardDav ?? throw new InvalidOperationException("La sincronizzazione dei contatti non è attiva per questo account.");
+        CurrentAccount.CardDav ?? throw new InvalidOperationException("La sincronizzazione dei contatti non è attiva per questo account.").WithCode("laSincronizzazioneDeiContattiNon2");
 
     /// <summary>GET …/contacts/export?format=vcf|csv — tutta la rubrica come file.</summary>
     [HttpGet("export")]
@@ -129,7 +129,7 @@ public sealed class AddressesController(MailAccountRegistry accounts) : Controll
     public ActionResult<SuggestionsResponse> Suggest([FromQuery] string? q, [FromQuery] int limit = 10)
     {
         if (limit is < 1 or > 50)
-            throw new FieldValidationException("limit", "Da 1 a 50.");
+            throw new FieldValidationException("limit", "Da 1 a 50.").WithCode("da50");
         var books = accounts.All.Select(a => (a.Id, a.Contacts, a.Recent));
         return Ok(new SuggestionsResponse(AddressSuggestions.Find(books, q ?? "", limit, DateTimeOffset.UtcNow)));
     }
@@ -139,7 +139,7 @@ public sealed class AddressesController(MailAccountRegistry accounts) : Controll
     public IActionResult RemoveRecent([FromQuery] string? address)
     {
         if (string.IsNullOrWhiteSpace(address))
-            throw new FieldValidationException("address", "Indirizzo mancante.");
+            throw new FieldValidationException("address", "Indirizzo mancante.").WithCode("indirizzoMancante");
         foreach (var a in accounts.All)
             a.Recent?.Remove(address.Trim());
         return NoContent();

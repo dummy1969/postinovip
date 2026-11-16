@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 
 import 'sse.dart';
 
+import '../l10n/core_errors.dart';
+import '../l10n/formats.dart';
+
 import '../account/connection_security.dart';
 
 import '../models/account_info.dart';
@@ -31,10 +34,34 @@ import '../models/send_result.dart';
 
 /// Errore restituito dall'Api (ProblemDetails), di connessione o di formato della risposta.
 class ApiException implements Exception {
-  const ApiException(this.message, {this.statusCode, this.fieldErrors = const {}});
+  const ApiException(
+    this._message, {
+    this.statusCode,
+    this.fieldErrors = const {},
+    this.kind,
+    this.code,
+    this.args = const {},
+    this.title,
+    this.detail,
+  });
 
-  final String message;
+  final String _message;
   final int? statusCode;
+
+  /// Tipo e codice dell'errore dal core (L6), con i valori: titolo e dettaglio nella lingua dell'app.
+  final String? kind;
+  final String? code;
+  final Map<String, String> args;
+
+  /// Titolo e dettaglio originali del core (in italiano).
+  final String? title;
+  final String? detail;
+
+  /// «Titolo: dettaglio» nella lingua dell'app; per un tipo o un codice che l'app non conosce, il testo del core.
+  String get message {
+    if (kind == null && code == null) return _message;
+    return [coreKindText(kind) ?? title, coreErrorText(code, args, detail)].whereType<String>().join(': ');
+  }
 
   /// Errori di validazione per campo (chiavi in minuscolo, es. "to", "cc"), da ValidationProblemDetails.
   final Map<String, List<String>> fieldErrors;
@@ -92,7 +119,11 @@ class ApiClient {
   final http.Client _http;
 
   /// Header di autenticazione, usati anche da Image.network per le anteprime degli allegati.
-  Map<String, String> get authHeaders => token == null ? const {} : {'authorization': 'Bearer $token'};
+  /// Token e lingua dell'app (L6, scelta 2a): il core la usa per i testi che scrive da solo.
+  Map<String, String> get authHeaders => {
+    if (token != null) 'authorization': 'Bearer $token',
+    'accept-language': formatL10n.localeName,
+  };
 
   // Ogni richiesta apre una connessione IMAP/SMTP nel core: qualche secondo è normale.
   static const _timeout = Duration(seconds: 30);
@@ -323,7 +354,7 @@ class ApiClient {
           .get(Uri.parse('$baseUrl$_mail/contacts/export?format=$format'), headers: authHeaders)
           .timeout(_timeout);
     } on Exception catch (e) {
-      throw ApiException('Core PostinoVip non raggiungibile su $baseUrl: $e');
+      throw ApiException(formatL10n.coreUnreachableApp(baseUrl, '$e'));
     }
     if (response.statusCode != 200) throw _problem(utf8.decode(response.bodyBytes), response.statusCode);
     return response.bodyBytes;
@@ -568,7 +599,7 @@ class ApiClient {
           .post(Uri.parse('$baseUrl/eml'), headers: {...authHeaders, 'content-type': 'message/rfc822'}, body: bytes)
           .timeout(_timeout);
     } on Exception catch (e) {
-      throw ApiException('Core PostinoVip non raggiungibile su $baseUrl: $e');
+      throw ApiException(formatL10n.coreUnreachableApp(baseUrl, '$e'));
     }
     final text = utf8.decode(response.bodyBytes, allowMalformed: true);
     if (response.statusCode != 200) throw _problem(text, response.statusCode);
@@ -576,7 +607,7 @@ class ApiClient {
       final json = jsonDecode(text) as Map<String, dynamic>;
       return (id: json['id'] as String, message: MessageDetail.fromJson(json['message'] as Map<String, dynamic>));
     } on Object {
-      throw ApiException('Risposta inattesa dal core (versioni diverse di app e core?)');
+      throw ApiException(formatL10n.coreUnexpectedResponseVersions);
     }
   }
 
@@ -597,7 +628,7 @@ class ApiClient {
     try {
       response = await _http.get(Uri.parse(url), headers: authHeaders).timeout(_timeout);
     } on Exception catch (e) {
-      throw ApiException('Core PostinoVip non raggiungibile su $baseUrl: $e');
+      throw ApiException(formatL10n.coreUnreachableApp(baseUrl, '$e'));
     }
     if (response.statusCode != 200) throw _problem(utf8.decode(response.bodyBytes, allowMalformed: true), response.statusCode);
     return response.bodyBytes;
@@ -658,7 +689,8 @@ class ApiClient {
       final m = json as Map<String, dynamic>;
       String? error(String key) {
         final r = m[key] as Map<String, dynamic>;
-        return r['ok'] == true ? null : (r['error'] as String? ?? 'errore');
+        if (r['ok'] == true) return null;
+        return coreErrorText(r['errorCode'] as String?, coreErrorArgs(r['errorArgs']), r['error'] as String?) ?? 'errore';
       }
 
       CertificateInfo? certificate(String key) {
@@ -972,10 +1004,10 @@ class ApiClient {
     try {
       response = await _http.send(request);
     } on Exception catch (e) {
-      throw ApiException('Core PostinoVip non raggiungibile su $baseUrl: $e');
+      throw ApiException(formatL10n.coreUnreachableApp(baseUrl, '$e'));
     }
     if (response.statusCode != 200) {
-      throw ApiException('Eventi non disponibili', statusCode: response.statusCode);
+      throw ApiException(formatL10n.coreEventsUnavailable, statusCode: response.statusCode);
     }
 
     final lines = response.stream.transform(utf8.decoder).transform(const LineSplitter());
@@ -1005,7 +1037,7 @@ class ApiClient {
       };
       response = await request.timeout(_timeout);
     } on Exception catch (e) {
-      throw ApiException('Core PostinoVip non raggiungibile su $baseUrl: $e');
+      throw ApiException(formatL10n.coreUnreachableApp(baseUrl, '$e'));
     }
 
     final text = utf8.decode(response.bodyBytes);
@@ -1018,10 +1050,7 @@ class ApiClient {
       return parse(text.isEmpty ? null : jsonDecode(text));
     } on Object catch (e) {
       // Tipicamente: core e app di versioni diverse (es. core non riavviato dopo un aggiornamento).
-      throw ApiException(
-        'Risposta del core in formato inatteso ($path): $e. '
-        'Il core è aggiornato e riavviato?',
-      );
+      throw ApiException(formatL10n.coreUnexpectedFormat(path, '$e'));
     }
   }
 
@@ -1038,10 +1067,31 @@ class ApiClient {
           fieldErrors[key] = (e.value as List).cast<String>();
         }
       }
-      final message = [json['title'], json['detail']].whereType<String>().join(': ');
-      return ApiException(message, statusCode: statusCode, fieldErrors: fieldErrors);
+      // Errori dei campi con il codice (L6): il testo nella lingua dell'app.
+      final fieldCodes = json['fieldCodes'];
+      if (fieldCodes is Map<String, dynamic>) {
+        for (final e in fieldCodes.entries) {
+          final c = e.value;
+          if (c is! Map<String, dynamic>) continue;
+          final text = coreErrorText(c['code'] as String?, coreErrorArgs(c['args']), null);
+          if (text != null) fieldErrors[e.key] = [text];
+        }
+      }
+      final title = json['title'] as String?;
+      final detail = json['detail'] as String?;
+      final message = [title, detail].whereType<String>().join(': ');
+      return ApiException(
+        message,
+        statusCode: statusCode,
+        fieldErrors: fieldErrors,
+        kind: json['kind'] as String?,
+        code: json['code'] as String?,
+        args: coreErrorArgs(json['args']),
+        title: title,
+        detail: detail,
+      );
     } on Object {
-      return ApiException('Risposta inattesa dal core', statusCode: statusCode);
+      return ApiException(formatL10n.coreUnexpectedResponse, statusCode: statusCode);
     }
   }
 

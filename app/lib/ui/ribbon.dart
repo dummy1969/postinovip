@@ -22,6 +22,8 @@ import 'message_actions.dart';
 import 'people_view.dart';
 import 'tag_menus.dart';
 import 'settings_dialog.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 
 /// Il campo "Cerca" sopra la lista, raggiungibile dal comando "Cerca" della barra multifunzione.
 class SearchFocus {
@@ -29,14 +31,17 @@ class SearchFocus {
 }
 
 enum _RibbonTab {
-  home('Home'),
-  sendReceive('Invia/Ricevi'),
-  folder('Cartella'),
-  view('Visualizza');
+  home,
+  sendReceive,
+  folder,
+  view;
 
-  const _RibbonTab(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    _RibbonTab.home => l.tabHome,
+    _RibbonTab.sendReceive => l.tabSendReceive,
+    _RibbonTab.folder => l.tabFolder,
+    _RibbonTab.view => l.tabView,
+  };
 }
 
 /// Barra multifunzione in stile Outlook classico: "File" (menu), schede con i comandi raggruppati
@@ -66,7 +71,7 @@ class _RibbonState extends State<Ribbon> {
     final tab = tabs.contains(_tab) ? _tab : _RibbonTab.home;
     return RibbonFrame(
       leading: const _FileMenu(),
-      tabs: [for (final t in tabs) t.label],
+      tabs: [for (final t in tabs) t.label(context.l10n)],
       selected: tabs.indexOf(tab),
       onSelect: (i) => setState(() => _tab = tabs[i]),
       groups: switch (module) {
@@ -81,22 +86,22 @@ class _RibbonState extends State<Ribbon> {
       ? PeopleActions.ribbonGroups(context)
       : [
           RibbonGroup(
-            label: 'Layout',
+            label: context.l10n.groupLayout,
             children: [
               _themeButton(context),
               RibbonLargeButton(
                 icon: FluentIcons.chevron_up_20_regular,
-                label: 'Comprimi barra multifunzione',
-                tooltip: 'Mostra solo i nomi delle schede (Ctrl+F1)',
+                label: context.l10n.ribbonCollapse,
+                tooltip: context.l10n.ribbonCollapseTooltip,
                 onPressed: () => context.read<AppSettings>().setRibbonCollapsed(true),
               ),
             ],
           ),
         ];
 
-  Widget _themeButton(BuildContext context) => _menuButton(context, FluentIcons.dark_theme_24_regular, 'Tema', [
+  Widget _themeButton(BuildContext context) => _menuButton(context, FluentIcons.dark_theme_24_regular, context.l10n.optionsTheme, [
     for (final t in AppTheme.values)
-      (t.label, context.watch<AppSettings>().theme == t, () => context.read<AppSettings>().setTheme(t)),
+      (t.label(context.l10n), context.watch<AppSettings>().theme == t, () => context.read<AppSettings>().setTheme(t)),
   ]);
 
   List<Widget> _groups(BuildContext context) {
@@ -105,12 +110,12 @@ class _RibbonState extends State<Ribbon> {
       _RibbonTab.home => _homeGroups(context, model),
       _RibbonTab.sendReceive => [
         RibbonGroup(
-          label: 'Invia e ricevi',
+          label: context.l10n.groupSendReceive,
           children: [
             RibbonLargeButton(
               icon: FluentIcons.arrow_sync_24_regular,
-              label: 'Invia/ricevi tutte le cartelle',
-              tooltip: 'Aggiorna cartelle e messaggi di tutti gli account (F9)',
+              label: context.l10n.sendReceiveAll,
+              tooltip: context.l10n.sendReceiveAllTooltip,
               onPressed: model.refresh,
             ),
           ],
@@ -119,18 +124,21 @@ class _RibbonState extends State<Ribbon> {
       _RibbonTab.folder => _folderGroups(context, model),
       _RibbonTab.view => [
         RibbonGroup(
-          label: 'Layout',
+          label: context.l10n.groupLayout,
           children: [
-            _menuButton(context, FluentIcons.layout_column_two_split_right_24_regular, 'Riquadro di lettura', [
+            _menuButton(context, FluentIcons.layout_column_two_split_right_24_regular, context.l10n.readingPane, [
               for (final p in ReadingPanePosition.values)
                 (
-                  p.label,
+                  p.label(context.l10n),
                   context.watch<AppSettings>().readingPane == p,
                   () => context.read<AppSettings>().setReadingPane(p),
                 ),
             ]),
-            _menuButton(context, FluentIcons.text_description_24_regular, 'Anteprima messaggio', [
-              for (final (n, label) in [(0, 'Disattivata'), (1, '1 riga'), (2, '2 righe'), (3, '3 righe')])
+            _menuButton(context, FluentIcons.text_description_24_regular, context.l10n.messagePreview, [
+              for (final (n, label) in [
+                (0, context.l10n.messagePreviewOff),
+                for (final lines in [1, 2, 3]) (lines, context.l10n.messagePreviewLines(lines)),
+              ])
                 (
                   label,
                   context.watch<AppSettings>().previewLines == n,
@@ -141,29 +149,29 @@ class _RibbonState extends State<Ribbon> {
           ],
         ),
         RibbonGroup(
-          label: 'Messaggi',
+          label: context.l10n.groupMessages,
           children: [
             // Pulsante che resta premuto finché la vista è attiva (come i comandi a interruttore di Office).
             RibbonLargeButton(
               icon: ConversationViewCommand.isOn(context) == true
                   ? FluentIcons.chat_multiple_24_filled
                   : FluentIcons.chat_multiple_24_regular,
-              label: 'Mostra come conversazioni',
+              label: context.l10n.showAsConversations,
               selected: ConversationViewCommand.isOn(context) == true,
               tooltip: ConversationViewCommand.isOn(context) == true
-                  ? 'Attivo in questa cartella: clic per tornare alla lista semplice'
-                  : 'Raccoglie in una riga le mail della stessa conversazione',
+                  ? context.l10n.showAsConversationsOnTooltip
+                  : context.l10n.showAsConversationsOffTooltip,
               onPressed: model.selectedFolder == null ? null : () => ConversationViewCommand.toggle(context),
             ),
           ],
         ),
         RibbonGroup(
-          label: 'Layout',
+          label: context.l10n.groupLayout,
           children: [
             RibbonLargeButton(
               icon: FluentIcons.chevron_up_20_regular,
-              label: 'Comprimi barra multifunzione',
-              tooltip: 'Mostra solo i nomi delle schede (Ctrl+F1)',
+              label: context.l10n.ribbonCollapse,
+              tooltip: context.l10n.ribbonCollapseTooltip,
               onPressed: () => context.read<AppSettings>().setRibbonCollapsed(true),
             ),
           ],
@@ -197,54 +205,54 @@ class _RibbonState extends State<Ribbon> {
     final editable = target != null && model.canEditFolder(target.account, target.folder);
     final emptiable = target != null && model.canEmptyFolder(target.account, target.folder);
     final trashOrJunk = target?.folder.role == 'trash' || target?.folder.role == 'junk';
-    final offlineHint = target != null && !online ? MailboxModel.offlineMessage : null;
+    final offlineHint = target != null && !online ? context.l10n.offlineUnavailable : null;
     final specialHint = target != null && online && !editable
-        ? 'Posta in arrivo, Posta inviata, Posta eliminata e le altre cartelle speciali non si possono rinominare né eliminare'
+        ? context.l10n.specialFolderHint
         : null;
     return [
       RibbonGroup(
-        label: 'Nuovo',
+        label: context.l10n.groupNew,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.folder_add_24_regular,
-            label: 'Nuova cartella',
-            tooltip: offlineHint ?? 'Crea una sottocartella della cartella selezionata',
+            label: context.l10n.newFolder,
+            tooltip: offlineHint ?? context.l10n.newFolderTooltip,
             onPressed: online ? () => model.startNewFolder(target.account, target.folder.fullName) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Azioni',
+        label: context.l10n.groupActions,
         children: [
           RibbonSmallColumn(
             children: [
               RibbonSmallButton(
                 icon: FluentIcons.rename_20_regular,
-                label: 'Rinomina cartella',
-                tooltip: offlineHint ?? specialHint ?? 'Cambia il nome della cartella selezionata (F2)',
+                label: context.l10n.renameFolder,
+                tooltip: offlineHint ?? specialHint ?? context.l10n.renameFolderTooltip,
                 onPressed: editable ? () => model.startRenameFolder(target.account, target.folder.fullName) : null,
               ),
               RibbonSmallButton(
                 icon: FluentIcons.delete_20_regular,
-                label: 'Elimina cartella',
+                label: context.l10n.deleteFolder,
                 tooltip:
                     offlineHint ??
                     specialHint ??
                     (editable && model.isInTrash(target.account, target.folder)
-                        ? 'Elimina dal server, senza possibilità di recupero'
-                        : 'Sposta la cartella, con il suo contenuto, in Posta eliminata'),
+                        ? context.l10n.deletePermanentlyTooltip
+                        : context.l10n.deleteFolderTooltip),
                 onPressed: editable ? () => FolderActions.delete(context, target.account, target.folder) : null,
               ),
               // Svuota cartella (12/11/2026): in Outlook qui si chiama «Elimina tutto»; solo Posta eliminata e indesiderata.
               RibbonSmallButton(
                 key: const Key('ribbon-empty-folder'),
                 icon: FluentIcons.delete_dismiss_20_regular,
-                label: 'Svuota cartella',
+                label: context.l10n.emptyFolder,
                 tooltip:
                     offlineHint ??
                     (trashOrJunk
-                        ? 'Elimina dal server tutte le mail della cartella, senza possibilità di recupero'
-                        : 'Solo per Posta eliminata e Posta indesiderata'),
+                        ? context.l10n.emptyFolderTooltip
+                        : context.l10n.emptyFolderOnlyTooltip),
                 onPressed: emptiable ? () => FolderActions.empty(context, target.account, target.folder) : null,
               ),
             ],
@@ -253,13 +261,13 @@ class _RibbonState extends State<Ribbon> {
       ),
       // Archivia (A2, 3a): la cartella di archiviazione dell'account della cartella selezionata.
       RibbonGroup(
-        label: 'Archivio',
+        label: context.l10n.groupArchive,
         children: [
           RibbonLargeButton(
             key: const Key('ribbon-archive-folder'),
             icon: FluentIcons.archive_settings_24_regular,
-            label: 'Imposta cartella di archiviazione',
-            tooltip: offlineHint ?? 'Scegli o crea la cartella in cui Archivia sposta le mail di questo account',
+            label: context.l10n.setArchiveFolder,
+            tooltip: offlineHint ?? context.l10n.setArchiveFolderTooltip,
             onPressed: online ? () => ArchiveFolderDialog.show(context, account: target.account) : null,
           ),
         ],
@@ -273,7 +281,7 @@ class _RibbonState extends State<Ribbon> {
     final offline = model.multiSelection
         ? model.selection.any((r) => !model.isOnline(r.account))
         : hasMessage && !model.isOnline(model.openAccount);
-    final offlineHint = offline ? MailboxModel.offlineMessage : null;
+    final offlineHint = offline ? context.l10n.offlineUnavailable : null;
     final seen = MessageActions.seenState(model);
     final tagTarget = canModify ? TagTarget.open(model) : null;
     final moveTargets = MessageActions.moveTargets(model);
@@ -281,33 +289,33 @@ class _RibbonState extends State<Ribbon> {
 
     return [
       RibbonGroup(
-        label: 'Nuovo',
+        label: context.l10n.groupNew,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.mail_add_24_regular,
-            label: 'Nuovo messaggio',
-            tooltip: 'Scrivi un nuovo messaggio',
+            label: context.l10n.newMessage,
+            tooltip: context.l10n.newMessageTooltip,
             onPressed: () => MessageActions.compose(context),
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Elimina',
+        label: context.l10n.delete,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.delete_24_regular,
-            label: permanent ? 'Elimina definitivamente' : 'Elimina',
+            label: permanent ? context.l10n.deletePermanently : context.l10n.delete,
             tooltip:
                 offlineHint ??
-                (permanent ? 'Elimina dal server, senza possibilità di recupero' : 'Sposta in Posta eliminata'),
+                (permanent ? context.l10n.deletePermanentlyTooltip : context.l10n.moveToDeletedTooltip),
             onPressed: canModify ? () => MessageActions.delete(context) : null,
           ),
           // Archivia (A2): come Outlook, accanto a Elimina.
           RibbonLargeButton(
             key: const Key('ribbon-archive'),
             icon: FluentIcons.archive_24_regular,
-            label: 'Archivia',
-            tooltip: offlineHint ?? ArchiveActions.tooltip(model),
+            label: context.l10n.archive,
+            tooltip: offlineHint ?? ArchiveActions.tooltip(context.l10n, model),
             onPressed: ArchiveActions.canArchive(model) ? () => ArchiveActions.archive(context) : null,
           ),
           RibbonSmallColumn(
@@ -316,15 +324,15 @@ class _RibbonState extends State<Ribbon> {
               RibbonSmallButton(
                 key: const Key('ribbon-ignore'),
                 icon: FluentIcons.mail_prohibited_20_regular,
-                label: ConversationToolActions.ignoreLabel(model),
-                tooltip: offlineHint ?? ConversationToolActions.ignoreTooltip(model),
+                label: ConversationToolActions.ignoreLabel(context.l10n, model),
+                tooltip: offlineHint ?? ConversationToolActions.ignoreTooltip(context.l10n, model),
                 onPressed: ConversationToolActions.canIgnore(model) ? () => ConversationToolActions.ignore(context) : null,
               ),
               RibbonMenuButton(
                 key: const Key('ribbon-clean-up'),
                 icon: FluentIcons.broom_20_regular,
-                label: 'Pulisci',
-                tooltip: 'Sposta in Posta eliminata le mail superflue: quelle citate per intero da una risposta',
+                label: context.l10n.cleanUp,
+                tooltip: context.l10n.cleanUpTooltip,
                 enabled: true,
                 menuChildren: ConversationToolActions.cleanUpItems(context),
               ),
@@ -332,8 +340,8 @@ class _RibbonState extends State<Ribbon> {
               RibbonMenuButton(
                 key: const Key('ribbon-junk'),
                 icon: FluentIcons.person_prohibited_20_regular,
-                label: 'Posta indesiderata',
-                tooltip: 'Blocca mittente, Non bloccare mai, Opzioni posta indesiderata',
+                label: context.l10n.junk,
+                tooltip: context.l10n.junkTooltip,
                 enabled: true,
                 menuChildren: JunkActions.menuItems(context),
               ),
@@ -342,7 +350,7 @@ class _RibbonState extends State<Ribbon> {
         ],
       ),
       RibbonGroup(
-        label: 'Rispondi',
+        label: context.l10n.groupRespond,
         children: [
           RibbonSmallColumn(
             children: [
@@ -353,7 +361,7 @@ class _RibbonState extends State<Ribbon> {
               ])
                 RibbonSmallButton(
                   icon: icon,
-                  label: mode.label,
+                  label: mode.label(context.l10n),
                   onPressed: hasMessage ? () => MessageActions.reply(context, mode) : null,
                 ),
             ],
@@ -361,22 +369,22 @@ class _RibbonState extends State<Ribbon> {
         ],
       ),
       RibbonGroup(
-        label: 'Sposta',
+        label: context.l10n.move,
         children: [
           PopupMenuButton<String>(
             enabled: canModify && moveTargets.isNotEmpty,
-            tooltip: offlineHint ?? 'Sposta in un\'altra cartella',
+            tooltip: offlineHint ?? context.l10n.moveTooltip,
             onSelected: (destination) => destination == _otherFolder
                 ? MessageActions.moveToFolder(context)
                 : MessageActions.move(context, destination),
             itemBuilder: (context) => [
               for (final f in moveTargets) PopupMenuItem(value: f.fullName, child: Text(f.fullName)),
               const PopupMenuDivider(),
-              const PopupMenuItem(value: _otherFolder, child: Text('Altra cartella… (Ctrl+Maiusc+V)')),
+              PopupMenuItem(value: _otherFolder, child: Text(context.l10n.moveOtherFolder)),
             ],
             child: RibbonLargeButton(
               icon: FluentIcons.folder_arrow_right_24_regular,
-              label: 'Sposta',
+              label: context.l10n.move,
               enabled: canModify && moveTargets.isNotEmpty,
             ),
           ),
@@ -384,17 +392,17 @@ class _RibbonState extends State<Ribbon> {
             children: [
               RibbonMenuButton(
                 icon: FluentIcons.filter_20_regular,
-                label: 'Regole',
-                tooltip: 'Smista da sola la posta in arrivo',
+                label: context.l10n.rules,
+                tooltip: context.l10n.rulesTooltip,
                 enabled: true,
                 menuChildren: [
                   MenuItemButton(
                     onPressed: hasMessage && !model.multiSelection ? () => RulesUi.createFor(context) : null,
-                    child: const Text('Crea regola…'),
+                    child: Text(context.l10n.createRule),
                   ),
                   MenuItemButton(
                     onPressed: () => RulesUi.manage(context),
-                    child: const Text('Gestisci regole e avvisi…'),
+                    child: Text(context.l10n.manageRulesEllipsis),
                   ),
                 ],
               ),
@@ -403,27 +411,27 @@ class _RibbonState extends State<Ribbon> {
         ],
       ),
       RibbonGroup(
-        label: 'Tag',
+        label: context.l10n.groupTags,
         children: [
           RibbonSmallColumn(
             children: [
               RibbonSmallButton(
                 icon: seen == true ? FluentIcons.mail_unread_20_regular : FluentIcons.mail_read_20_regular,
-                label: seen == true ? 'Segna come non letto' : 'Segna come letto',
+                label: seen == true ? context.l10n.markUnread : context.l10n.markRead,
                 tooltip: offlineHint,
                 onPressed: canModify && seen != null ? () => MessageActions.toggleSeen(context) : null,
               ),
               RibbonMenuButton(
                 icon: FluentIcons.tag_20_regular,
-                label: 'Categorizza',
-                tooltip: offlineHint ?? 'Assegna una categoria colorata',
+                label: context.l10n.categorize,
+                tooltip: offlineHint ?? context.l10n.categorizeTooltip,
                 menuChildren: TagMenus.categoryItems(context, tagTarget),
                 enabled: tagTarget != null,
               ),
               RibbonMenuButton(
                 icon: FluentIcons.flag_20_regular,
-                label: 'Completa',
-                tooltip: offlineHint ?? 'Contrassegna per completamento, con una scadenza',
+                label: context.l10n.followUp,
+                tooltip: offlineHint ?? context.l10n.followUpTooltip,
                 menuChildren: TagMenus.followUpItems(context, tagTarget),
                 enabled: tagTarget != null,
               ),
@@ -432,14 +440,14 @@ class _RibbonState extends State<Ribbon> {
         ],
       ),
       RibbonGroup(
-        label: 'Trova',
+        label: context.l10n.groupFind,
         children: [
           RibbonSmallColumn(
             children: [
               RibbonSmallButton(
                 icon: FluentIcons.search_20_regular,
-                label: 'Cerca',
-                tooltip: 'Cerca nella posta',
+                label: context.l10n.search,
+                tooltip: context.l10n.searchTooltip,
                 onPressed: () => context.read<SearchFocus>().node.requestFocus(),
               ),
             ],
@@ -457,7 +465,7 @@ class _FileMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
-      tooltip: 'File',
+      tooltip: context.l10n.fileTab,
       position: PopupMenuPosition.under,
       onSelected: (choice) => switch (choice) {
         'open-eml' => EmlActions.openFile(context),
@@ -473,10 +481,10 @@ class _FileMenu extends StatelessWidget {
         // File .eml (E2) e stampa (P3): solo nella Posta; salvare e stampare con una mail aperta.
         if (context.read<ContactsModel>().module == AppModule.mail) ...[
           for (final (value, icon, text) in [
-            ('open-eml', FluentIcons.folder_open_20_regular, 'Apri file .eml…'),
-            ('save-eml', FluentIcons.save_20_regular, 'Salva con nome… (F12)'),
-            ('print', FluentIcons.print_20_regular, 'Stampa… (Ctrl+P)'),
-            ('pdf', FluentIcons.document_pdf_20_regular, 'Salva come PDF…'),
+            ('open-eml', FluentIcons.folder_open_20_regular, context.l10n.openEml),
+            ('save-eml', FluentIcons.save_20_regular, context.l10n.saveAs),
+            ('print', FluentIcons.print_20_regular, context.l10n.printMessage),
+            ('pdf', FluentIcons.document_pdf_20_regular, context.l10n.saveAsPdf),
           ])
             PopupMenuItem(
               key: Key('file-$value'),
@@ -486,35 +494,35 @@ class _FileMenu extends StatelessWidget {
             ),
           const PopupMenuDivider(),
         ],
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'options',
           child: ListTile(
-            leading: Icon(FluentIcons.settings_20_regular),
-            title: Text('Opzioni'),
+            leading: const Icon(FluentIcons.settings_20_regular),
+            title: Text(context.l10n.optionsTitle),
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'autoreply',
           child: ListTile(
-            leading: Icon(FluentIcons.mail_arrow_up_20_regular),
-            title: Text('Risposte automatiche'),
+            leading: const Icon(FluentIcons.mail_arrow_up_20_regular),
+            title: Text(context.l10n.automaticReplies),
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'rules',
           child: ListTile(
-            leading: Icon(FluentIcons.filter_20_regular),
-            title: Text('Gestisci regole e avvisi'),
+            leading: const Icon(FluentIcons.filter_20_regular),
+            title: Text(context.l10n.manageRules),
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'about',
           child: ListTile(
-            leading: Icon(FluentIcons.info_20_regular),
-            title: Text('Informazioni su PostinoVip'),
+            leading: const Icon(FluentIcons.info_20_regular),
+            title: Text(context.l10n.aboutApp),
             contentPadding: EdgeInsets.zero,
           ),
         ),

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -112,7 +114,7 @@ class _MessageWindowState extends State<MessageWindow> {
               ),
               RibbonFrame(
                 leading: const _FileMenu(),
-                tabs: const ['Messaggio'],
+                tabs: [context.l10n.messageTab],
                 selected: 0,
                 onSelect: (_) {},
                 groups: _groups(model),
@@ -151,7 +153,7 @@ class _MessageWindowState extends State<MessageWindow> {
   List<Widget> _groups(MailboxModel model) {
     final hasMessage = MessageActions.hasMessage(model);
     final canModify = MessageActions.canModify(model);
-    final offlineHint = hasMessage && !model.isOnline(model.openAccount) ? MailboxModel.offlineMessage : null;
+    final offlineHint = hasMessage && !model.isOnline(model.openAccount) ? context.l10n.offlineUnavailable : null;
     final seen = MessageActions.seenState(model);
     final tagTarget = canModify ? TagTarget.open(model) : null;
     final moveTargets = MessageActions.moveTargets(model);
@@ -159,27 +161,27 @@ class _MessageWindowState extends State<MessageWindow> {
     final zoom = context.watch<AppSettings>().readingZoom;
     return [
       RibbonGroup(
-        label: 'Elimina',
+        label: context.l10n.delete,
         children: [
           RibbonLargeButton(
             key: const Key('message-window-delete'),
             icon: FluentIcons.delete_24_regular,
-            label: permanent ? 'Elimina definitivamente' : 'Elimina',
+            label: permanent ? context.l10n.deletePermanently : context.l10n.delete,
             tooltip:
                 offlineHint ??
                 (permanent
-                    ? 'Elimina dal server, senza possibilità di recupero (poi la mail successiva)'
-                    : 'Sposta in Posta eliminata e apri la mail successiva (Canc)'),
+                    ? context.l10n.windowDeletePermanentlyTooltip
+                    : context.l10n.windowDeleteTooltip),
             onPressed: canModify ? _delete : null,
           ),
           RibbonLargeButton(
             key: const Key('message-window-archive'),
             icon: FluentIcons.archive_24_regular,
-            label: 'Archivia',
+            label: context.l10n.archive,
             tooltip: offlineHint ??
                 (model.selectionInArchive
-                    ? ArchiveActions.tooltip(model)
-                    : 'Sposta nella cartella di archiviazione e apri la mail successiva'),
+                    ? ArchiveActions.tooltip(context.l10n, model)
+                    : context.l10n.windowArchiveTooltip),
             onPressed: ArchiveActions.canArchive(model) ? () => ArchiveActions.archive(context, openNext: true) : null,
           ),
           RibbonSmallColumn(
@@ -188,8 +190,8 @@ class _MessageWindowState extends State<MessageWindow> {
               RibbonSmallButton(
                 key: const Key('message-window-ignore'),
                 icon: FluentIcons.mail_prohibited_20_regular,
-                label: ConversationToolActions.ignoreLabel(model),
-                tooltip: offlineHint ?? ConversationToolActions.ignoreTooltip(model),
+                label: ConversationToolActions.ignoreLabel(context.l10n, model),
+                tooltip: offlineHint ?? ConversationToolActions.ignoreTooltip(context.l10n, model),
                 onPressed: ConversationToolActions.canIgnore(model)
                     ? () => ConversationToolActions.ignore(context, openNext: true)
                     : null,
@@ -197,8 +199,8 @@ class _MessageWindowState extends State<MessageWindow> {
               RibbonMenuButton(
                 key: const Key('message-window-junk'),
                 icon: FluentIcons.person_prohibited_20_regular,
-                label: 'Posta indesiderata',
-                tooltip: 'Blocca mittente, Non bloccare mai, Opzioni posta indesiderata',
+                label: context.l10n.junk,
+                tooltip: context.l10n.junkTooltip,
                 enabled: true,
                 menuChildren: JunkActions.menuItems(context, openNext: true),
               ),
@@ -207,7 +209,7 @@ class _MessageWindowState extends State<MessageWindow> {
         ],
       ),
       RibbonGroup(
-        label: 'Rispondi',
+        label: context.l10n.groupRespond,
         children: [
           for (final (mode, icon) in [
             (DraftMode.reply, FluentIcons.arrow_reply_24_regular),
@@ -217,26 +219,26 @@ class _MessageWindowState extends State<MessageWindow> {
             RibbonLargeButton(
               key: Key('message-window-${mode.name}'),
               icon: icon,
-              label: mode.label,
+              label: mode.label(context.l10n),
               onPressed: hasMessage ? () => _reply(mode) : null,
             ),
         ],
       ),
       RibbonGroup(
-        label: 'Sposta',
+        label: context.l10n.move,
         children: [
           PopupMenuButton<String>(
             enabled: canModify && moveTargets.isNotEmpty,
-            tooltip: offlineHint ?? 'Sposta in un\'altra cartella e apri la mail successiva',
+            tooltip: offlineHint ?? context.l10n.windowMoveTooltip,
             onSelected: _move,
             itemBuilder: (context) => [
               for (final f in moveTargets) PopupMenuItem(value: f.fullName, child: Text(f.fullName)),
               const PopupMenuDivider(),
-              const PopupMenuItem(value: _otherFolder, child: Text('Altra cartella… (Ctrl+Maiusc+V)')),
+              PopupMenuItem(value: _otherFolder, child: Text(context.l10n.moveOtherFolder)),
             ],
             child: RibbonLargeButton(
               icon: FluentIcons.folder_arrow_right_24_regular,
-              label: 'Sposta',
+              label: context.l10n.move,
               enabled: canModify && moveTargets.isNotEmpty,
             ),
           ),
@@ -244,17 +246,17 @@ class _MessageWindowState extends State<MessageWindow> {
             children: [
               RibbonMenuButton(
                 icon: FluentIcons.filter_20_regular,
-                label: 'Regole',
-                tooltip: 'Smista da sola la posta in arrivo',
+                label: context.l10n.rules,
+                tooltip: context.l10n.rulesTooltip,
                 enabled: true,
                 menuChildren: [
                   MenuItemButton(
                     onPressed: hasMessage && !model.multiSelection ? () => RulesUi.createFor(context) : null,
-                    child: const Text('Crea regola…'),
+                    child: Text(context.l10n.createRule),
                   ),
                   MenuItemButton(
                     onPressed: () => RulesUi.manage(context),
-                    child: const Text('Gestisci regole e avvisi…'),
+                    child: Text(context.l10n.manageRulesEllipsis),
                   ),
                 ],
               ),
@@ -263,27 +265,27 @@ class _MessageWindowState extends State<MessageWindow> {
         ],
       ),
       RibbonGroup(
-        label: 'Tag',
+        label: context.l10n.groupTags,
         children: [
           RibbonSmallColumn(
             children: [
               RibbonSmallButton(
                 icon: seen == true ? FluentIcons.mail_unread_20_regular : FluentIcons.mail_read_20_regular,
-                label: seen == true ? 'Segna come da leggere' : 'Segna come letto',
+                label: seen == true ? context.l10n.markUnreadWindow : context.l10n.markRead,
                 tooltip: offlineHint,
                 onPressed: canModify && seen != null ? () => MessageActions.toggleSeen(context) : null,
               ),
               RibbonMenuButton(
                 icon: FluentIcons.tag_20_regular,
-                label: 'Categorizza',
-                tooltip: offlineHint ?? 'Assegna una categoria colorata',
+                label: context.l10n.categorize,
+                tooltip: offlineHint ?? context.l10n.categorizeTooltip,
                 menuChildren: TagMenus.categoryItems(context, tagTarget),
                 enabled: tagTarget != null,
               ),
               RibbonMenuButton(
                 icon: FluentIcons.flag_20_regular,
-                label: 'Completa',
-                tooltip: offlineHint ?? 'Contrassegna per completamento, con una scadenza',
+                label: context.l10n.followUp,
+                tooltip: offlineHint ?? context.l10n.followUpTooltip,
                 menuChildren: TagMenus.followUpItems(context, tagTarget),
                 enabled: tagTarget != null,
               ),
@@ -292,7 +294,7 @@ class _MessageWindowState extends State<MessageWindow> {
         ],
       ),
       RibbonGroup(
-        label: 'Zoom',
+        label: context.l10n.groupZoom,
         children: [
           MenuAnchor(
             menuChildren: [
@@ -306,8 +308,8 @@ class _MessageWindowState extends State<MessageWindow> {
             builder: (context, controller, _) => RibbonLargeButton(
               key: const Key('message-window-zoom'),
               icon: FluentIcons.zoom_in_24_regular,
-              label: 'Zoom ($zoom%)',
-              tooltip: 'Ingrandisci o riduci il testo della mail (Ctrl+rotella, Ctrl++, Ctrl+-, Ctrl+0)',
+              label: context.l10n.zoomPercent(zoom),
+              tooltip: context.l10n.zoomTooltip,
               onPressed: () => controller.isOpen ? controller.close() : controller.open(),
             ),
           ),
@@ -344,13 +346,13 @@ class _TitleBar extends StatelessWidget {
         children: [
           Icon(FluentIcons.mail_20_regular, size: 18, color: scheme.onPrimary),
           const SizedBox(width: 8),
-          Text('Messaggio', style: style.copyWith(fontWeight: FontWeight.w600)),
+          Text(context.l10n.messageTab, style: style.copyWith(fontWeight: FontWeight.w600)),
           if (subject.isNotEmpty) Text('  –  ', style: style),
           Expanded(child: Text(subject, overflow: TextOverflow.ellipsis, style: style)),
-          button(const Key('message-window-previous'), FluentIcons.arrow_up_20_regular, 'Elemento precedente (Ctrl+,)', onPrevious),
-          button(const Key('message-window-next'), FluentIcons.arrow_down_20_regular, 'Elemento successivo (Ctrl+.)', onNext),
+          button(const Key('message-window-previous'), FluentIcons.arrow_up_20_regular, context.l10n.previousItem, onPrevious),
+          button(const Key('message-window-next'), FluentIcons.arrow_down_20_regular, context.l10n.nextItem, onNext),
           const SizedBox(width: 8),
-          button(const Key('message-window-close'), FluentIcons.dismiss_20_regular, 'Chiudi (Esc)', onClose),
+          button(const Key('message-window-close'), FluentIcons.dismiss_20_regular, context.l10n.closeEsc, onClose),
         ],
       ),
     );
@@ -365,7 +367,7 @@ class _FileMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: const Key('message-window-file'),
-      tooltip: 'File',
+      tooltip: context.l10n.fileTab,
       position: PopupMenuPosition.under,
       onSelected: (choice) => switch (choice) {
         'save-eml' => EmlActions.saveAs(context),
@@ -374,9 +376,9 @@ class _FileMenu extends StatelessWidget {
       },
       itemBuilder: (_) => [
         for (final (value, icon, text) in [
-          ('save-eml', FluentIcons.save_20_regular, 'Salva con nome… (F12)'),
-          ('print', FluentIcons.print_20_regular, 'Stampa… (Ctrl+P)'),
-          ('pdf', FluentIcons.document_pdf_20_regular, 'Salva come PDF…'),
+          ('save-eml', FluentIcons.save_20_regular, context.l10n.saveAs),
+          ('print', FluentIcons.print_20_regular, context.l10n.printMessage),
+          ('pdf', FluentIcons.document_pdf_20_regular, context.l10n.saveAsPdf),
         ])
           PopupMenuItem(
             key: Key('message-window-file-$value'),

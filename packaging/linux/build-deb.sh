@@ -59,10 +59,11 @@ Architecture: amd64
 Maintainer: Marcello Anderlini <dummy1969@users.noreply.github.com>
 Installed-Size: $(du -sk "$PKG" | cut -f1)
 Depends: libgtk-3-0t64 | libgtk-3-0, libsecret-1-0, libepoxy0, libssl3t64 | libssl3, libstdc++6, libc6
-Description: Client di posta desktop ispirato a Outlook
- PostinoVip legge e invia la posta di più caselle IMAP/SMTP. Include un core .NET
- self-contained (non richiede .NET installato). Le password sono conservate nel
- portachiavi di sistema. Licenza AGPL-3.0-or-later.
+Description: Desktop mail client inspired by Outlook
+ PostinoVip reads and sends mail from several IMAP/POP3/SMTP mailboxes, with
+ calendar and contacts; user interface in Italian and English. It includes a
+ self-contained .NET core (no .NET installation needed). Passwords are kept in
+ the system keyring. License AGPL-3.0-or-later.
 CONTROL
 
 # Permessi standard (644 file, 755 cartelle ed eseguibili): non dipendono dalla umask di chi costruisce.

@@ -86,7 +86,7 @@ public sealed class RuleRunner(MailAccount account, RuleStore store, Action<stri
         Action<int, int>? progress = null, CancellationToken ct = default)
     {
         if (account.Bodies?.Cache is not { } cache)
-            throw new NotSupportedException("Le regole richiedono la copia locale.");
+            throw new NotSupportedException("Le regole richiedono la copia locale.").WithCode("leRegoleRichiedonoLaCopia");
         var active = rules.Select(r => r with { Enabled = true }).ToList();
         await _gate.WaitAsync(ct);
         try

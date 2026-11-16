@@ -1,5 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../models/compose_draft.dart';
@@ -53,7 +55,7 @@ class _MessageContextMenuState extends State<MessageContextMenu> {
           MenuItemButton(
             leadingIcon: Icon(icon, size: 16),
             onPressed: hasMessage ? () => MessageActions.reply(context, mode) : null,
-            child: Text(mode.label),
+            child: Text(mode.label(context.l10n)),
           ),
         const Divider(height: 8),
         MenuItemButton(
@@ -62,17 +64,17 @@ class _MessageContextMenuState extends State<MessageContextMenu> {
             size: 16,
           ),
           onPressed: canModify && seen != null ? () => MessageActions.toggleSeen(context) : null,
-          child: Text(seen == true ? 'Segna come non letto' : 'Segna come letto'),
+          child: Text(seen == true ? context.l10n.markUnread : context.l10n.markRead),
         ),
         SubmenuButton(
           leadingIcon: const Icon(FluentIcons.tag_20_regular, size: 16),
           menuChildren: TagMenus.categoryItems(context, tagTarget),
-          child: const Text('Categorizza'),
+          child: Text(context.l10n.categorize),
         ),
         SubmenuButton(
           leadingIcon: const Icon(FluentIcons.flag_20_regular, size: 16),
           menuChildren: TagMenus.followUpItems(context, tagTarget),
-          child: const Text('Completa'),
+          child: Text(context.l10n.followUp),
         ),
         const Divider(height: 8),
         SubmenuButton(
@@ -84,31 +86,31 @@ class _MessageContextMenuState extends State<MessageContextMenu> {
                 child: Text(f.fullName),
               ),
           ],
-          child: const Text('Sposta'),
+          child: Text(context.l10n.move),
         ),
         MenuItemButton(
           leadingIcon: const Icon(FluentIcons.person_add_20_regular, size: 16),
           onPressed: hasMessage && !model.multiSelection && (model.detail?.fromAddress?.isNotEmpty ?? false)
               ? () => PeopleActions.addSender(context)
               : null,
-          child: const Text('Aggiungi il mittente a Contatti'),
+          child: Text(context.l10n.addSenderToContacts),
         ),
         SubmenuButton(
           leadingIcon: const Icon(FluentIcons.filter_20_regular, size: 16),
           menuChildren: [
             MenuItemButton(
               onPressed: hasMessage && !model.multiSelection ? () => RulesUi.createFor(context) : null,
-              child: const Text('Crea regola…'),
+              child: Text(context.l10n.createRule),
             ),
-            MenuItemButton(onPressed: () => RulesUi.manage(context), child: const Text('Gestisci regole e avvisi…')),
+            MenuItemButton(onPressed: () => RulesUi.manage(context), child: Text(context.l10n.manageRulesEllipsis)),
           ],
-          child: const Text('Regole'),
+          child: Text(context.l10n.rules),
         ),
         MenuItemButton(
           key: const Key('context-ignore'),
           leadingIcon: const Icon(FluentIcons.mail_prohibited_20_regular, size: 16),
           onPressed: ConversationToolActions.canIgnore(model) ? () => ConversationToolActions.ignore(context) : null,
-          child: Text(model.openIgnoredInTrash ? 'Interrompi Ignora conversazione' : 'Ignora conversazione'),
+          child: Text(model.openIgnoredInTrash ? context.l10n.stopIgnoringConversation : context.l10n.ignoreConversation),
         ),
         MenuItemButton(
           key: const Key('context-clean-up'),
@@ -116,24 +118,24 @@ class _MessageContextMenuState extends State<MessageContextMenu> {
           onPressed: ConversationToolActions.canCleanUpConversation(model)
               ? () => ConversationToolActions.cleanUpConversation(context)
               : null,
-          child: const Text('Pulisci conversazione'),
+          child: Text(context.l10n.cleanUpConversation),
         ),
         SubmenuButton(
           key: const Key('context-junk'),
           leadingIcon: const Icon(FluentIcons.person_prohibited_20_regular, size: 16),
           menuChildren: JunkActions.menuItems(context),
-          child: const Text('Posta indesiderata'),
+          child: Text(context.l10n.junk),
         ),
         MenuItemButton(
           key: const Key('context-archive'),
           leadingIcon: const Icon(FluentIcons.archive_20_regular, size: 16),
           onPressed: ArchiveActions.canArchive(model) ? () => ArchiveActions.archive(context) : null,
-          child: const Text('Archivia'),
+          child: Text(context.l10n.archive),
         ),
         MenuItemButton(
           leadingIcon: const Icon(FluentIcons.delete_20_regular, size: 16),
           onPressed: canModify ? () => MessageActions.delete(context) : null,
-          child: Text(MessageActions.deletesPermanently(model) ? 'Elimina definitivamente' : 'Elimina'),
+          child: Text(MessageActions.deletesPermanently(model) ? context.l10n.deletePermanently : context.l10n.delete),
         ),
       ],
       child: widget.builder(context, _open),

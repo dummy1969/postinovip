@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
+
 import '../state/calendar_model.dart';
 import '../state/reminder_model.dart';
 import 'calendar_view.dart';
@@ -63,18 +66,27 @@ class ReminderDialog extends StatefulWidget {
   const ReminderDialog({super.key});
 
   /// Intervalli di «Rimanda», come Outlook.
-  static const snoozes = <(Duration, String)>[
-    (Duration(minutes: 5), '5 minuti'),
-    (Duration(minutes: 10), '10 minuti'),
-    (Duration(minutes: 15), '15 minuti'),
-    (Duration(minutes: 30), '30 minuti'),
-    (Duration(hours: 1), '1 ora'),
-    (Duration(hours: 2), '2 ore'),
-    (Duration(hours: 4), '4 ore'),
-    (Duration(days: 1), '1 giorno'),
-    (Duration(days: 2), '2 giorni'),
-    (Duration(days: 7), '1 settimana'),
+  static const snoozes = <Duration>[
+    Duration(minutes: 5),
+    Duration(minutes: 10),
+    Duration(minutes: 15),
+    Duration(minutes: 30),
+    Duration(hours: 1),
+    Duration(hours: 2),
+    Duration(hours: 4),
+    Duration(days: 1),
+    Duration(days: 2),
+    Duration(days: 7),
   ];
+
+  /// «5 minuti», «1 ora», «1 settimana».
+  static String snoozeLabel(AppLocalizations l, Duration d) => d.inDays >= 7 && d.inDays % 7 == 0
+      ? l.durationWeeks(d.inDays ~/ 7)
+      : d.inDays >= 1
+      ? l.durationDays(d.inDays)
+      : d.inHours >= 1
+      ? l.durationHours(d.inHours)
+      : l.durationMinutes(d.inMinutes);
 
   @override
   State<ReminderDialog> createState() => _ReminderDialogState();
@@ -82,7 +94,7 @@ class ReminderDialog extends StatefulWidget {
 
 class _ReminderDialogState extends State<ReminderDialog> {
   String? _selected;
-  Duration _snooze = ReminderDialog.snoozes.first.$1;
+  Duration _snooze = ReminderDialog.snoozes.first;
   bool _closing = false;
 
   static String _when(Reminder r) {
@@ -108,7 +120,7 @@ class _ReminderDialogState extends State<ReminderDialog> {
     final theme = Theme.of(context);
     return AlertDialog(
       key: const Key('reminder-dialog'),
-      title: Text(due.length == 1 ? '1 promemoria' : '${due.length} promemoria'),
+      title: Text(context.l10n.remindersCount(due.length)),
       content: SizedBox(
         width: 560,
         child: Column(
@@ -122,8 +134,8 @@ class _ReminderDialogState extends State<ReminderDialog> {
             ]),
             Padding(
               padding: const EdgeInsets.only(left: 32, top: 2, bottom: 8),
-              child: Text('Inizio: ${_when(selected)}'
-                  '${(selected.occurrence.location ?? '').isEmpty ? '' : '    Luogo: ${selected.occurrence.location}'}'),
+              child: Text(context.l10n.reminderStart(_when(selected)) +
+                  ((selected.occurrence.location ?? '').isEmpty ? '' : context.l10n.reminderLocation(selected.occurrence.location!))),
             ),
             Container(
               constraints: const BoxConstraints(maxHeight: 220),
@@ -140,7 +152,7 @@ class _ReminderDialogState extends State<ReminderDialog> {
                       leading: const Icon(FluentIcons.calendar_ltr_20_regular, size: 18),
                       title: Text(r.occurrence.title, overflow: TextOverflow.ellipsis),
                       subtitle: Text(_when(r)),
-                      trailing: Text(ReminderModel.describe(r.occurrence, now), key: Key('reminder-due:${r.occurrence.key}')),
+                      trailing: Text(ReminderModel.describe(context.l10n, r.occurrence, now), key: Key('reminder-due:${r.occurrence.key}')),
                       onTap: () => setState(() => _selected = r.key),
                     ),
                 ],
@@ -148,7 +160,7 @@ class _ReminderDialogState extends State<ReminderDialog> {
             ),
             const SizedBox(height: 8),
             Row(children: [
-              TextButton(key: const Key('reminder-dismiss-all'), onPressed: () => model.dismiss(due), child: const Text('Ignora tutto')),
+              TextButton(key: const Key('reminder-dismiss-all'), onPressed: () => model.dismiss(due), child: Text(context.l10n.dismissAll)),
               const Spacer(),
               TextButton(
                 key: const Key('reminder-open'),
@@ -161,13 +173,13 @@ class _ReminderDialogState extends State<ReminderDialog> {
                   await CalendarActions.open(nav.context, o);
                   if (model.due.isNotEmpty) model.requestShow();
                 },
-                child: const Text('Apri elemento'),
+                child: Text(context.l10n.openItem),
               ),
               const SizedBox(width: 8),
-              FilledButton(key: const Key('reminder-dismiss'), onPressed: () => model.dismiss([selected]), child: const Text('Ignora')),
+              FilledButton(key: const Key('reminder-dismiss'), onPressed: () => model.dismiss([selected]), child: Text(context.l10n.dismiss)),
             ]),
             const SizedBox(height: 12),
-            const Text('Fare clic su Rimanda per ricevere un nuovo promemoria tra:'),
+            Text(context.l10n.snoozeHint),
             const SizedBox(height: 4),
             Row(children: [
               Expanded(
@@ -175,17 +187,20 @@ class _ReminderDialogState extends State<ReminderDialog> {
                   key: const Key('reminder-snooze-choice'),
                   isExpanded: true,
                   value: _snooze,
-                  items: [for (final (d, label) in ReminderDialog.snoozes) DropdownMenuItem(value: d, child: Text(label))],
+                  items: [
+                    for (final d in ReminderDialog.snoozes)
+                      DropdownMenuItem(value: d, child: Text(ReminderDialog.snoozeLabel(context.l10n, d))),
+                  ],
                   onChanged: (d) => setState(() => _snooze = d ?? _snooze),
                 ),
               ),
               const SizedBox(width: 12),
-              OutlinedButton(key: const Key('reminder-snooze'), onPressed: () => model.snooze([selected], _snooze), child: const Text('Rimanda')),
+              OutlinedButton(key: const Key('reminder-snooze'), onPressed: () => model.snooze([selected], _snooze), child: Text(context.l10n.snooze)),
             ]),
           ],
         ),
       ),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Chiudi'))],
+      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(context.l10n.close))],
     );
   }
 }

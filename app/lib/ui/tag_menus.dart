@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/message_tags.dart';
+import '../l10n/language.dart';
 import '../settings/app_settings.dart';
 import '../state/mailbox_model.dart';
 import 'categories.dart';
@@ -78,6 +79,7 @@ class TagMenus {
   static List<Widget> categoryItems(BuildContext context, TagTarget? t) {
     final settings = context.read<AppSettings>();
     final current = t?.tags.categories ?? const <int>[];
+    final l = context.l10n;
     return [
       for (var n = 1; n <= CategoryColors.colors.length; n++)
         MenuItemButton(
@@ -104,16 +106,17 @@ class TagMenus {
             : t.many
             ? () => _apply(context, t, removeCategories: [for (var n = 1; n <= CategoryColors.colors.length; n++) n])
             : () => _apply(context, t, categories: const []),
-        child: const Text('Cancella tutte le categorie'),
+        child: Text(l.clearAllCategories),
       ),
       MenuItemButton(
         onPressed: () => showDialog<void>(context: context, builder: (_) => CategoryNamesDialog(settings: settings)),
-        child: const Text('Tutte le categorie…'),
+        child: Text(l.allCategoriesEllipsis),
       ),
     ];
   }
 
   static List<Widget> followUpItems(BuildContext context, TagTarget? t) {
+    final l = context.l10n;
     return [
       for (final choice in FollowUpChoice.values)
         MenuItemButton(
@@ -121,25 +124,25 @@ class TagMenus {
           onPressed: t == null
               ? null
               : () => _apply(context, t, followUp: 'flagged', due: choice.dueFrom(DateTime.now())),
-          child: Text(choice.label),
+          child: Text(choice.label(l)),
         ),
       MenuItemButton(
         leadingIcon: const Icon(FluentIcons.calendar_20_regular, size: 16),
         onPressed: t == null ? null : () => _pickDate(context, t),
-        child: const Text('Data personalizzata…'),
+        child: Text(l.customDateEllipsis),
       ),
       const Divider(height: 8),
       MenuItemButton(
         leadingIcon: const Icon(FluentIcons.checkmark_16_regular, size: 16),
         onPressed: t == null || (t.tags.completed && !t.many) ? null : () => _apply(context, t, followUp: 'completed'),
-        child: const Text('Contrassegna come completato'),
+        child: Text(l.markComplete),
       ),
       MenuItemButton(
         leadingIcon: const Icon(FluentIcons.flag_off_20_regular, size: 16),
         onPressed: t == null || !(t.tags.flagged || t.tags.completed || t.many)
             ? null
             : () => _apply(context, t, followUp: 'none'),
-        child: const Text('Cancella contrassegno'),
+        child: Text(l.clearFlag),
       ),
     ];
   }
@@ -152,7 +155,7 @@ class TagMenus {
       initialDate: t.tags.due ?? today,
       firstDate: DateTime(today.year - 1),
       lastDate: DateTime(today.year + 5, 12, 31),
-      helpText: 'Completare entro',
+      helpText: context.l10n.dueByTitle,
     );
     if (day != null && context.mounted) await _apply(context, t, followUp: 'flagged', due: day);
   }
@@ -169,7 +172,10 @@ class CategoryNamesDialog extends StatefulWidget {
 }
 
 class _CategoryNamesDialogState extends State<CategoryNamesDialog> {
-  late final _fields = [for (final name in widget.settings.categoryNames) TextEditingController(text: name)];
+  late final _fields = [
+    for (var n = 1; n <= AppSettings.defaultCategoryNames.length; n++)
+      TextEditingController(text: widget.settings.categoryName(n)),
+  ];
 
   @override
   void dispose() {
@@ -181,8 +187,9 @@ class _CategoryNamesDialogState extends State<CategoryNamesDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: const Text('Categorie'),
+      title: Text(l.categoriesTitle),
       content: SizedBox(
         width: 360,
         child: Column(
@@ -207,7 +214,7 @@ class _CategoryNamesDialogState extends State<CategoryNamesDialog> {
               ),
             const SizedBox(height: 8),
             Text(
-              'I nomi valgono solo su questo computer; sul server ogni categoria è salvata con il suo colore.',
+              l.categoriesInfo,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -217,18 +224,18 @@ class _CategoryNamesDialogState extends State<CategoryNamesDialog> {
         TextButton(
           onPressed: () {
             for (final (i, f) in _fields.indexed) {
-              f.text = AppSettings.defaultCategoryNames[i];
+              f.text = AppSettings.defaultCategoryNamesIn(l)[i];
             }
           },
-          child: const Text('Nomi predefiniti'),
+          child: Text(l.defaultNames),
         ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         FilledButton(
           onPressed: () {
             widget.settings.setCategoryNames([for (final f in _fields) f.text]);
             Navigator.pop(context);
           },
-          child: const Text('Salva'),
+          child: Text(l.save),
         ),
       ],
     );

@@ -32,7 +32,8 @@ class SystemNotifier implements MailNotifier {
 
   /// null se la piattaforma non è supportata o l'inizializzazione fallisce: l'app funziona lo stesso,
   /// ma il motivo viene scritto nel terminale.
-  static Future<SystemNotifier?> create() async {
+  /// [openAction]: nome dell'azione predefinita su Linux («Apri mail»), nella lingua dell'app all'avvio.
+  static Future<SystemNotifier?> create({String openAction = 'Apri mail'}) async {
     if (!(Platform.isLinux || Platform.isWindows || Platform.isMacOS)) {
       notifyLog('non disponibili su ${Platform.operatingSystem}');
       return null;
@@ -42,18 +43,18 @@ class SystemNotifier implements MailNotifier {
     final clicks = StreamController<String?>.broadcast();
     try {
       final ok = await plugin.initialize(
-        settings: const InitializationSettings(
+        settings: InitializationSettings(
           // Azione predefinita: per la specifica freedesktop è il clic sul corpo della notifica; su Xfce
           // invece è il pulsante "Apri mail" (il clic sul corpo chiude soltanto: verificato con dbus-monitor).
-          linux: LinuxInitializationSettings(defaultActionName: 'Apri mail'),
-          windows: WindowsInitializationSettings(
+          linux: LinuxInitializationSettings(defaultActionName: openAction),
+          windows: const WindowsInitializationSettings(
             appName: 'PostinoVip',
             appUserModelId: 'Dumm1969.PostinoVip',
             guid: '37423cc0-f2cf-4175-a8bf-7870e7cd5491', // fisso: identifica l'app nelle notifiche di Windows
           ),
           // Anche con la finestra in primo piano: se mostrarla lo decide l'opzione dell'app (NotifyMode), come su
           // Linux e Windows. Il macOS predefinito del pacchetto chiederebbe anche il numero sul Dock: no (2a).
-          macOS: DarwinInitializationSettings(requestBadgePermission: false, defaultPresentBadge: false),
+          macOS: const DarwinInitializationSettings(requestBadgePermission: false, defaultPresentBadge: false),
         ),
         onDidReceiveNotificationResponse: (response) {
           notifyLog('clic sulla notifica ${response.id}');

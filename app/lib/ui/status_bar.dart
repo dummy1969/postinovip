@@ -2,6 +2,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/calendar_model.dart';
 import '../state/contacts_model.dart';
 import '../state/mailbox_model.dart';
@@ -19,27 +20,28 @@ class StatusBar extends StatelessWidget {
     final model = context.watch<MailboxModel>();
     final theme = Theme.of(context);
     final style = theme.textTheme.bodySmall;
+    final l = AppLocalizations.of(context);
     final offline = model.offlineAccounts;
     final unread = model.selectedFolderInfo?.unread;
 
     final people = context.watch<ContactsModel>();
     final calendar = context.watch<CalendarModel>();
     final left = people.module == AppModule.calendar
-        ? 'Elementi: ${calendar.visibleOccurrences.length}'
+        ? l.statusItems(calendar.visibleOccurrences.length)
         : people.module == AppModule.people
         ? [
-            'Contatti: ${people.count}',
-            if (people.query.isNotEmpty) 'Trovati: ${people.visible.length}',
-            ?PeopleActions.syncLabel(people.statusOf(people.book))?.text,
+            l.statusContacts(people.count),
+            if (people.query.isNotEmpty) l.statusFound(people.visible.length),
+            ?PeopleActions.syncLabel(l, people.statusOf(people.book))?.text,
           ].join('      ')
         : model.searchActive
-        ? 'Risultati: ${model.searchTotal}'
+        ? l.statusResults(model.searchTotal)
         : model.selectedFolder == null
         ? ''
         : [
             // Il numero della cartella, anche con il filtro "Da leggere" attivo.
-            'Elementi: ${model.selectedFolderInfo?.count ?? model.total}',
-            if (unread != null) 'Da leggere: $unread',
+            l.statusItems(model.selectedFolderInfo?.count ?? model.total),
+            if (unread != null) l.statusUnread(unread),
           ].join('      ');
 
     return Container(
@@ -57,12 +59,14 @@ class StatusBar extends StatelessWidget {
           if (offline.isEmpty) ...[
             Icon(FluentIcons.plug_connected_16_regular, size: 14, color: style?.color),
             const SizedBox(width: 4),
-            Text('Connesso', style: style),
+            Text(l.statusConnected, style: style),
           ] else ...[
             Icon(FluentIcons.plug_disconnected_16_regular, size: 14, color: theme.colorScheme.error),
             const SizedBox(width: 4),
             Text(
-              model.multipleAccounts ? 'Disconnesso: ${offline.map((a) => a.name).join(', ')}' : 'Disconnesso',
+              model.multipleAccounts
+                  ? l.statusDisconnectedAccounts(offline.map((a) => a.name).join(', '))
+                  : l.statusDisconnected,
               style: style?.copyWith(color: theme.colorScheme.error, fontWeight: FontWeight.w600),
             ),
           ],

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_quill/flutter_quill.dart' show FlutterQuillLocalizations;
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,9 @@ import 'attachments/file_picker.dart';
 import 'attachments/file_saver.dart';
 import 'compose/system_clipboard.dart';
 import 'core/core_gate.dart';
+import 'l10n/app_localizations.dart';
+import 'l10n/formats.dart';
+import 'l10n/language.dart';
 import 'notify/new_mail_notifications.dart';
 import 'notify/system_notifier.dart';
 import 'notify/window_presenter.dart';
@@ -29,12 +33,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   registerLicenses();
   installSystemClipboard(); // Linux: appunti dell'editor con GTK, senza lo xclip del pacchetto
+  await initializeDateFormatting(); // nomi di giorni e mesi per le date (L5), prima di ogni formato
 
   // Impostazioni salvate (SharedPreferences) e notifiche di sistema; se le notifiche non sono
   // disponibili (notifier null) l'app funziona lo stesso, senza popup.
   final settings = AppSettings(SharedPreferencesStore());
   await settings.load();
-  final notifier = await SystemNotifier.create();
+  final notifier = await SystemNotifier.create(openAction: settings.l10n.openMailAction);
 
   // CoreGate avvia il core (porta casuale + token + account dal portachiavi) e poi mostra PostinoVipApp.
   runApp(CoreGate(accountStore: SecureAccountStore(), settings: settings, notifier: notifier));
@@ -142,21 +147,24 @@ class _PostinoVipAppState extends State<PostinoVipApp> {
         ChangeNotifierProvider(create: (_) => _calendar = CalendarModel(widget.api, _settings)..onEventsChanged = () => unawaited(_reminders.refresh())),
         ChangeNotifierProvider.value(value: _reminders),
       ],
-      // Ridisegna l'app solo quando cambia il tema, non a ogni altra impostazione.
-      child: Selector<AppSettings, AppTheme>(
-        selector: (_, settings) => settings.theme,
+      // Ridisegna l'app solo quando cambiano il tema o la lingua, non a ogni altra impostazione.
+      child: Selector<AppSettings, (AppTheme, AppLanguage)>(
+        selector: (_, settings) => (settings.theme, settings.language),
         builder: (context, choice, home) {
-          final looks = OfficeTheme.forApp(choice);
+          final looks = OfficeTheme.forApp(choice.$1);
           return MaterialApp(
             title: 'PostinoVip',
             debugShowCheckedModeBanner: false,
-            // Testi standard di Flutter (finestra Informazioni, pagina Licenze, menu...) in italiano.
-            locale: italian,
-            supportedLocales: const [italian],
-            localizationsDelegates: const [
-              ...GlobalMaterialLocalizations.delegates,
-              FlutterQuillLocalizations.delegate,
-            ],
+            // Lingua (tappa «Lingua», L1): i testi dell'app e quelli standard di Flutter e dell'editor.
+            locale: choice.$2.locale,
+            localeListResolutionCallback: (preferred, _) => resolveLocale(preferred),
+            supportedLocales: AppLocalizations.supportedLocales,
+            localizationsDelegates: appLocalizationsDelegates,
+            // Date e numeri (L5) nella lingua dell'app: la riceve chi formatta fuori dai widget.
+            builder: (context, child) {
+              setFormatLanguage(AppLocalizations.of(context));
+              return child!;
+            },
             // Stile Outlook classico, con il tema di Office scelto (predefinito: quello del sistema).
             theme: looks.theme,
             darkTheme: looks.darkTheme,
@@ -170,5 +178,9 @@ class _PostinoVipAppState extends State<PostinoVipApp> {
   }
 }
 
-/// Lingua dell'interfaccia (per ora solo italiano).
-const italian = Locale('it');
+/// Traduzioni dell'app (lib/l10n), testi standard di Flutter e dell'editor delle mail.
+const appLocalizationsDelegates = [
+  AppLocalizations.delegate,
+  ...GlobalMaterialLocalizations.delegates,
+  FlutterQuillLocalizations.delegate,
+];

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/api_client.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../models/calendar.dart';
 import '../models/carddav.dart';
 import '../models/oauth.dart';
@@ -211,6 +213,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   /// [calendar] (G3, 1a): anche il permesso dei contatti o del calendario; con la sincronizzazione già accesa si chiede
   /// sempre, così con contatti e calendario accesi l'accesso è uno solo con tutti e due.
   Future<void> _signIn(OAuthProviderInfo provider, {bool contacts = false, bool calendar = false}) async {
+    final l = context.l10n;
     final google = provider.id == 'google';
     final withContacts = contacts || (_cardDav && google);
     final withCalendar = calendar || (_calDav && google);
@@ -228,34 +231,35 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       );
       if (!opened) {
         await widget.api.cancelOAuth(start.id);
-        if (mounted) setState(() => _oauthError = 'Il browser non si è aperto.');
+        if (mounted) setState(() => _oauthError = l.browserNotOpened);
         return;
       }
       if (!mounted) return;
       setState(() => _oauthFlow = start.id);
       _oauthTimer = Timer.periodic(AccountSetupPage.oauthPollInterval, (_) => _pollOAuth(provider));
     } on ApiException catch (e) {
-      if (mounted) setState(() => _oauthError = 'Accesso non avviato: $e');
+      if (mounted) setState(() => _oauthError = l.signInNotStarted('$e'));
     }
   }
 
   Future<void> _pollOAuth(OAuthProviderInfo provider) async {
     final id = _oauthFlow;
     if (id == null) return;
+    final l = context.l10n;
     OAuthFlowStatus status;
     try {
       status = await widget.api.getOAuthFlow(id);
     } on ApiException catch (e) {
       _stopOAuth();
       if (mounted) {
-        setState(() => _oauthError = e.statusCode == 404 ? 'Accesso scaduto: riprova.' : 'Accesso non riuscito: $e');
+        setState(() => _oauthError = e.statusCode == 404 ? l.signInExpired : l.signInFailedError('$e'));
       }
       return;
     }
     if (!mounted || status.status == 'pending') return;
     _stopOAuth();
     if (status.failed) {
-      setState(() => _oauthError = status.error ?? 'Accesso non riuscito.');
+      setState(() => _oauthError = status.error ?? l.signInFailed);
       return;
     }
     // Riuscito: indirizzo e server compilati da soli (5a), token al posto della password, poi la verifica.
@@ -263,21 +267,24 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       _oauthProvider = provider.id;
       _refreshToken = status.refreshToken;
       // C4d e G3: ogni casella resta accesa solo se Google ha davvero concesso quel permesso.
-      final missing = <String>[];
+      var noContacts = false;
+      var noCalendar = false;
       if (_contactsRequested) {
         _cardDav = status.contacts == true;
         _cardDavResult = null;
-        if (status.contacts != true) missing.add('dei contatti');
+        noContacts = status.contacts != true;
       }
       if (_calendarRequested) {
         _calDav = status.calendar == true;
         _calDavResult = null;
-        if (status.calendar != true) missing.add('del calendario');
+        noCalendar = status.calendar != true;
       }
-      if (missing.isNotEmpty) {
-        final what = missing.join(' e ');
-        _oauthError = 'Accesso fatto, ma senza il permesso $what: la sincronizzazione $what resta spenta. '
-            'Per attivarla spunta di nuovo la casella e permetti l\'accesso.';
+      if (noContacts || noCalendar) {
+        _oauthError = noContacts && noCalendar
+            ? l.signInWithoutContactsCalendar
+            : noContacts
+            ? l.signInWithoutContacts
+            : l.signInWithoutCalendar;
       }
       _contactsRequested = false;
       _calendarRequested = false;
@@ -330,6 +337,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     final provider = _providers.where((p) => p.id == id).firstOrNull;
     final label = serviceLabel(id, provider?.name);
     final company = provider?.name ?? label;
+    final l = context.l10n;
     return [
       const SizedBox(height: 12),
       if (_oauthFlow != null)
@@ -338,8 +346,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
           children: [
             const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 8),
-            Expanded(child: Text('In attesa dell\'accesso nella pagina di $company, nel browser…')),
-            TextButton(onPressed: _cancelOAuth, child: const Text('Annulla')),
+            Expanded(child: Text(l.waitingSignIn(company))),
+            TextButton(onPressed: _cancelOAuth, child: Text(l.cancel)),
           ],
         )
       else if (_oauth)
@@ -348,30 +356,26 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
           children: [
             Icon(Icons.verified_user_outlined, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            Expanded(child: Text('Accesso con $company fatto: niente password da salvare.')),
+            Expanded(child: Text(l.signedInWith(company))),
             if (provider != null)
-              TextButton(onPressed: busy ? null : () => _signIn(provider), child: const Text('Accedi di nuovo')),
+              TextButton(onPressed: busy ? null : () => _signIn(provider), child: Text(l.signInAgain)),
           ],
         )
       else ...[
-        Text(
-          'Niente password: l\'accesso avviene nella pagina di $company, nel browser. '
-          'Al ritorno indirizzo e server si compilano da soli.',
-          style: theme.textTheme.bodyMedium,
-        ),
+        Text(l.noPasswordSignIn(company), style: theme.textTheme.bodyMedium),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
           child: provider == null
               ? Text(
-                  '$label non è disponibile: il core non ha l\'ID dell\'app.',
+                  l.serviceUnavailable(label),
                   style: TextStyle(color: theme.colorScheme.error),
                 )
               : FilledButton.icon(
                   key: Key('oauth-${provider.id}'),
                   onPressed: busy ? null : () => _signIn(provider),
                   icon: const Icon(Icons.login),
-                  label: Text('Accedi con $company'),
+                  label: Text(l.signInWith(company)),
                 ),
         ),
       ],
@@ -454,12 +458,13 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final busy = _testing || _saving;
+    final l = context.l10n;
 
     final title = widget.firstRun
-        ? 'Benvenuto in PostinoVip'
+        ? l.welcomeTitle
         : widget.initial == null
-        ? 'Nuovo account'
-        : 'Modifica account';
+        ? l.newAccount
+        : l.editAccount;
     final content = Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -472,23 +477,19 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                 if (widget.firstRun)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      'Inserisci i dati della tua casella. La password viene conservata nel '
-                      'portachiavi di sistema.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
+                    child: Text(l.firstRunIntro, style: theme.textTheme.bodyMedium),
                   ),
                 if (widget.initial == null)
                   DropdownButtonFormField<String>(
                     key: const Key('account-type'),
                     initialValue: _kind,
                     decoration: InputDecoration(
-                      labelText: 'Tipo di account',
+                      labelText: l.accountType,
                       helperText:
-                          'IMAP: le mail restano sul server e si vedono da tutti i dispositivi (consigliato).\n'
-                          'POP3: le mail vengono scaricate su questo computer. Non si può cambiare dopo.'
-                          '${_providers.isEmpty ? '' : '\n${[for (final p in _providers) serviceLabel(p.id, p.name)].join(', ')}: '
-                                    'accesso con il browser, senza password.'}',
+                          l.accountTypeHelp +
+                          (_providers.isEmpty
+                              ? ''
+                              : '\n${l.accountTypeServices([for (final p in _providers) serviceLabel(p.id, p.name)].join(', '))}'),
                       helperMaxLines: 4,
                     ),
                     items: [
@@ -502,7 +503,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
-                      'Tipo di account: ${_service != null ? serviceLabel(_service!) : _type.label}',
+                      l.accountTypeValue(_service != null ? serviceLabel(_service!) : _type.label),
                       style: theme.textTheme.bodyMedium,
                     ),
                   ),
@@ -510,10 +511,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                 TextFormField(
                   controller: _name,
                   enabled: !busy,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome (facoltativo)',
-                    hintText: 'es. Lavoro; se vuoto si mostra l\'indirizzo',
-                  ),
+                  decoration: InputDecoration(labelText: l.nameOptional, hintText: l.nameOptionalHint),
                 ),
                 if (_service == null || _oauth)
                   TextFormField(
@@ -521,11 +519,11 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                     enabled: !busy,
                     // Con un servizio l'indirizzo è quello dell'accesso: non si cambia a mano.
                     readOnly: _service != null,
-                    decoration: const InputDecoration(labelText: 'Indirizzo email (anche nome utente)'),
+                    decoration: InputDecoration(labelText: l.emailAddressUser),
                     validator: (v) => !(v ?? '').contains('@')
-                        ? 'Indirizzo non valido'
+                        ? l.invalidAddressShort
                         : _duplicate(v!)
-                        ? 'Questo account è già presente'
+                        ? l.accountAlreadyPresent
                         : null,
                   ),
                 if (_service == null)
@@ -534,29 +532,27 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                     enabled: !busy,
                     obscureText: !_showPassword,
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: l.password,
                       suffixIcon: IconButton(
-                        tooltip: _showPassword ? 'Nascondi password' : 'Mostra password',
+                        tooltip: _showPassword ? l.hidePassword : l.showPassword,
                         icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility),
                         onPressed: () => setState(() => _showPassword = !_showPassword),
                       ),
                     ),
-                    validator: (v) => (v ?? '').isEmpty ? 'Password obbligatoria' : null,
+                    validator: (v) => (v ?? '').isEmpty ? l.passwordRequired : null,
                   ),
                 if (_otherType(_email.text) case final other?)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      'Questa casella è già configurata come ${other.type.label} («${other.displayName}»). '
-                      'Si può usare in entrambi i modi, ma con le rimozioni dal server del POP3 le mail spariranno '
-                      'anche dall\'account IMAP.',
+                      l.sameMailboxOtherType(other.type.label, other.displayName),
                       style: TextStyle(color: theme.colorScheme.tertiary),
                     ),
                   ),
                 if (_service == null) ...[
                   const SizedBox(height: 16),
                   _serverRow(
-                    '${_type.label} (posta in arrivo)',
+                    l.incomingServer(_type.label),
                     _imapHost,
                     _imapPort,
                     _imapError,
@@ -571,7 +567,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                     key: const ValueKey('imap'),
                   ),
                   _serverRow(
-                    'SMTP (posta in uscita)',
+                    l.outgoingServer,
                     _smtpHost,
                     _smtpPort,
                     _smtpError,
@@ -591,11 +587,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                       controlAffinity: ListTileControlAffinity.leading,
                       value: _smtpAuth,
                       onChanged: busy ? null : (v) => setState(() => _smtpAuth = v ?? true),
-                      title: const Text('Il server di invio richiede l\'autenticazione'),
-                      subtitle: const Text(
-                        'Con indirizzo e password della casella. Toglila solo per un server '
-                        'che accetta le mail senza login (es. sulla porta 25 della rete aziendale).',
-                      ),
+                      title: Text(l.smtpAuthTitle),
+                      subtitle: Text(l.smtpAuthSubtitle),
                     ),
                   ),
                 ],
@@ -603,11 +596,9 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                 if (!_pop3)
                   DropdownButtonFormField<int>(
                     initialValue: _bodyMonths,
-                    decoration: const InputDecoration(
-                      labelText: 'Mail scaricate sul computer',
-                      helperText:
-                          'Le più recenti vengono scaricate in background e si aprono subito; le altre '
-                          'quando le apri.\nPosta eliminata e Indesiderata: solo l\'elenco.',
+                    decoration: InputDecoration(
+                      labelText: l.downloadedMail,
+                      helperText: l.downloadedMailHelp,
                       helperMaxLines: 3,
                     ),
                     items: [
@@ -615,8 +606,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                         DropdownMenuItem(
                           value: m,
                           child: Text(
-                            AccountConfig.bodyMonthsLabel(m) +
-                                (m == AccountConfig.defaultBodyMonths ? ' (consigliato)' : ''),
+                            AccountConfig.bodyMonthsLabel(l, m) +
+                                (m == AccountConfig.defaultBodyMonths ? l.recommendedSuffix : ''),
                           ),
                         ),
                     ],
@@ -709,33 +700,32 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     final host = _imapHost.text.trim();
     final result = _cardDavResult;
     final waiting = _oauthFlow != null && _contactsRequested;
+    final l = context.l10n;
     return [
       const SizedBox(height: 16),
-      Text('Contatti', style: theme.textTheme.titleSmall),
+      Text(l.contacts, style: theme.textTheme.titleSmall),
       CheckboxListTile(
         key: const Key('carddav-enabled'),
         contentPadding: EdgeInsets.zero,
         controlAffinity: ListTileControlAffinity.leading,
         value: _cardDav && !unavailable,
         onChanged: busy || unavailable || _oauthFlow != null ? null : (v) => _setCardDav(v ?? false),
-        title: Text(_contactsWithOAuth ? 'Sincronizza i contatti con Google (CardDAV)' : 'Sincronizza i contatti con il server (CardDAV)'),
+        title: Text(_contactsWithOAuth ? l.syncContactsGoogle : l.syncContactsServer),
         subtitle: Text(
           _cardDavUnavailable
-              ? 'Per gli account Microsoft non è ancora disponibile.'
+              ? l.notYetForMicrosoft
               : _cardDavNeedsSignIn
-              ? 'Prima fai «Accedi con Google».'
+              ? l.signInWithGoogleFirst
               : _contactsWithOAuth
-              ? 'La rubrica di questo account diventa quella dei contatti Google. Spuntando la casella si apre il browser '
-                    'per permettere a PostinoVip l\'accesso ai contatti.'
-              : 'La rubrica di questo account diventa quella del server dei contatti, con le stesse credenziali. '
-                    'La prima volta i contatti che sono solo su questo computer vanno sul server solo dopo una conferma.',
+              ? l.syncContactsGoogleHelp
+              : l.syncContactsServerHelp,
         ),
       ),
       if (waiting)
-        const Padding(
-          key: Key('carddav-oauth-waiting'),
-          padding: EdgeInsets.only(left: 8, bottom: 8),
-          child: Text('Accesso con Google in corso nel browser: permetti l\'accesso ai contatti.'),
+        Padding(
+          key: const Key('carddav-oauth-waiting'),
+          padding: const EdgeInsets.only(left: 8, bottom: 8),
+          child: Text(l.contactsSignInWaiting),
         ),
       if (_cardDav && !unavailable) ...[
         if (!_contactsWithOAuth) TextFormField(
@@ -744,16 +734,16 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
           enabled: !busy,
           keyboardType: TextInputType.url,
           decoration: InputDecoration(
-            labelText: 'Indirizzo del server dei contatti (facoltativo)',
+            labelText: l.contactsServerUrl,
             hintText: 'https://…',
-            helperText: host.isEmpty ? 'Vuoto: cercato da solo sul server di ricezione' : 'Vuoto: cercato da solo su $host',
+            helperText: host.isEmpty ? l.emptyFoundOnIncoming : l.emptyFoundOn(host),
           ),
           onChanged: (_) => setState(() => _cardDavResult = null),
           validator: (v) {
             final t = (v ?? '').trim();
             if (t.isEmpty) return null;
             final u = Uri.tryParse(t);
-            return u == null || u.scheme != 'https' || u.host.isEmpty ? 'Serve un indirizzo https://' : null;
+            return u == null || u.scheme != 'https' || u.host.isEmpty ? l.httpsRequired : null;
           },
         ),
         const SizedBox(height: 8),
@@ -765,13 +755,13 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
               icon: _cardDavTesting
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.contacts_outlined),
-              label: const Text('Verifica rubrica'),
+              label: Text(l.testAddressBook),
             ),
             const SizedBox(width: 12),
             if (result != null)
               Expanded(
                 child: Text(
-                  result.ok ? 'Trovata: «${result.addressBook}»' : result.error ?? 'Rubrica non trovata.',
+                  result.ok ? l.addressBookFound(result.addressBook ?? '') : result.error ?? l.addressBookNotFound,
                   key: const Key('carddav-result'),
                   style: TextStyle(color: result.ok ? Colors.green.shade700 : theme.colorScheme.error),
                 ),
@@ -788,34 +778,32 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     final host = _imapHost.text.trim();
     final result = _calDavResult;
     final waiting = _oauthFlow != null && _calendarRequested;
+    final l = context.l10n;
     return [
       const SizedBox(height: 16),
-      Text('Calendario', style: theme.textTheme.titleSmall),
+      Text(l.calendarSection, style: theme.textTheme.titleSmall),
       CheckboxListTile(
         key: const Key('caldav-enabled'),
         contentPadding: EdgeInsets.zero,
         controlAffinity: ListTileControlAffinity.leading,
         value: _calDav && !unavailable,
         onChanged: busy || unavailable || _oauthFlow != null ? null : (v) => _setCalDav(v ?? false),
-        title: Text(_contactsWithOAuth ? 'Sincronizza il calendario con Google (CalDAV)' : 'Sincronizza il calendario con il server (CalDAV)'),
+        title: Text(_contactsWithOAuth ? l.syncCalendarGoogle : l.syncCalendarServer),
         subtitle: Text(
           _calDavUnavailable
-              ? 'Per gli account Microsoft non è ancora disponibile.'
+              ? l.notYetForMicrosoft
               : _calDavNeedsSignIn
-              ? 'Prima fai «Accedi con Google».'
+              ? l.signInWithGoogleFirst
               : _contactsWithOAuth
-              ? 'I calendari di Google diventano i calendari di questo account; quelli di sola lettura (es. le festività) '
-                    'si vedono ma non si modificano. Spuntando la casella si apre il browser per permettere a PostinoVip '
-                    'l\'accesso al calendario.'
-              : 'I calendari del server che accettano appuntamenti diventano i calendari di questo account. '
-                    'La prima volta gli appuntamenti che sono solo su questo computer vanno sul server solo dopo una conferma.',
+              ? l.syncCalendarGoogleHelp
+              : l.syncCalendarServerHelp,
         ),
       ),
       if (waiting)
-        const Padding(
-          key: Key('caldav-oauth-waiting'),
-          padding: EdgeInsets.only(left: 8, bottom: 8),
-          child: Text('Accesso con Google in corso nel browser: permetti l\'accesso al calendario.'),
+        Padding(
+          key: const Key('caldav-oauth-waiting'),
+          padding: const EdgeInsets.only(left: 8, bottom: 8),
+          child: Text(l.calendarSignInWaiting),
         ),
       if (_calDav && !unavailable) ...[
         if (!_contactsWithOAuth) TextFormField(
@@ -824,16 +812,16 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
           enabled: !busy,
           keyboardType: TextInputType.url,
           decoration: InputDecoration(
-            labelText: 'Indirizzo del server del calendario (facoltativo)',
+            labelText: l.calendarServerUrl,
             hintText: 'https://…',
-            helperText: host.isEmpty ? 'Vuoto: cercato da solo sul server di ricezione' : 'Vuoto: cercato da solo su $host',
+            helperText: host.isEmpty ? l.emptyFoundOnIncoming : l.emptyFoundOn(host),
           ),
           onChanged: (_) => setState(() => _calDavResult = null),
           validator: (v) {
             final t = (v ?? '').trim();
             if (t.isEmpty) return null;
             final u = Uri.tryParse(t);
-            return u == null || u.scheme != 'https' || u.host.isEmpty ? 'Serve un indirizzo https://' : null;
+            return u == null || u.scheme != 'https' || u.host.isEmpty ? l.httpsRequired : null;
           },
         ),
         const SizedBox(height: 8),
@@ -845,15 +833,15 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
               icon: _calDavTesting
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.calendar_month_outlined),
-              label: const Text('Verifica calendario'),
+              label: Text(l.testCalendar),
             ),
             const SizedBox(width: 12),
             if (result != null)
               Expanded(
                 child: Text(
                   result.ok
-                      ? 'Trovat${result.calendars.length == 1 ? 'o' : 'i'}: ${result.calendars.map((c) => '«$c»').join(', ')}'
-                      : result.error ?? 'Calendario non trovato.',
+                      ? l.calendarsFound(result.calendars.length, result.calendars.map((c) => l.quoted(c)).join(', '))
+                      : result.error ?? l.calendarNotFound,
                   key: const Key('caldav-result'),
                   style: TextStyle(color: result.ok ? Colors.green.shade700 : theme.colorScheme.error),
                 ),
@@ -868,15 +856,16 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   Future<void> _testCalDav() async {
     final host = _imapHost.text.trim();
     final url = _calDavUrl.text.trim();
+    final l = context.l10n;
     String? problem;
     if (_oauth) {
       // G3: con il token dell'account, calendari di Google
     } else if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      problem = 'Scrivere prima indirizzo e password.';
+      problem = l.enterAddressPasswordFirst;
     } else if (host.isEmpty && url.isEmpty) {
-      problem = 'Scrivere il server di ricezione o l\'indirizzo del server del calendario.';
+      problem = l.enterServerOrCalendarUrl;
     } else if (url.isNotEmpty && Uri.tryParse(url)?.scheme != 'https') {
-      problem = 'Serve un indirizzo https://';
+      problem = l.httpsRequired;
     }
     if (problem != null) {
       setState(() => _calDavResult = CalDavTestResult(ok: false, error: problem));
@@ -916,15 +905,16 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   Future<void> _testCardDav() async {
     final host = _imapHost.text.trim();
     final url = _cardDavUrl.text.trim();
+    final l = context.l10n;
     String? problem;
     if (_oauth) {
       // C4d: con il token dell'account, rubrica di Google
     } else if (_email.text.trim().isEmpty || _password.text.isEmpty) {
-      problem = 'Scrivere prima indirizzo e password.';
+      problem = l.enterAddressPasswordFirst;
     } else if (host.isEmpty && url.isEmpty) {
-      problem = 'Scrivere il server di ricezione o l\'indirizzo del server dei contatti.';
+      problem = l.enterServerOrContactsUrl;
     } else if (url.isNotEmpty && Uri.tryParse(url)?.scheme != 'https') {
-      problem = 'Serve un indirizzo https://';
+      problem = l.httpsRequired;
     }
     if (problem != null) {
       setState(() => _cardDavResult = CardDavTestResult(ok: false, error: problem));
@@ -972,13 +962,14 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
           onChanged: busy || !enabled ? null : (v) => setState(() => onChanged(v ?? false)),
           title: title,
         );
+    final l = context.l10n;
     return [
-      Text('Recapito', style: theme.textTheme.titleSmall),
+      Text(l.deliverySection, style: theme.textTheme.titleSmall),
       check(
         const Key('pop3-leave'),
         _leaveOnServer,
         (v) => _leaveOnServer = v,
-        const Text('Lascia una copia dei messaggi sul server'),
+        Text(l.leaveCopyOnServer),
       ),
       Padding(
         padding: const EdgeInsets.only(left: 32),
@@ -992,7 +983,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                     const Key('pop3-remove-after'),
                     _removeAfter,
                     (v) => _removeAfter = v,
-                    const Text('Rimuovi dal server dopo'),
+                    Text(l.removeFromServerAfter),
                     enabled: _leaveOnServer,
                   ),
                 ),
@@ -1012,14 +1003,14 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('giorni'),
+                Text(l.days),
               ],
             ),
             check(
               const Key('pop3-remove-deleted'),
               _removeWhenDeleted,
               (v) => _removeWhenDeleted = v,
-              const Text('Rimuovi dal server quando eliminati da "Posta eliminata"'),
+              Text(l.removeWhenDeleted),
               enabled: _leaveOnServer,
             ),
           ],
@@ -1029,23 +1020,19 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Text(
-            'Ogni mail verrà tolta dal server subito dopo averla scaricata: resterà solo su questo computer.',
+            l.pop3NoCopyWarning,
             style: TextStyle(color: theme.colorScheme.error),
           ),
         ),
       DropdownButtonFormField<int>(
         key: const Key('pop3-check'),
         initialValue: _checkMinutes,
-        decoration: const InputDecoration(
-          labelText: 'Controlla la posta ogni',
-          helperText: 'Anche con Invia/ricevi (F9). Le mail stanno solo sul computer: conviene farne un backup.',
-          helperMaxLines: 2,
-        ),
+        decoration: InputDecoration(labelText: l.checkMailEvery, helperText: l.checkMailEveryHelp, helperMaxLines: 2),
         items: [
           for (final m in AccountConfig.checkMinutesChoices)
             DropdownMenuItem(
               value: m,
-              child: Text(m == AccountConfig.defaultCheckMinutes ? '$m minuti (consigliato)' : '$m minuti'),
+              child: Text(l.minutesCount(m) + (m == AccountConfig.defaultCheckMinutes ? l.recommendedSuffix : '')),
             ),
         ],
         onChanged: busy ? null : (m) => setState(() => _checkMinutes = m!),
@@ -1070,6 +1057,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     Widget? extra,
   }) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final verifiedOk = _verified != null && error == null && _canSave;
     return Padding(
       key: key,
@@ -1093,8 +1081,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                 child: TextFormField(
                   controller: host,
                   enabled: !busy,
-                  decoration: const InputDecoration(labelText: 'Server', hintText: 'es. mail.dominio.it'),
-                  validator: (v) => (v ?? '').trim().isEmpty ? 'Server obbligatorio' : null,
+                  decoration: InputDecoration(labelText: l.server, hintText: l.serverHint),
+                  validator: (v) => (v ?? '').trim().isEmpty ? l.serverRequired : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1104,7 +1092,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   controller: port,
                   enabled: !busy,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Porta'),
+                  decoration: InputDecoration(labelText: l.port),
                   // Porta nota -> crittografia proposta (modificabile dal menu).
                   onChanged: (v) {
                     final proposed = knownPort(int.tryParse(v.trim()));
@@ -1123,8 +1111,8 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   key: ValueKey('$key-security-$security'),
                   initialValue: security,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Crittografia'),
-                  items: [for (final s in MailSecurity.values) DropdownMenuItem(value: s, child: Text(s.label))],
+                  decoration: InputDecoration(labelText: l.encryption),
+                  items: [for (final s in MailSecurity.values) DropdownMenuItem(value: s, child: Text(s.label(l)))],
                   onChanged: busy
                       ? null
                       : (s) {
@@ -1150,8 +1138,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Senza crittografia password e mail viaggiano in chiaro: chiunque sulla rete può leggerle. '
-                      'Usala solo su una rete di cui ti fidi.',
+                      l.unencryptedWarning,
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
@@ -1167,11 +1154,11 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Certificato del server accettato da te (non firmato da un\'autorità riconosciuta).',
+                      l.certificateTrustedByYou,
                       style: theme.textTheme.bodySmall,
                     ),
                   ),
-                  TextButton(onPressed: busy ? null : onForget, child: const Text('Non fidarti più')),
+                  TextButton(onPressed: busy ? null : onForget, child: Text(l.stopTrusting)),
                 ],
               ),
             ),
@@ -1188,6 +1175,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
 
   Future<void> _test() async {
     if (!_formKey.currentState!.validate()) return;
+    final l = context.l10n;
     setState(() {
       _testing = true;
       _verified = null;
@@ -1226,7 +1214,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
         setState(() => _testing = true);
       }
     } on ApiException catch (e) {
-      if (mounted) setState(() => _generalError = 'Verifica non riuscita: $e');
+      if (mounted) setState(() => _generalError = l.testFailed('$e'));
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -1236,10 +1224,11 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   /// (la prova va ripetuta). Stesso certificato per IMAP e SMTP (stesso server): si chiede una volta.
   Future<bool> _askTrust(AccountTestResult r) async {
     var accepted = false;
+    final l = context.l10n;
     final imap = r.imapCertificate;
     final smtp = r.smtpCertificate;
     if (imap != null) {
-      if (!await _confirmCertificate('IMAP (posta in arrivo)', imap)) return accepted;
+      if (!await _confirmCertificate(l.incomingServer('IMAP'), imap)) return accepted;
       if (!mounted) return accepted;
       setState(() => _imapPin = _Pin(imap.host, imap.port, imap.sha256));
       accepted = true;
@@ -1249,7 +1238,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       }
     }
     if (smtp != null) {
-      if (!await _confirmCertificate('SMTP (posta in uscita)', smtp)) return accepted;
+      if (!await _confirmCertificate(l.outgoingServer, smtp)) return accepted;
       if (!mounted) return accepted;
       setState(() => _smtpPin = _Pin(smtp.host, smtp.port, smtp.sha256));
       accepted = true;
@@ -1258,13 +1247,13 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   }
 
   Future<bool> _confirmCertificate(String server, CertificateInfo c) async {
-    String date(DateTime? d) =>
-        d == null ? '?' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    String date(DateTime? d) => d == null ? '?' : formatDate(d);
     final theme = Theme.of(context);
+    final l = context.l10n;
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Fidarsi di questo certificato?'),
+        title: Text(l.trustCertificateQuestion),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: SingleChildScrollView(
@@ -1272,29 +1261,23 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Il server $server ${c.host}:${c.port} ha presentato un certificato non valido:'),
+                Text(l.invalidCertificatePresented(server, '${c.host}:${c.port}')),
                 const SizedBox(height: 4),
                 for (final p in c.problems) Text('• $p', style: TextStyle(color: theme.colorScheme.error)),
                 const SizedBox(height: 12),
-                _certLine('Intestato a', c.subject),
-                _certLine('Emesso da', c.issuer),
-                _certLine('Valido', 'dal ${date(c.notBefore)} al ${date(c.notAfter)}'),
-                _certLine('Impronta SHA-256', c.formattedSha256, mono: true),
+                _certLine(l.certificateIssuedTo, c.subject),
+                _certLine(l.certificateIssuedBy, c.issuer),
+                _certLine(l.certificateValid, l.certificateValidRange(date(c.notBefore), date(c.notAfter))),
+                _certLine(l.certificateFingerprint, c.formattedSha256, mono: true),
                 const SizedBox(height: 12),
-                const Text(
-                  'Accettalo solo se sai che questo server usa un certificato proprio (es. un server aziendale '
-                  'o di casa); se possibile confronta l\'impronta con quella che ti dà l\'amministratore. '
-                  'Un certificato inatteso può voler dire che qualcuno sta cercando di intercettare la password.\n\n'
-                  'Se accetti, PostinoVip si fiderà solo di questo certificato: se il server ne presenterà un altro, '
-                  'te lo chiederà di nuovo.',
-                ),
+                Text(l.certificateAdvice),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Fidati del certificato')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.trustCertificate)),
         ],
       ),
     );
@@ -1315,20 +1298,21 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
   /// «Verifica connessione» e «Salva» con la nota sotto; nella finestra anche «Annulla» (stile comune: pulsante
   /// principale pieno a destra, «Annulla» di testo alla sua sinistra).
   List<Widget> _actions(ThemeData theme, bool busy) {
+    final l = context.l10n;
     final test = OutlinedButton.icon(
       // Con un servizio si verifica da sola dopo l'accesso; prima non c'è niente da provare.
       onPressed: busy || (_service != null && !_oauth) ? null : _test,
       icon: _testing
           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.wifi_tethering),
-      label: const Text('Verifica connessione'),
+      label: Text(l.testConnection),
     );
     final save = FilledButton.icon(
       onPressed: busy || !_canSave ? null : _save,
       icon: _saving
           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
           : const Icon(Icons.save),
-      label: const Text('Salva'),
+      label: Text(l.save),
     );
     return [
       if (widget.dialog)
@@ -1344,7 +1328,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
             TextButton(
               key: const Key('account-setup-cancel'),
               onPressed: _saving ? null : () => Navigator.pop(context),
-              child: const Text('Annulla'),
+              child: Text(l.cancel),
             ),
             save,
           ],
@@ -1355,7 +1339,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            '"Salva" si attiva dopo una verifica riuscita.',
+            l.saveAfterTest,
             textAlign: TextAlign.end,
             style: theme.textTheme.bodySmall,
           ),
@@ -1368,6 +1352,7 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
     final verified = _verified!;
     if (verified.hasUnencrypted && !await _confirmUnencrypted(verified)) return;
     if (!mounted) return;
+    final l = context.l10n;
     setState(() {
       _saving = true;
       _generalError = null;
@@ -1396,36 +1381,33 @@ class _AccountSetupPageState extends State<AccountSetupPage> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _generalError = 'Account non salvato: $e';
+          _generalError = l.accountNotSaved('$e');
         });
       }
     }
   }
 
   Future<bool> _confirmUnencrypted(AccountConfig a) async {
+    final l = context.l10n;
     final servers = [
-      if (a.imapSecurity == MailSecurity.none) 'ricezione (${a.imapHost}:${a.imapPort})',
-      if (a.smtpSecurity == MailSecurity.none) 'invio (${a.smtpHost}:${a.smtpPort})',
+      if (a.imapSecurity == MailSecurity.none) l.unencryptedIncoming('${a.imapHost}:${a.imapPort}'),
+      if (a.smtpSecurity == MailSecurity.none) l.unencryptedOutgoing('${a.smtpHost}:${a.smtpPort}'),
     ];
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         icon: Icon(Icons.warning_amber_rounded, color: Theme.of(context).colorScheme.error),
-        title: const Text('Connessione senza crittografia'),
+        title: Text(l.unencryptedTitle),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: Text(
-            'Per ${servers.join(' e ')} hai scelto "Nessuna" crittografia: la password e le mail viaggiano '
-            'in chiaro e chiunque sulla stessa rete (Wi-Fi pubblico, rete aziendale, fornitore) può leggerle '
-            'o modificarle.\n\nSalvare comunque?',
-          ),
+          child: Text(l.unencryptedContent(servers.join(l.andSeparator))),
         ),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Salva senza crittografia'),
+            child: Text(l.saveUnencrypted),
           ),
         ],
       ),

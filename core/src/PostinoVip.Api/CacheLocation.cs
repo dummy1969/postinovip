@@ -1,3 +1,4 @@
+using PostinoVip.Core;
 namespace PostinoVip.Api;
 
 /// <summary>
@@ -15,7 +16,7 @@ public static class CacheLocation
 
         var data = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.DoNotVerify);
         if (string.IsNullOrEmpty(data))
-            throw new InvalidOperationException("Cartella dei dati dell'utente non determinabile (HOME non impostata?): usare Cache:Directory.");
+            throw new InvalidOperationException("Cartella dei dati dell'utente non determinabile (HOME non impostata?): usare Cache:Directory.").WithCode("cartellaDeiDatiDellUtente");
         return Path.Combine(data, env.IsDevelopment() ? "postinovip-dev" : "postinovip");
     }
 }

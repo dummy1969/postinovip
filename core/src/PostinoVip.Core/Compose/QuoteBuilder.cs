@@ -71,13 +71,15 @@ public static partial class QuoteBuilder
         var sb = new StringBuilder();
         sb.Append("<div style=\"border:none;border-top:solid #E1E1E1 1pt;padding:3pt 0 0 0;margin-top:12pt\">");
         sb.Append("<p style=\"margin:0 0 12pt 0\">");
-        sb.Append("<b>Da:</b> ").Append(E(m.From.ToString())).Append("<br>");
+        // Etichette nella lingua dell'app (L6b, scelta 3a), come l'intestazione della citazione di Outlook.
+        static string L(string key) => $"<b>{WebUtility.HtmlEncode(Texts.CoreTexts.Get(key))}</b> ";
+        sb.Append(L("labelFrom")).Append(E(m.From.ToString())).Append("<br>");
         if (m.Date != DateTimeOffset.MinValue)
-            sb.Append("<b>Inviato:</b> ").Append(E(DraftBuilder.FormatDate(m.Date))).Append("<br>");
-        sb.Append("<b>A:</b> ").Append(E(m.To.ToString())).Append("<br>");
+            sb.Append(L("labelSent")).Append(E(DraftBuilder.FormatDate(m.Date))).Append("<br>");
+        sb.Append(L("labelTo")).Append(E(m.To.ToString())).Append("<br>");
         if (m.Cc.Count > 0)
-            sb.Append("<b>Cc:</b> ").Append(E(m.Cc.ToString())).Append("<br>");
-        sb.Append("<b>Oggetto:</b> ").Append(E(m.Subject ?? ""));
+            sb.Append(L("labelCc")).Append(E(m.Cc.ToString())).Append("<br>");
+        sb.Append(L("labelSubject")).Append(E(m.Subject ?? ""));
         sb.Append("</p></div>");
         return sb.ToString();
     }

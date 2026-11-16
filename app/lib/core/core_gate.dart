@@ -1,12 +1,14 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 
 import '../account/account_config.dart';
 import '../account/account_setup_page.dart';
 import '../account/accounts_page.dart';
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../main.dart';
 import '../notify/system_notifier.dart';
 import '../settings/app_settings.dart';
@@ -102,7 +104,7 @@ class _CoreGateState extends State<CoreGate> {
     } on CoreStartException catch (e) {
       if (mounted) setState(() => _error = e);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = CoreStartException('Il core non risponde correttamente: $e'));
+      if (mounted) setState(() => _error = CoreStartException(formatL10n.coreNotAnsweringCorrectly('$e')));
     }
   }
 
@@ -159,9 +161,16 @@ class _CoreGateState extends State<CoreGate> {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      locale: italian,
-      supportedLocales: const [italian],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // Stessa lingua dell'app (tappa «Lingua», L1).
+      locale: widget.settings?.language.locale,
+      localeListResolutionCallback: (preferred, _) => resolveLocale(preferred),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: appLocalizationsDelegates,
+      // Date e numeri (L5) nella lingua dell'app: la riceve chi formatta fuori dai widget.
+      builder: (context, child) {
+        setFormatLanguage(AppLocalizations.of(context));
+        return child!;
+      },
       // Schermata di primo avvio con lo stesso tema dell'app.
       theme: OfficeTheme.forApp(widget.settings?.theme ?? AppTheme.system).theme,
       darkTheme: OfficeTheme.forApp(widget.settings?.theme ?? AppTheme.system).darkTheme,
@@ -177,9 +186,14 @@ class _CoreGateState extends State<CoreGate> {
           : Scaffold(
               body: Center(
                 child: _error == null
-                    ? const Column(
+                    ? Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: [CircularProgressIndicator(), SizedBox(height: 12), Text('Avvio del core…')],
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          // Contesto sotto la MaterialApp: lì ci sono le traduzioni.
+                          Builder(builder: (context) => Text(context.l10n.startingCore)),
+                        ],
                       )
                     : _StartError(error: _error!, onRetry: _start),
               ),
@@ -216,7 +230,7 @@ class _StartError extends StatelessWidget {
             ),
             if (error.log.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('Ultime righe del core:', style: theme.textTheme.bodySmall),
+              Text(context.l10n.coreLastLines, style: theme.textTheme.bodySmall),
               const SizedBox(height: 4),
               Container(
                 constraints: const BoxConstraints(maxHeight: 300),
@@ -231,7 +245,7 @@ class _StartError extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 12),
-            FilledButton.tonal(onPressed: onRetry, child: const Text('Riprova')),
+            FilledButton.tonal(onPressed: onRetry, child: Text(context.l10n.retry)),
           ],
         ),
       ),

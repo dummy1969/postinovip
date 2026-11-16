@@ -146,7 +146,8 @@ public sealed class ReconnectingSession<TSession> : IAsyncDisposable where TSess
         catch (Exception ex) when (IsOffline(ex, ct))
         {
             var wasOnline = _offline is null;
-            _offline = new MailOfflineException($"Server non raggiungibile ({Describe(ex)}).", ex);
+            _offline = new MailOfflineException($"Server non raggiungibile ({Describe(ex)}).", ex)
+                .WithCode("serverUnreachable", ("reason", Describe(ex)));
             _offlineUntil = _time.GetUtcNow() + _offlineFor;
             if (wasOnline)
                 _onlineChanged?.Invoke(false);
@@ -178,7 +179,7 @@ public sealed class ReconnectingSession<TSession> : IAsyncDisposable where TSess
             // Scaduto il tempo massimo: qualunque errore ne è la conseguenza. MailKit, se l'annullamento
             // arriva durante la cifratura, lo segnala come SslHandshakeException invece che come
             // OperationCanceledException (misurato con un server che non risponde).
-            throw new TimeoutException($"nessuna risposta in {timeout.TotalSeconds:0} s", ex);
+            throw new TimeoutException($"nessuna risposta in {timeout.TotalSeconds:0} s", ex).WithCode("nessunaRispostaIn", ("totalSeconds", $"{timeout.TotalSeconds:0}"));
         }
     }
 

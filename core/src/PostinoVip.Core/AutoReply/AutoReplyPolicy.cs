@@ -61,7 +61,7 @@ public static class AutoReplyPolicy
         var subject = original.Subject ?? "";
         var references = original.References.Concat(original.MessageId is { } id ? [id] : []).ToList();
         var message = Smtp.MimeMessageBuilder.Build(new Models.OutgoingMessage(
-            from, [to], [], "Risposta automatica: " + subject,
+            from, [to], [], Texts.CoreTexts.Get("autoReplySubject") + subject,
             string.IsNullOrWhiteSpace(settings.Text) ? Html.HtmlText.ToPlainText(settings.Html) : settings.Text,
             InReplyTo: original.MessageId, References: references,
             HtmlBody: string.IsNullOrWhiteSpace(settings.Html) ? null : settings.Html));

@@ -1,5 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../settings/app_settings.dart';
@@ -152,20 +154,20 @@ class _DisplayOptions extends StatelessWidget {
       menuChildren: [
         for (final l in RibbonLayout.values)
           item(
-            l.label,
+            l.label(context.l10n),
             settings.ribbonLayout == l,
             () => settings.setRibbonLayout(l),
             key: Key('ribbon-layout-${l.name}'),
           ),
         const Divider(height: 8),
         item(
-          'Mostra sempre la barra multifunzione',
+          context.l10n.ribbonShowAlways,
           !settings.ribbonCollapsed,
           () => settings.setRibbonCollapsed(false),
           key: const Key('ribbon-show-always'),
         ),
         item(
-          'Mostra solo le schede (Ctrl+F1)',
+          context.l10n.ribbonTabsOnly,
           settings.ribbonCollapsed,
           () => settings.setRibbonCollapsed(true),
           key: const Key('ribbon-tabs-only'),
@@ -174,7 +176,7 @@ class _DisplayOptions extends StatelessWidget {
       builder: (context, controller, _) => IconButton(
         key: const Key('ribbon-display-options'),
         color: chrome.onTabBar,
-        tooltip: 'Opzioni di visualizzazione della barra multifunzione',
+        tooltip: context.l10n.ribbonDisplayOptions,
         iconSize: 16,
         icon: Icon(settings.ribbonCollapsed ? FluentIcons.chevron_down_20_regular : FluentIcons.chevron_up_20_regular),
         onPressed: () => controller.isOpen ? controller.close() : controller.open(),
@@ -251,9 +253,9 @@ class RibbonFileTab extends StatelessWidget {
   const RibbonFileTab({super.key});
 
   @override
-  Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(vertical: 3),
-    child: RibbonTabLabel(label: 'File'),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: RibbonTabLabel(label: context.l10n.fileTab),
   );
 }
 

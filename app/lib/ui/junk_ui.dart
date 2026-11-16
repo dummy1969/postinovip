@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/language.dart';
 import '../models/junk_options.dart';
 import '../models/mail_folder.dart';
 import '../state/mailbox_model.dart';
@@ -22,7 +23,7 @@ class JunkActions {
     final model = context.watch<MailboxModel>();
     final hasTarget = MessageActions.hasTarget(model) && !model.actionInProgress;
     final canModify = MessageActions.canModify(model);
-    final group = model.multiSelection ? 'questi gruppi o mailing list' : 'questo gruppo o mailing list';
+    final l = context.l10n;
     Future<void> Function() run(Future<void> Function(BuildContext) action, {bool moves = false}) =>
         () => moves && openNext ? model.removeAndOpenNext(() => action(context)) : action(context);
     return [
@@ -30,7 +31,7 @@ class JunkActions {
         key: const Key('junk-block'),
         leadingIcon: const Icon(FluentIcons.person_prohibited_20_regular, size: 16),
         onPressed: canModify ? run(block, moves: true) : null,
-        child: const Text('Blocca mittente'),
+        child: Text(l.blockSender),
       ),
       for (final kind in NeverBlockKind.values)
         MenuItemButton(
@@ -40,20 +41,20 @@ class JunkActions {
             size: 16,
           ),
           onPressed: hasTarget ? run((c) => neverBlock(c, kind)) : null,
-          child: Text(kind == NeverBlockKind.group ? 'Non bloccare mai $group' : kind.label),
+          child: Text(kind.label(l, many: model.multiSelection)),
         ),
       MenuItemButton(
         key: const Key('junk-not-junk'),
         leadingIcon: const Icon(FluentIcons.mail_checkmark_20_regular, size: 16),
         onPressed: canModify && model.selectionInJunk ? run(notJunk, moves: true) : null,
-        child: const Text('Non è posta indesiderata'),
+        child: Text(l.notJunk),
       ),
       const Divider(height: 8),
       MenuItemButton(
         key: const Key('junk-options'),
         leadingIcon: const Icon(FluentIcons.settings_20_regular, size: 16),
         onPressed: model.accounts.isEmpty ? null : () => JunkOptionsDialog.show(context, account: model.openAccount),
-        child: const Text('Opzioni posta indesiderata…'),
+        child: Text(l.junkOptionsEllipsis),
       ),
     ];
   }
@@ -71,6 +72,7 @@ class JunkActions {
     final model = context.read<MailboxModel>();
     final messenger = ScaffoldMessenger.of(context);
     final missing = model.selectionAccountsWithoutJunk;
+    final l = context.l10n;
     if (missing.isNotEmpty) {
       final name = model.accounts.where((a) => a.id == missing.first).firstOrNull?.name ?? missing.first;
       final open = await showDialog<bool>(
@@ -78,14 +80,11 @@ class JunkActions {
         builder: (context) => AlertDialog(
           key: const Key('junk-no-folder'),
           icon: const Icon(FluentIcons.folder_prohibited_20_regular),
-          title: const Text('Nessuna cartella della posta indesiderata'),
-          content: Text(
-            'L\'account «$name» non ha una cartella della posta indesiderata: sceglila in «Opzioni posta '
-            'indesiderata». Il mittente non è stato bloccato.',
-          ),
+          title: Text(l.noJunkFolder),
+          content: Text(l.noJunkFolderContent(name)),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Opzioni posta indesiderata…')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.junkOptionsEllipsis)),
           ],
         ),
       );
@@ -134,17 +133,16 @@ class _NotJunkDialogState extends State<_NotJunkDialog> {
   @override
   Widget build(BuildContext context) {
     final sender = widget.sender;
+    final l = context.l10n;
     return AlertDialog(
       key: const Key('junk-not-junk-dialog'),
-      title: const Text('Contrassegna come posta non indesiderata'),
+      title: Text(l.markAsNotJunk),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.count == 1
-                ? 'Il messaggio verrà riportato nella cartella Posta in arrivo.'
-                : 'I ${widget.count} messaggi verranno riportati nella cartella Posta in arrivo.',
+            l.notJunkMoveBack(widget.count),
           ),
           const SizedBox(height: 8),
           CheckboxListTile(
@@ -154,15 +152,13 @@ class _NotJunkDialogState extends State<_NotJunkDialog> {
             value: _trust,
             onChanged: (v) => setState(() => _trust = v ?? false),
             title: Text(
-              sender != null && sender.isNotEmpty
-                  ? 'Considera sempre attendibile la posta proveniente da «$sender»'
-                  : 'Considera sempre attendibile la posta proveniente da questi mittenti',
+              sender != null && sender.isNotEmpty ? l.alwaysTrustSender(sender) : l.alwaysTrustSenders,
             ),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         FilledButton(
           key: const Key('junk-not-junk-ok'),
           onPressed: () => Navigator.pop(context, _trust),
@@ -226,7 +222,7 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
         _error = null;
       });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = 'Opzioni non lette: $e');
+      if (mounted) setState(() => _error = context.l10n.optionsNotRead('$e'));
     }
   }
 
@@ -248,6 +244,7 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
   Future<void> _ok() async {
     final model = context.read<MailboxModel>();
     final navigator = Navigator.of(context);
+    final l10n = context.l10n;
     setState(() {
       _saving = true;
       _error = null;
@@ -272,8 +269,8 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
       setState(() {
         _saving = false;
         _error = field == null
-            ? 'Opzioni non salvate: $e'
-            : '${list == null ? '' : '${list.label}: '}${field.value.firstOrNull ?? 'valore non valido'}';
+            ? l10n.optionsNotSaved('$e')
+            : '${list == null ? '' : '${list.label(l10n)}: '}${field.value.firstOrNull ?? l10n.invalidValue}';
       });
     }
   }
@@ -285,8 +282,9 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
     final loaded = _loaded;
     // Anche con la finestra minima (640×480) titolo, schede e pulsanti restano visibili.
     final height = math.max(220.0, math.min(440.0, MediaQuery.sizeOf(context).height - 210));
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Opzioni posta indesiderata'),
+      title: Text(l10n.junkOptions),
       content: SizedBox(
         width: 580,
         height: height,
@@ -301,7 +299,7 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
                       DropdownButtonFormField<String>(
                         key: const Key('junk-account'),
                         initialValue: _account,
-                        decoration: const InputDecoration(labelText: 'Account', isDense: true),
+                        decoration: InputDecoration(labelText: l10n.account, isDense: true),
                         items: [for (final a in model.accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
                         onChanged: _saving
                             ? null
@@ -314,14 +312,12 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
                                 _load();
                               },
                       ),
-                    const TabBar(
+                    TabBar(
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
                       tabs: [
-                        Tab(text: 'Opzioni'),
-                        Tab(text: 'Mittenti attendibili'),
-                        Tab(text: 'Destinatari attendibili'),
-                        Tab(text: 'Mittenti bloccati'),
+                        Tab(text: l10n.groupOptions),
+                        for (final list in JunkList.values) Tab(text: list.label(l10n)),
                       ],
                     ),
                     Expanded(
@@ -351,7 +347,7 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
               ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: Text(l10n.cancel)),
         FilledButton(
           key: const Key('junk-ok'),
           onPressed: _saving || loaded == null ? null : _ok,
@@ -368,15 +364,14 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
     ];
     // Con «Automatica» la cartella la decide il core: quella del server o una riconosciuta dal nome.
     final automatic = loaded.folder == null ? loaded.junkFolder : null;
+    final l10n = context.l10n;
     return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Le mail nuove della Posta in arrivo che sembrano posta indesiderata vengono spostate in una cartella '
-            'speciale, mentre PostinoVip è aperto. Il giudizio è quello del server della posta. Scegli il livello di '
-            'protezione:',
+            l10n.junkOptionsIntro,
             style: theme.textTheme.bodySmall,
           ),
           RadioGroup<JunkLevel>(
@@ -389,8 +384,8 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
                     key: Key('junk-level-${level.name}'),
                     dense: true,
                     value: level,
-                    title: Text(level.label),
-                    subtitle: Text(level.description),
+                    title: Text(level.label(l10n)),
+                    subtitle: Text(level.description(l10n)),
                   ),
               ],
             ),
@@ -400,12 +395,12 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
             key: ValueKey('junk-folder:$_account'),
             initialValue: _folder,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Cartella della posta indesiderata', isDense: true),
+            decoration: InputDecoration(labelText: l10n.junkFolder, isDense: true),
             items: [
               DropdownMenuItem<String?>(
                 value: null,
                 child: Text(
-                  automatic != null ? 'Automatica: «$automatic»' : 'Automatica (nessuna cartella trovata)',
+                  automatic != null ? l10n.junkFolderAutomatic(automatic) : l10n.junkFolderAutomaticNone,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -416,15 +411,14 @@ class _JunkOptionsDialogState extends State<JunkOptionsDialog> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Automatica: quella indicata dal server, o una con «spam», «junk» o «indesiderata» nel nome. Per una '
-            'cartella nuova: scheda Cartella → Nuova cartella, poi sceglila qui.',
+            l10n.junkFolderInfo,
             style: theme.textTheme.bodySmall,
           ),
           if (_level != JunkLevel.none && automatic == null && _folder == null)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Senza una cartella il filtro non sposta nessuna mail.',
+                l10n.junkNoFolderWarning,
                 key: const Key('junk-no-folder-warning'),
                 style: TextStyle(color: theme.colorScheme.error),
               ),
@@ -482,12 +476,13 @@ class _JunkListTabState extends State<_JunkListTab> {
     final theme = Theme.of(context);
     final entries = [...widget.entries]..sort();
     final selected = entries.contains(_selected) ? _selected : null;
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.list.description, style: theme.textTheme.bodySmall),
+          Text(widget.list.description(l), style: theme.textTheme.bodySmall),
           const SizedBox(height: 6),
           Expanded(
             child: Row(
@@ -497,7 +492,7 @@ class _JunkListTabState extends State<_JunkListTab> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(border: Border.all(color: theme.colorScheme.outlineVariant)),
                     child: entries.isEmpty
-                        ? Center(child: Text('Nessuna voce', style: TextStyle(color: theme.colorScheme.outline)))
+                        ? Center(child: Text(l.noEntries, style: TextStyle(color: theme.colorScheme.outline)))
                         : ListView(
                             key: Key('junk-list-${widget.list.name}'),
                             children: [
@@ -523,18 +518,18 @@ class _JunkListTabState extends State<_JunkListTab> {
                       OutlinedButton(
                         key: Key('junk-add-${widget.list.name}'),
                         onPressed: () => _edit(),
-                        child: const Text('Aggiungi…'),
+                        child: Text(l.addEllipsis),
                       ),
                       const SizedBox(height: 6),
                       OutlinedButton(
                         onPressed: selected == null ? null : () => _edit(current: selected),
-                        child: const Text('Modifica…'),
+                        child: Text(l.editEllipsis),
                       ),
                       const SizedBox(height: 6),
                       OutlinedButton(
                         key: Key('junk-remove-${widget.list.name}'),
                         onPressed: selected == null ? null : () => widget.onRemove(selected),
-                        child: const Text('Rimuovi'),
+                        child: Text(l.remove),
                       ),
                     ],
                   ),
@@ -550,7 +545,7 @@ class _JunkListTabState extends State<_JunkListTab> {
               controlAffinity: ListTileControlAffinity.leading,
               value: widget.trustContacts,
               onChanged: (v) => widget.onTrustContacts(v ?? false),
-              title: const Text('Considera attendibili anche i miei contatti'),
+              title: Text(l.trustContacts),
             ),
         ],
       ),
@@ -581,7 +576,7 @@ class _EntryDialogState extends State<_EntryDialog> {
   void _ok() {
     final value = _controller.text.trim().toLowerCase();
     if (!_JunkListTabState._valid.hasMatch(value)) {
-      setState(() => _error = 'Scrivi un indirizzo (anna@esempio.it) o un dominio (@esempio.it).');
+      setState(() => _error = context.l10n.junkEntryInvalid);
       return;
     }
     Navigator.pop(context, value);
@@ -589,7 +584,7 @@ class _EntryDialogState extends State<_EntryDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.initial == null ? 'Aggiungi indirizzo o dominio' : 'Modifica indirizzo o dominio'),
+    title: Text(widget.initial == null ? context.l10n.addAddressOrDomain : context.l10n.editAddressOrDomain),
     content: SizedBox(
       width: 420,
       child: TextField(
@@ -597,15 +592,15 @@ class _EntryDialogState extends State<_EntryDialog> {
         controller: _controller,
         autofocus: true,
         decoration: InputDecoration(
-          labelText: 'Indirizzo di posta o nome di dominio Internet',
-          hintText: 'es. anna@esempio.it oppure @esempio.it',
+          labelText: context.l10n.junkEntryLabel,
+          hintText: context.l10n.junkEntryHint,
           errorText: _error,
         ),
         onSubmitted: (_) => _ok(),
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
       FilledButton(key: const Key('junk-entry-ok'), onPressed: _ok, child: const Text('OK')),
     ],
   );

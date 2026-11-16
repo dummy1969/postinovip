@@ -15,7 +15,7 @@ namespace PostinoVip.Api.Controllers;
 public sealed class RulesController(MailAccountRegistry accounts, RuleJobs jobs) : MailControllerBase(accounts)
 {
     private RuleStore Store =>
-        CurrentAccount.Rules ?? throw new NotSupportedException("Le regole richiedono la copia locale (Cache:Enabled=false).");
+        CurrentAccount.Rules ?? throw new NotSupportedException("Le regole richiedono la copia locale (Cache:Enabled=false).").WithCode("leRegoleRichiedonoLaCopia2");
 
     /// <summary>GET — le regole nell'ordine in cui si applicano.</summary>
     [HttpGet]
@@ -37,7 +37,7 @@ public sealed class RulesController(MailAccountRegistry accounts, RuleJobs jobs)
         var all = Store.Load();
         var chosen = all.Where(r => request.RuleIds.Contains(r.Id)).ToList();
         if (chosen.Count == 0)
-            throw new FieldValidationException("ruleIds", "Scegliere almeno una regola salvata.");
+            throw new FieldValidationException("ruleIds", "Scegliere almeno una regola salvata.").WithCode("scegliereAlmenoUnaRegolaSalvata");
         var folder = string.IsNullOrWhiteSpace(request.Folder) ? RuleRunner.Inbox : request.Folder;
         var folders = new List<string> { folder };
         if (request.IncludeSubfolders)

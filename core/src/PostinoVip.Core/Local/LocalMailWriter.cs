@@ -100,14 +100,14 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
     public async Task<BatchResult> MoveAsync(string folder, IReadOnlyCollection<uint> uids, string destination, CancellationToken ct = default)
     {
         if (string.Equals(folder, destination, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.");
+            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.").WithCode("cartellaDiOrigineDestinazioneCoincidono");
         return await TransferAsync(folder, uids, Resolve(destination), copy: false, ct);
     }
 
     public async Task<BatchResult> CopyAsync(string folder, IReadOnlyCollection<uint> uids, string destination, CancellationToken ct = default)
     {
         if (string.Equals(folder, destination, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.");
+            throw new InvalidOperationException("Cartella di origine e destinazione coincidono.").WithCode("cartellaDiOrigineDestinazioneCoincidono");
         return await TransferAsync(folder, uids, Resolve(destination), copy: true, ct);
     }
 
@@ -118,7 +118,7 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
     {
         var trash = FolderWithRole("trash");
         if (string.Equals(trash, folder, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Il messaggio è già in Posta eliminata: usare l'eliminazione definitiva.");
+            throw new InvalidOperationException("Il messaggio è già in Posta eliminata: usare l'eliminazione definitiva.").WithCode("ilMessaggioGiaInPosta");
         return await TransferAsync(folder, uids, trash, copy: false, ct);
     }
 
@@ -130,7 +130,7 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
     {
         var trash = FolderWithRole("trash");
         if (!string.Equals(trash, folder, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("L'eliminazione definitiva è consentita solo in Posta eliminata.");
+            throw new InvalidOperationException("L'eliminazione definitiva è consentita solo in Posta eliminata.").WithCode("eliminazioneDefinitivaConsentitaSoloIn");
 
         var deleted = new List<uint>();
         var uidls = new List<string>();
@@ -237,13 +237,13 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
         if (newParent is not null)
             newParent = Resolve(newParent);
         if (newParent == folder || (newParent?.StartsWith(folder + Separator, StringComparison.Ordinal) ?? false))
-            throw new InvalidOperationException($"'{folder}' non può andare dentro sé stessa o una sua sottocartella.");
+            throw new InvalidOperationException($"'{folder}' non può andare dentro sé stessa o una sua sottocartella.").WithCode("nonPuoAndareDentroSe", ("folder", folder));
         if (LocalMailStore.ParentOf(folder) == newParent)
             return Task.FromResult(new FolderChange(folder, Separator)); // già lì: nessun cambiamento
 
         var name = LocalMailStore.LastSegment(folder);
         if (newParent is null && name.Equals("INBOX", StringComparison.OrdinalIgnoreCase))
-            throw new FieldValidationException("parent", "\"INBOX\" è il nome riservato della Posta in arrivo.");
+            throw new FieldValidationException("parent", "\"INBOX\" è il nome riservato della Posta in arrivo.").WithCode("inboxIlNomeRiservatoDella");
 
         var trash = FolderWithRole("trash");
         var target = name;
@@ -267,7 +267,7 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
         {
             var tree = store.FolderTree(folder).Where(n => n != folder).ToList();
             if (tree.FirstOrDefault(n => store.GetFolder(n).Role is not null) is { } special)
-                throw new InvalidOperationException($"'{folder}' contiene la cartella speciale '{special}': non si svuota.");
+                throw new InvalidOperationException($"'{folder}' contiene la cartella speciale '{special}': non si svuota.").WithCode("contieneLaCartellaSpecialeNon", ("folder", folder), ("special", special));
             foreach (var child in tree.Where(n => LocalMailStore.ParentOf(n) == folder))
             {
                 if (removedPermanently is not null)
@@ -335,14 +335,14 @@ public sealed class LocalMailWriter(LocalMailStore store, AccountCache cache, Lo
     {
         if (string.Equals(folder, LocalMailStore.Inbox, StringComparison.OrdinalIgnoreCase))
             return LocalMailStore.Inbox;
-        return store.FolderExists(folder) ? folder : throw new MailNotFoundException($"Cartella '{folder}' non trovata.");
+        return store.FolderExists(folder) ? folder : throw new MailNotFoundException($"Cartella '{folder}' non trovata.").WithCode("cartellaNonTrovata3", ("folder", folder));
     }
 
     private string FolderWithRole(string role)
     {
         store.EnsureDefaults();
         return store.ListFolders().FirstOrDefault(f => f.Info.Role == role).FullName
-            ?? throw new MailNotFoundException($"Nessuna cartella locale con ruolo {role}.");
+            ?? throw new MailNotFoundException($"Nessuna cartella locale con ruolo {role}.").WithCode("nessunaCartellaLocaleConRuolo", ("role", role));
     }
 
     private static BatchResult Single(BatchResult result, string folder, uint uid) =>

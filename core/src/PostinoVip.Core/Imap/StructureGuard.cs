@@ -69,7 +69,7 @@ public sealed class StructureGuard
                     _suspect.Add(clean.ToArray());
                 throw new UnreadableStructureException(
                     $"struttura (BODYSTRUCTURE) illeggibile in un gruppo di {clean.Count} mail di {folder.FullName}: " +
-                    $"saltate, la mail difettosa sarà cercata in background ({ex.Message})", ex);
+                    $"saltate, la mail difettosa sarà cercata in background ({ex.Message})", ex).WithCode("strutturaBodystructureIlleggibileInUn", ("count", clean.Count), ("fullName", folder.FullName), ("message", ex.Message));
             }
         }
 

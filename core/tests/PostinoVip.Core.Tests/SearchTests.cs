@@ -45,6 +45,9 @@ public sealed class SearchTests : IDisposable
     [InlineData("da:anna", "sender : \"anna\"*")]
     [InlineData("A:mario Oggetto:\"ordine 12\"", "recipients : \"mario\"* AND subject : \"ordine 12\"")]
     [InlineData("allegato:pdf", "attachments : \"pdf\"*")]
+    [InlineData("from:anna", "sender : \"anna\"*")]                // L6d: parole chiave inglesi, sempre valide
+    [InlineData("To:mario Subject:\"ordine 12\"", "recipients : \"mario\"* AND subject : \"ordine 12\"")]
+    [InlineData("attachment:pdf", "attachments : \"pdf\"*")]
     [InlineData("ore 10:30", "\"ore\"* AND \"10:30\"*")]           // "10" non è un filtro
     [InlineData("Re:offerta", "\"Re:offerta\"*")]                  // filtro sconosciuto: testo
     [InlineData("AND OR NOT ( * -", "\"AND\"* AND \"OR\"* AND \"NOT\"*")] // nessuna sintassi FTS5 dall'utente
@@ -64,6 +67,8 @@ public sealed class SearchTests : IDisposable
         Assert.Equal([new SearchTerm(SearchField.Sender, "anna", false), new SearchTerm(null, "ordine 12", true)],
             MailSearchQuery.Parse("da:anna \"ordine 12\"").Terms);
         Assert.Equal("\"allegati:forse\"*", MailSearchQuery.Parse("allegati:forse").Match);
+        Assert.True(MailSearchQuery.Parse("hasattachments:yes").HasAttachments);
+        Assert.False(MailSearchQuery.Parse("HasAttachments:no").HasAttachments);
         Assert.True(MailSearchQuery.Parse("  ").IsEmpty);
         Assert.True(MailSearchQuery.Parse("- , ;").IsEmpty);
     }

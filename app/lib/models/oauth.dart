@@ -1,3 +1,5 @@
+import '../l10n/core_errors.dart';
+
 /// Accesso OAuth2 (O2): fornitori del core e stato di un accesso in corso.
 class OAuthProviderInfo {
   const OAuthProviderInfo({required this.id, required this.name, required this.configured});
@@ -66,7 +68,7 @@ class OAuthFlowStatus {
     status: json['status'] as String,
     email: json['email'] as String?,
     refreshToken: json['refreshToken'] as String?,
-    error: json['error'] as String?,
+    error: coreErrorText(json['errorCode'] as String?, coreErrorArgs(json['errorArgs']), json['error'] as String?),
     servers: json['servers'] is Map<String, dynamic> ? OAuthServers.fromJson(json['servers'] as Map<String, dynamic>) : null,
     contacts: json['contacts'] as bool?,
     calendar: json['calendar'] as bool?,

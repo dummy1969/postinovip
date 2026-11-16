@@ -94,7 +94,7 @@ public static partial class MimeMessageBuilder
         var totalBytes = attachments.Sum(a => (long)a.Data.Length) + inline.Sum(i => (long)i.Data.Length);
         if (totalBytes > MaxAttachmentBytes)
             throw new FieldValidationException("attachments",
-                $"Allegati troppo grandi: {totalBytes / 1048576.0:0.0} MB, massimo {MaxAttachmentBytes / 1048576} MB.");
+                $"Allegati troppo grandi: {totalBytes / 1048576.0:0.0} MB, massimo {MaxAttachmentBytes / 1048576} MB.").WithCode("allegatiTroppoGrandiMbMassimo", ("value", $"{totalBytes / 1048576.0:0.0}"), ("value2", MaxAttachmentBytes / 1048576));
 
         // multipart/mixed: testo (o multipart/alternative testo + HTML, con le immagini in multipart/related)
         // e allegati, codificati in base64 da MimeKit.

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/language.dart';
 import '../models/contact.dart';
 import '../state/contacts_model.dart';
 
@@ -118,7 +119,7 @@ class _ContactDialogState extends State<ContactDialog> {
         children: [
           const Icon(FluentIcons.person_24_regular),
           const SizedBox(width: 8),
-          Expanded(child: Text(widget.initial.id.isEmpty ? 'Nuovo contatto' : 'Contatto')),
+          Expanded(child: Text(widget.initial.id.isEmpty ? context.l10n.newContact : context.l10n.contact)),
           if (widget.accountLabel case final label?) Text(label, style: theme.textTheme.bodySmall),
         ],
       ),
@@ -131,26 +132,26 @@ class _ContactDialogState extends State<ContactDialog> {
             children: [
               Row(
                 children: [
-                  Expanded(child: _field(_given, 'Nome', const Key('contact-given'), autofocus: true)),
+                  Expanded(child: _field(_given, context.l10n.firstName, const Key('contact-given'), autofocus: true)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field(_family, 'Cognome', const Key('contact-family'))),
+                  Expanded(child: _field(_family, context.l10n.lastName, const Key('contact-family'))),
                 ],
               ),
-              _field(_display, 'Nome visualizzato (se diverso da nome e cognome)', const Key('contact-display')),
-              _field(_company, 'Società', const Key('contact-company')),
+              _field(_display, context.l10n.displayAs, const Key('contact-display')),
+              _field(_company, context.l10n.company, const Key('contact-company')),
               const SizedBox(height: 12),
-              Text('Posta elettronica', style: theme.textTheme.titleSmall),
-              for (final (i, r) in _emails.indexed) _valueRow('email', i, r, _emails, emailLabels, 'Indirizzo'),
-              _addButton('contact-add-email', 'Aggiungi indirizzo', () => _emails.add(_Row('', null))),
-              Text('Telefono', style: theme.textTheme.titleSmall),
-              for (final (i, r) in _phones.indexed) _valueRow('phone', i, r, _phones, phoneLabels, 'Numero'),
-              _addButton('contact-add-phone', 'Aggiungi telefono', () => _phones.add(_Row('', 'mobile'))),
+              Text(context.l10n.emailSection, style: theme.textTheme.titleSmall),
+              for (final (i, r) in _emails.indexed) _valueRow('email', i, r, _emails, emailLabels(context.l10n), context.l10n.linkAddress),
+              _addButton('contact-add-email', context.l10n.addAddress, () => _emails.add(_Row('', null))),
+              Text(context.l10n.phoneSection, style: theme.textTheme.titleSmall),
+              for (final (i, r) in _phones.indexed) _valueRow('phone', i, r, _phones, phoneLabels(context.l10n), context.l10n.phoneNumber),
+              _addButton('contact-add-phone', context.l10n.addPhone, () => _phones.add(_Row('', 'mobile'))),
               TextField(
                 key: const Key('contact-notes'),
                 controller: _notes,
                 minLines: 3,
                 maxLines: 8,
-                decoration: const InputDecoration(labelText: 'Note', border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: context.l10n.notes, border: const OutlineInputBorder()),
               ),
               if (_error case final error?)
                 Padding(
@@ -166,12 +167,12 @@ class _ContactDialogState extends State<ContactDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(), child: const Text('Annulla')),
+        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(), child: Text(context.l10n.cancel)),
         FilledButton.icon(
           key: const Key('contact-save'),
           onPressed: _saving ? null : _save,
           icon: const Icon(FluentIcons.save_20_regular, size: 18),
-          label: const Text('Salva e chiudi'),
+          label: Text(context.l10n.saveAndClose),
         ),
       ],
     );
@@ -218,7 +219,7 @@ class _ContactDialogState extends State<ContactDialog> {
           ),
         ),
         IconButton(
-          tooltip: 'Togli',
+          tooltip: context.l10n.takeOut,
           icon: const Icon(FluentIcons.dismiss_16_regular, size: 16),
           onPressed: () => setState(() {
             rows.removeAt(i).controller.dispose();

@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 
 import '../account/accounts_page.dart';
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/core_errors.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../attachments/file_picker.dart';
 import '../attachments/file_saver.dart';
 import '../models/account_info.dart';
@@ -24,9 +28,9 @@ class PeopleActions {
   PeopleActions._();
 
   /// «Contatti – account» (con più account) o «Contatti».
-  static String bookLabel(MailboxModel mail, String? account) {
+  static String bookLabel(AppLocalizations l, MailboxModel mail, String? account) {
     final info = mail.accounts.where((a) => a.id == account).firstOrNull;
-    return mail.multipleAccounts && info != null ? 'Contatti - ${info.name}' : 'Contatti';
+    return mail.multipleAccounts && info != null ? '${l.contacts} - ${info.name}' : l.contacts;
   }
 
   static Future<void> newContact(BuildContext context) async {
@@ -48,14 +52,15 @@ class PeopleActions {
     final contact = model.selected;
     if (contact == null) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminare il contatto?'),
-        content: Text('«${contact.name}» è solo su questo computer: eliminato, non si può recuperare.'),
+        title: Text(l.deleteContactQuestion),
+        content: Text(l.deleteContactContent(contact.name)),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.delete)),
         ],
       ),
     );
@@ -63,7 +68,7 @@ class PeopleActions {
     try {
       await model.delete(contact.id);
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Contatto non eliminato: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.contactNotDeleted('$e'))));
     }
   }
 
@@ -95,8 +100,9 @@ class PeopleActions {
     final model = context.read<ContactsModel>();
     final picker = context.read<FilePickerService>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     if (model.book == null) return;
-    final file = await picker.pickFile(label: 'Contatti (vCard, CSV)', extensions: ['vcf', 'csv']);
+    final file = await picker.pickFile(label: l.contactFilesLabel, extensions: ['vcf', 'csv']);
     if (file == null) return;
     final format = file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'vcf';
     try {
@@ -105,20 +111,20 @@ class PeopleActions {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Importazione completata'),
+          title: Text(l.importDone),
           content: Text(
             [
               '${file.name}:',
-              r.imported == 1 ? '1 contatto aggiunto' : '${r.imported} contatti aggiunti',
-              if (r.duplicates > 0) '${r.duplicates} già presenti (non aggiunti di nuovo)',
-              if (r.invalid > 0) '${r.invalid} scartati (senza nome né indirizzo, o non validi)',
+              l.importAdded(r.imported),
+              if (r.duplicates > 0) l.importDuplicates(r.duplicates),
+              if (r.invalid > 0) l.importInvalid(r.invalid),
             ].join('\n'),
           ),
           actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
         ),
       );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Importazione non riuscita: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.importFailed('$e'))));
     }
   }
 
@@ -126,27 +132,28 @@ class PeopleActions {
     final model = context.read<ContactsModel>();
     final saver = context.read<FileSaver>();
     final messenger = ScaffoldMessenger.of(context);
-    final label = bookLabel(context.read<MailboxModel>(), model.book);
+    final l = context.l10n;
+    final label = bookLabel(l, context.read<MailboxModel>(), model.book);
     if (model.book == null) return;
     final format = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: const Text('Esporta contatti'),
+        title: Text(l.exportContacts),
         children: [
           SimpleDialogOption(
             key: const Key('export-vcf'),
             onPressed: () => Navigator.pop(context, 'vcf'),
-            child: const ListTile(
-              title: Text('vCard (.vcf)'),
-              subtitle: Text('Per Thunderbird, telefoni, Apple, Google'),
+            child: ListTile(
+              title: const Text('vCard (.vcf)'),
+              subtitle: Text(l.exportVcfHint),
             ),
           ),
           SimpleDialogOption(
             key: const Key('export-csv'),
             onPressed: () => Navigator.pop(context, 'csv'),
-            child: const ListTile(
-              title: Text('CSV (.csv)'),
-              subtitle: Text('Colonne di Outlook: per Outlook, Gmail, Excel'),
+            child: ListTile(
+              title: const Text('CSV (.csv)'),
+              subtitle: Text(l.exportCsvHint),
             ),
           ),
         ],
@@ -157,9 +164,9 @@ class PeopleActions {
     if (path == null) return;
     try {
       await saver.write(path, await model.export(format));
-      messenger.showSnackBar(SnackBar(content: Text('${model.count} contatti esportati in $path')));
+      messenger.showSnackBar(SnackBar(content: Text(l.exportDone(model.count, path))));
     } on Exception catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Esportazione non riuscita: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.exportFailed('$e'))));
     }
   }
 
@@ -169,6 +176,7 @@ class PeopleActions {
     final mail = context.read<MailboxModel>();
     final api = context.read<ApiClient>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final detail = mail.detail;
     final account = mail.openAccount;
     final address = detail?.fromAddress;
@@ -177,7 +185,7 @@ class PeopleActions {
     try {
       existing = await api.forAccount(account).getContacts();
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Contatti non disponibili: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.contactsNotAvailable('$e'))));
       return;
     }
     if (!context.mounted) return;
@@ -200,26 +208,26 @@ class PeopleActions {
           ),
     );
     if (saved != null) {
-      messenger.showSnackBar(SnackBar(content: Text('«${saved.name}» salvato in ${bookLabel(mail, account)}')));
+      messenger.showSnackBar(SnackBar(content: Text(l.contactSavedIn(saved.name, bookLabel(l, mail, account)))));
     }
   }
 
   /// Riga di stato della sincronizzazione CardDAV (C4c, 2a); null se non è attiva per l'account.
-  static ({String text, bool error})? syncLabel(CardDavStatus s) {
+  static ({String text, bool error})? syncLabel(AppLocalizations l, CardDavStatus s) {
     if (!s.enabled) return null;
     String when(DateTime t) {
-      String two(int n) => n.toString().padLeft(2, '0');
       final now = DateTime.now();
       final today = t.year == now.year && t.month == now.month && t.day == now.day;
-      return '${today ? '' : 'il ${two(t.day)}/${two(t.month)} '}alle ${two(t.hour)}:${two(t.minute)}';
+      final time = formatTime(t);
+      return today ? l.syncedAt(time) : l.syncedOnAt(formatDayMonth(t), time);
     }
 
     return switch (s.state) {
-      'waiting' || 'syncing' => (text: 'Sincronizzazione in corso…', error: false),
-      'ok' => (text: s.lastSync == null ? 'Sincronizzata' : 'Sincronizzata ${when(s.lastSync!)}', error: false),
-      'offline' => (text: 'Server dei contatti non raggiungibile', error: true),
-      'unavailable' => (text: s.error ?? 'Sincronizzazione non disponibile', error: false),
-      _ => (text: s.error ?? 'Sincronizzazione non riuscita', error: true),
+      'waiting' || 'syncing' => (text: l.syncing, error: false),
+      'ok' => (text: s.lastSync == null ? l.synced : when(s.lastSync!), error: false),
+      'offline' => (text: l.syncServerUnreachable, error: true),
+      'unavailable' => (text: s.error ?? l.syncUnavailable, error: false),
+      _ => (text: s.error ?? l.syncFailed, error: true),
     };
   }
 
@@ -228,22 +236,19 @@ class PeopleActions {
     final model = context.read<ContactsModel>();
     final status = model.statusOf(model.book);
     final n = status.pendingUpload;
-    final book = bookLabel(context.read<MailboxModel>(), model.book);
+    final l = context.l10n;
+    final book = bookLabel(l, context.read<MailboxModel>(), model.book);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Caricare i contatti sul server?'),
+        title: Text(l.uploadContactsQuestion),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: Text(
-            '${n == 1 ? 'Un contatto della rubrica «$book» è' : '$n contatti della rubrica «$book» sono'} solo su questo '
-            'computer. Verranno aggiunti alla rubrica «${status.addressBook ?? 'Contatti'}» del server dei contatti e da '
-            'allora sincronizzati.\n\nI contatti già presenti sul server non vengono modificati.',
-          ),
+          child: Text(l.uploadContactsContent(n, book, status.addressBook ?? l.contacts)),
         ),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Carica sul server')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.uploadToServer)),
         ],
       ),
     );
@@ -252,14 +257,14 @@ class PeopleActions {
       await model.confirmUpload();
     } on ApiException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Contatti non caricati: ${e.message}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.contactsNotUploaded(e.message))));
       }
     }
   }
 
   static String? _label(BuildContext context, String account) {
     final mail = context.read<MailboxModel>();
-    return mail.multipleAccounts ? bookLabel(mail, account) : null;
+    return mail.multipleAccounts ? bookLabel(context.l10n, mail, account) : null;
   }
 
   /// Gruppi della scheda Home nella vista Persone.
@@ -269,58 +274,58 @@ class PeopleActions {
     final selected = model.selected;
     return [
       RibbonGroup(
-        label: 'Nuovo',
+        label: context.l10n.groupNew,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.person_add_24_regular,
-            label: 'Nuovo contatto',
-            tooltip: 'Nuovo contatto nella rubrica aperta (Ctrl+N)',
+            label: context.l10n.newContact,
+            tooltip: context.l10n.newContactTooltip,
             onPressed: hasBook ? () => newContact(context) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Elimina',
+        label: context.l10n.delete,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.delete_24_regular,
-            label: 'Elimina',
-            tooltip: 'Elimina il contatto selezionato (Canc)',
+            label: context.l10n.delete,
+            tooltip: context.l10n.deleteContactTooltip,
             onPressed: selected != null ? () => delete(context) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Comunica',
+        label: context.l10n.groupCommunicate,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.mail_add_24_regular,
-            label: 'Messaggio di posta',
-            tooltip: 'Nuova mail al contatto selezionato',
+            label: context.l10n.emailMessage,
+            tooltip: context.l10n.emailMessageTooltip,
             onPressed: selected != null && selected.emails.isNotEmpty ? () => composeTo(context, selected) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Azioni',
+        label: context.l10n.groupActions,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.edit_24_regular,
-            label: 'Modifica',
-            tooltip: 'Apri il contatto selezionato (Invio o doppio clic)',
+            label: context.l10n.edit,
+            tooltip: context.l10n.editContactTooltip,
             onPressed: selected != null ? () => edit(context) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Sincronizzazione',
+        label: context.l10n.groupSync,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.arrow_sync_24_regular,
-            label: 'Sincronizza',
+            label: context.l10n.sync,
             tooltip: model.statusOf(model.book).enabled
-                ? 'Sincronizza subito la rubrica con il server dei contatti (F9)'
-                : 'Sincronizzazione dei contatti non attiva: si accende nelle impostazioni dell\'account',
+                ? context.l10n.syncContactsTooltip
+                : context.l10n.syncContactsOffTooltip,
             onPressed: hasBook && model.statusOf(model.book).enabled && !model.statusOf(model.book).busy
                 ? model.syncNow
                 : null,
@@ -328,29 +333,29 @@ class PeopleActions {
         ],
       ),
       RibbonGroup(
-        label: 'Importa/Esporta',
+        label: context.l10n.groupImportExport,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.arrow_import_24_regular,
-            label: 'Importa…',
-            tooltip: 'Aggiungi contatti da un file vCard (.vcf) o CSV di Outlook o Gmail',
+            label: context.l10n.importEllipsis,
+            tooltip: context.l10n.importTooltip,
             onPressed: hasBook ? () => importFile(context) : null,
           ),
           RibbonLargeButton(
             icon: FluentIcons.arrow_export_ltr_24_regular,
-            label: 'Esporta…',
-            tooltip: 'Salva tutta la rubrica in un file vCard o CSV',
+            label: context.l10n.exportEllipsis,
+            tooltip: context.l10n.exportTooltip,
             onPressed: hasBook && model.count > 0 ? () => exportFile(context) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Trova',
+        label: context.l10n.groupFind,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.search_24_regular,
-            label: 'Cerca contatti',
-            tooltip: 'Cerca per nome, indirizzo, società o telefono (Ctrl+E)',
+            label: context.l10n.searchContacts,
+            tooltip: context.l10n.searchContactsTooltip,
             onPressed: hasBook ? () => model.searchFocus.requestFocus() : null,
           ),
         ],
@@ -406,7 +411,7 @@ class _BooksPane extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('I miei contatti', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            child: Text(context.l10n.myContacts, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           ),
           Expanded(
             child: ListView(
@@ -416,8 +421,8 @@ class _BooksPane extends StatelessWidget {
                     key: Key('book:${a.id}'),
                     dense: true,
                     leading: const Icon(FluentIcons.book_contacts_20_regular),
-                    title: Text(PeopleActions.bookLabel(mail, a.id), overflow: TextOverflow.ellipsis),
-                    subtitle: _subtitle(theme, a.id, mail.multipleAccounts ? null : a.address, model.statusOf(a.id)),
+                    title: Text(PeopleActions.bookLabel(context.l10n, mail, a.id), overflow: TextOverflow.ellipsis),
+                    subtitle: _subtitle(context.l10n, theme, a.id, mail.multipleAccounts ? null : a.address, model.statusOf(a.id)),
                     selected: model.book == a.id,
                     trailing: model.book == a.id && model.count > 0 ? Text('${model.count}') : null,
                     onTap: () => model.openBook(a.id),
@@ -432,8 +437,8 @@ class _BooksPane extends StatelessWidget {
   }
 }
 
-Widget? _subtitle(ThemeData theme, String account, String? address, CardDavStatus status) {
-  final sync = PeopleActions.syncLabel(status);
+Widget? _subtitle(AppLocalizations l, ThemeData theme, String account, String? address, CardDavStatus status) {
+  final sync = PeopleActions.syncLabel(l, status);
   if (address == null && sync == null) return null;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +472,7 @@ class ReloginStrip extends StatelessWidget {
 
   /// Errore del core che chiede un nuovo accesso («…Accedi con Google…», «…Accedi di nuovo…») su un account OAuth2.
   static bool needed(BuildContext context, String? account, CardDavStatus status) {
-    if (account == null || status.state != 'error' || !(status.error ?? '').contains('Accedi')) return false;
+    if (account == null || status.state != 'error' || !signInAgainCodes.contains(status.errorCode)) return false;
     return context.read<AccountsEditing?>()?.accounts.where((a) => a.id == account).firstOrNull?.usesOAuth ?? false;
   }
 
@@ -488,8 +493,8 @@ class ReloginStrip extends StatelessWidget {
           Expanded(
             child: Text(
               calendar
-                  ? 'Il calendario non si sincronizza: serve un nuovo accesso con Google che permetta l\'accesso al calendario.'
-                  : 'I contatti non si sincronizzano: serve un nuovo accesso con Google che permetta l\'accesso ai contatti.',
+                  ? context.l10n.reloginCalendar
+                  : context.l10n.reloginContacts,
               style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
           ),
@@ -504,7 +509,7 @@ class ReloginStrip extends StatelessWidget {
                 signInAgain: true,
               ),
               style: TextButton.styleFrom(foregroundColor: color),
-              child: const Text('Accedi di nuovo'),
+              child: Text(context.l10n.signInAgain),
             ),
         ],
       ),
@@ -531,12 +536,11 @@ class _UploadStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '${n == 1 ? 'Un contatto è' : '$n contatti sono'} solo su questo computer: non ${n == 1 ? 'è' : 'sono'} '
-              'ancora sul server dei contatti.',
+              context.l10n.contactsUploadStrip(n),
               style: const TextStyle(color: Colors.black87),
             ),
           ),
-          TextButton(onPressed: () => PeopleActions.confirmUpload(context), child: const Text('Carica sul server…')),
+          TextButton(onPressed: () => PeopleActions.confirmUpload(context), child: Text(context.l10n.uploadToServerEllipsis)),
         ],
       ),
     );
@@ -600,12 +604,12 @@ class _ContactListState extends State<_ContactList> {
             focusNode: model.searchFocus,
             onChanged: model.setQuery,
             decoration: InputDecoration(
-              hintText: 'Cerca contatti',
+              hintText: context.l10n.searchContacts,
               prefixIcon: const Icon(FluentIcons.search_20_regular, size: 18),
               suffixIcon: model.query.isEmpty
                   ? null
                   : IconButton(
-                      tooltip: 'Cancella la ricerca',
+                      tooltip: context.l10n.clearSearch,
                       icon: const Icon(FluentIcons.dismiss_16_regular, size: 16),
                       onPressed: () {
                         _search.clear();
@@ -622,17 +626,17 @@ class _ContactListState extends State<_ContactList> {
         if (model.loading) const LinearProgressIndicator(minHeight: 2),
         Expanded(
           child: model.error != null
-              ? Center(child: Text('Contatti non disponibili: ${model.error}', textAlign: TextAlign.center))
+              ? Center(child: Text(context.l10n.contactsNotAvailable('${model.error}'), textAlign: TextAlign.center))
               : list.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
                       model.query.isNotEmpty
-                          ? 'Nessun contatto trovato.'
+                          ? context.l10n.noContactsFound
                           : model.loading
                           ? ''
-                          : 'Nessun contatto. Usa «Nuovo contatto» o «Importa…».',
+                          : context.l10n.noContactsHint,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: theme.colorScheme.outline),
                     ),
@@ -673,7 +677,7 @@ class _ContactCard extends StatelessWidget {
     final theme = Theme.of(context);
     if (c == null) {
       return Center(
-        child: Text('Seleziona un contatto', style: TextStyle(color: theme.colorScheme.outline)),
+        child: Text(context.l10n.selectContact, style: TextStyle(color: theme.colorScheme.outline)),
       );
     }
     Widget section(String title, List<Widget> rows) => Padding(
@@ -716,23 +720,23 @@ class _ContactCard extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () => PeopleActions.composeTo(context, c),
                   icon: const Icon(FluentIcons.mail_20_regular, size: 18),
-                  label: const Text('Messaggio di posta'),
+                  label: Text(context.l10n.emailMessage),
                 ),
               OutlinedButton.icon(
                 onPressed: () => PeopleActions.edit(context),
                 icon: const Icon(FluentIcons.edit_20_regular, size: 18),
-                label: const Text('Modifica'),
+                label: Text(context.l10n.edit),
               ),
             ],
           ),
           if (c.emails.isNotEmpty)
-            section('Posta elettronica', [
+            section(context.l10n.emailSection, [
               for (final e in c.emails)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      SizedBox(width: 90, child: Text(emailLabels[e.label] ?? '', style: theme.textTheme.bodySmall)),
+                      SizedBox(width: 90, child: Text(emailLabels(context.l10n)[e.label] ?? '', style: theme.textTheme.bodySmall)),
                       Flexible(
                         child: InkWell(
                           onTap: () => PeopleActions.composeTo(context, c, e),
@@ -747,19 +751,19 @@ class _ContactCard extends StatelessWidget {
                 ),
             ]),
           if (c.phones.isNotEmpty)
-            section('Telefono', [
+            section(context.l10n.phoneSection, [
               for (final p in c.phones)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
-                      SizedBox(width: 90, child: Text(phoneLabels[p.label] ?? '', style: theme.textTheme.bodySmall)),
+                      SizedBox(width: 90, child: Text(phoneLabels(context.l10n)[p.label] ?? '', style: theme.textTheme.bodySmall)),
                       Flexible(child: SelectableText(p.number)),
                     ],
                   ),
                 ),
             ]),
-          if (c.notes case final notes?) section('Note', [SelectableText(notes)]),
+          if (c.notes case final notes?) section(context.l10n.notes, [SelectableText(notes)]),
         ],
       ),
     );

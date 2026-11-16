@@ -1,3 +1,5 @@
+import '../l10n/app_localizations.dart';
+
 /// Cartella della casella, come restituita da GET /folders.
 class MailFolder {
   const MailFolder({required this.fullName, required this.name, this.count, this.specialUse, this.unread});
@@ -41,8 +43,8 @@ class MailFolder {
   }
 
   /// Nome mostrato nell'app (tappa «Aspetto», V4): la Posta in arrivo, che IMAP chiama sempre «INBOX», si chiama
-  /// «Posta in arrivo» come in Outlook; le altre cartelle tengono il nome del server.
-  String get displayName => fullName.toUpperCase() == 'INBOX' ? 'Posta in arrivo' : name;
+  /// «Posta in arrivo» come in Outlook («Inbox» in inglese, tappa «Lingua»); le altre cartelle tengono il nome del server.
+  String displayName(AppLocalizations l) => fullName.toUpperCase() == 'INBOX' ? l.folderInbox : name;
 
   /// Separatore della gerarchia ricavato dal nome completo (es. "/" in "INBOX/Clienti"); null per le
   /// cartelle in cima, dove non si vede.

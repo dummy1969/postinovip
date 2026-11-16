@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/language.dart';
 import '../models/mail_folder.dart';
 import 'folder_pane.dart';
 
@@ -54,10 +55,10 @@ class _MoveDialogState extends State<MoveDialog> {
     // Filtrando si vedono solo le cartelle il cui nome contiene il testo, senza rientri (come una ricerca).
     final shown = [
       for (final f in widget.folders)
-        if (query.isEmpty || f.displayName.toLowerCase().contains(query) || f.name.toLowerCase().contains(query)) f,
+        if (query.isEmpty || f.displayName(context.l10n).toLowerCase().contains(query) || f.name.toLowerCase().contains(query)) f,
     ];
     return AlertDialog(
-      title: Text(widget.title ?? 'Sposta elementi'),
+      title: Text(widget.title ?? context.l10n.moveItems),
       content: SizedBox(
         width: 380,
         height: 420,
@@ -66,19 +67,17 @@ class _MoveDialogState extends State<MoveDialog> {
           children: [
             Text(
               widget.message ??
-                  (widget.count == 1
-                      ? 'Sposta l\'elemento selezionato nella cartella:'
-                      : 'Sposta i ${widget.count} elementi selezionati nella cartella:'),
+                  context.l10n.moveItemsTo(widget.count),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _filter,
               autofocus: true,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 isDense: true,
-                hintText: 'Cerca una cartella',
-                prefixIcon: Icon(Icons.search, size: 18),
-                border: OutlineInputBorder(),
+                hintText: context.l10n.searchFolder,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                border: const OutlineInputBorder(),
               ),
               onChanged: (_) => setState(() {
                 if (!shown.any((f) => f.fullName == _chosen)) _chosen = null;
@@ -93,7 +92,7 @@ class _MoveDialogState extends State<MoveDialog> {
               child: DecoratedBox(
                 decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.outlineVariant)),
                 child: shown.isEmpty
-                    ? const Center(child: Text('Nessuna cartella con questo nome'))
+                    ? Center(child: Text(context.l10n.noFolderWithName))
                     : ListView(
                         children: [
                           for (final f in shown)
@@ -102,7 +101,7 @@ class _MoveDialogState extends State<MoveDialog> {
                               dense: true,
                               contentPadding: EdgeInsets.only(left: 8.0 + (query.isEmpty ? f.depth * 16 : 0), right: 8),
                               leading: Icon(folderIcon(f), size: 20),
-                              title: Text(query.isEmpty ? f.displayName : f.fullName, overflow: TextOverflow.ellipsis),
+                              title: Text(query.isEmpty ? f.displayName(context.l10n) : f.fullName, overflow: TextOverflow.ellipsis),
                               selected: f.fullName == _chosen,
                               onTap: () => _tap(f.fullName),
                             ),
@@ -114,7 +113,7 @@ class _MoveDialogState extends State<MoveDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         FilledButton(
           onPressed: _chosen == null ? null : () => Navigator.pop(context, _chosen),
           child: const Text('OK'),

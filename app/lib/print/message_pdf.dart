@@ -7,6 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../l10n/formats.dart';
 import '../models/mail_importance.dart';
 import '../models/message_detail.dart';
 import '../ui/html_body_view.dart';
@@ -111,13 +112,15 @@ class MessagePdf {
   static pw.Widget _header(MessageDetail m, String account, String Function(String) t) {
     final from = m.fromAddress != null && m.fromAddress != m.from ? '${m.from} <${m.fromAddress}>' : m.from;
     final rows = <(String, String)>[
-      ('Da:', from),
-      if (m.date != null) ('Inviato:', formatPrintDate(m.date!)),
-      if (m.to.isNotEmpty) ('A:', m.to.join('; ')),
-      if (m.cc.isNotEmpty) ('Cc:', m.cc.join('; ')),
-      ('Oggetto:', m.subject),
-      if (m.importance != MailImportance.normal) ('Priorità:', m.importance == MailImportance.high ? 'Alta' : 'Bassa'),
-      if (m.attachments.isNotEmpty) ('Allegati:', m.attachments.map((a) => a.fileName).join('; ')),
+      // Etichette nella lingua dell'app (L7).
+      (formatL10n.printFrom, from),
+      if (m.date != null) (formatL10n.printSent, formatPrintDate(m.date!)),
+      if (m.to.isNotEmpty) (formatL10n.printTo, m.to.join('; ')),
+      if (m.cc.isNotEmpty) (formatL10n.printCc, m.cc.join('; ')),
+      (formatL10n.printSubject, m.subject),
+      if (m.importance != MailImportance.normal)
+        (formatL10n.printImportance, m.importance == MailImportance.high ? formatL10n.printHigh : formatL10n.printLow),
+      if (m.attachments.isNotEmpty) (formatL10n.printAttachments, m.attachments.map((a) => a.fileName).join('; ')),
     ];
     const label = pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold);
     const value = pw.TextStyle(fontSize: 10);
@@ -151,16 +154,8 @@ class MessagePdf {
     return themed.box!.height;
   }
 
-  static const _days = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
-  static const _months = [
-    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
-  ];
-
-  /// «lunedì 9 novembre 2026 10:05», come la riga «Inviato:» di Outlook.
-  static String formatPrintDate(DateTime d) =>
-      '${_days[d.weekday - 1]} ${d.day} ${_months[d.month - 1]} ${d.year} '
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  /// «lunedì 9 novembre 2026 10:05», come la riga «Inviato:» di Outlook (nella lingua dell'app).
+  static String formatPrintDate(DateTime d) => formatLongDateTime(d);
 
   /// Helvetica di serie conosce solo Latin-1: gli altri caratteri diventano «?» invece di far fallire il PDF.
   static String latin1Only(String s) => String.fromCharCodes(s.runes.map((r) => r <= 0xff ? r : 0x3f));

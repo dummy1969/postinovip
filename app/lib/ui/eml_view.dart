@@ -3,6 +3,9 @@ import 'dart:io';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -26,6 +29,7 @@ class EmlActions {
     final model = context.read<MailboxModel>();
     final saver = context.read<FileSaver>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final (detail, folder, uid) = (model.detail, model.openFolder, model.selectedUid);
     if (!canSave(model) || detail == null || folder == null || uid == null) return;
     final api = model.accountApi;
@@ -33,17 +37,17 @@ class EmlActions {
     if (path == null) return; // annullato
     try {
       await saver.write(path, await api.getRawMessage(folder, uid));
-      messenger.showSnackBar(SnackBar(content: Text('Salvato in $path')));
+      messenger.showSnackBar(SnackBar(content: Text(l.savedTo(path))));
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Mail non salvata: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.messageNotSaved('$e'))));
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('File non scritto: ${e.message} (${e.path})')));
+      messenger.showSnackBar(SnackBar(content: Text(l.fileNotWritten(e.message, '${e.path}'))));
     }
   }
 
   /// File → «Apri file .eml…».
   static Future<void> openFile(BuildContext context) async {
-    final picked = await context.read<FilePickerService>().pickFile(label: 'Messaggi di posta', extensions: ['eml']);
+    final picked = await context.read<FilePickerService>().pickFile(label: context.l10n.emlFilesLabel, extensions: ['eml']);
     if (picked == null || !context.mounted) return; // annullato
     await open(context, picked.bytes, name: picked.name);
   }
@@ -52,12 +56,13 @@ class EmlActions {
   static Future<void> open(BuildContext context, Uint8List bytes, {String? name}) async {
     final api = context.read<ApiClient>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final ({String id, MessageDetail message}) opened;
     try {
       opened = await api.openEml(bytes);
     } on ApiException catch (e) {
       final why = e.fieldErrors['file']?.firstOrNull ?? '$e';
-      messenger.showSnackBar(SnackBar(content: Text('${name ?? 'File'} non aperto: $why')));
+      messenger.showSnackBar(SnackBar(content: Text(l.fileNotOpened(name ?? l.fileTab, why))));
       return;
     }
     if (!context.mounted) return;
@@ -70,7 +75,7 @@ class EmlActions {
 
   /// Nome proposto per salvare: l'oggetto, senza caratteri non validi.
   static String fileName(String subject) =>
-      '${safeFileName(subject.trim().isEmpty ? 'messaggio' : subject.trim())}.eml';
+      '${safeFileName(subject.trim().isEmpty ? formatL10n.defaultMessageFileName : subject.trim())}.eml';
 }
 
 /// Finestra di un file .eml: la mail come nel riquadro di lettura, sola lettura, con Rispondi, Rispondi a tutti,
@@ -108,25 +113,25 @@ class EmlPage extends StatelessWidget {
                       key: const Key('eml-close'),
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text('Chiudi (Esc)'),
+                      label: Text(context.l10n.closeEsc),
                     ),
                     const SizedBox(width: 8),
                     Icon(FluentIcons.mail_20_regular, size: 18, color: theme.colorScheme.onSurfaceVariant),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        name ?? 'Messaggio',
+                        name ?? context.l10n.messageTab,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall,
                       ),
                     ),
-                    Text('Sola lettura', style: theme.textTheme.bodySmall),
+                    Text(context.l10n.readOnly, style: theme.textTheme.bodySmall),
                     const SizedBox(width: 12),
                     TextButton.icon(
                       key: const Key('eml-save'),
                       onPressed: () => _save(context),
                       icon: const Icon(FluentIcons.save_20_regular, size: 18),
-                      label: const Text('Salva con nome…'),
+                      label: Text(context.l10n.saveAsShort),
                     ),
                   ],
                 ),
@@ -151,15 +156,16 @@ class EmlPage extends StatelessWidget {
   Future<void> _save(BuildContext context) async {
     final saver = context.read<FileSaver>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final path = await saver.pickSaveLocation(name != null && name!.toLowerCase().endsWith('.eml')
         ? safeFileName(name!)
         : EmlActions.fileName(message.subject));
     if (path == null) return;
     try {
       await saver.write(path, bytes);
-      messenger.showSnackBar(SnackBar(content: Text('Salvato in $path')));
+      messenger.showSnackBar(SnackBar(content: Text(l.savedTo(path))));
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('File non scritto: ${e.message} (${e.path})')));
+      messenger.showSnackBar(SnackBar(content: Text(l.fileNotWritten(e.message, '${e.path}'))));
     }
   }
 
@@ -168,6 +174,7 @@ class EmlPage extends StatelessWidget {
   Future<void> _reply(BuildContext context, DraftMode mode) async {
     final model = context.read<MailboxModel>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final account = model.currentAccount ?? model.accounts.firstOrNull;
     final root = context.read<ApiClient>();
     final api = account == null ? root : root.forAccount(account.id);
@@ -179,7 +186,7 @@ class EmlPage extends StatelessWidget {
       if (!context.mounted) return;
       await openCompose(
         context,
-        title: mode.label,
+        title: mode.label(context.l10n),
         account: account,
         accounts: model.accounts,
         files: files,
@@ -197,7 +204,7 @@ class EmlPage extends StatelessWidget {
         ),
       );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Bozza non disponibile: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.draftNotAvailable('$e'))));
     }
   }
 }

@@ -61,11 +61,11 @@ public sealed class AutoReplyStore(string directory)
     public AutoReplySettings Save(AutoReplySettings settings)
     {
         if (settings.Enabled && string.IsNullOrWhiteSpace(settings.Text) && string.IsNullOrWhiteSpace(settings.Html))
-            throw new FieldValidationException("text", "Scrivere il messaggio della risposta automatica.");
+            throw new FieldValidationException("text", "Scrivere il messaggio della risposta automatica.").WithCode("scrivereIlMessaggioDellaRisposta");
         if (settings.Start is { } s && settings.End is { } e && e <= s)
-            throw new FieldValidationException("end", "La fine deve venire dopo l'inizio.");
+            throw new FieldValidationException("end", "La fine deve venire dopo l'inizio.").WithCode("laFineDeveVenireDopo");
         if (settings.Html.Length > MaxHtmlLength || (settings.Document?.Length ?? 0) > MaxHtmlLength * 2)
-            throw new FieldValidationException("text", "Il messaggio è troppo lungo.");
+            throw new FieldValidationException("text", "Il messaggio è troppo lungo.").WithCode("ilMessaggioTroppoLungo");
         lock (_lock)
         {
             var previous = Read<AutoReplySettings>(SettingsPath) ?? new AutoReplySettings();

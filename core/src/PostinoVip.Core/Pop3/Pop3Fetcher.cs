@@ -41,7 +41,7 @@ public sealed class Pop3Fetcher(Pop3Settings settings, LocalMailStore store, Pop
         await ConnectAsync(client, settings, ct);
 
         if (!client.Capabilities.HasFlag(Pop3Capabilities.UIDL))
-            throw new NotSupportedException("Il server POP3 non supporta UIDL: senza, non si può sapere quali mail sono già state scaricate.");
+            throw new NotSupportedException("Il server POP3 non supporta UIDL: senza, non si può sapere quali mail sono già state scaricate.").WithCode("ilServerPop3NonSupporta");
 
         var uidls = await client.GetMessageUidsAsync(ct);
         var onServer = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -112,12 +112,14 @@ public sealed class Pop3Fetcher(Pop3Settings settings, LocalMailStore store, Pop
         }
         catch (Exception ex) when (limit.IsCancellationRequested && !ct.IsCancellationRequested)
         {
-            throw new MailOfflineException($"Server POP3 {settings.Host}:{settings.Port} non raggiungibile (nessuna risposta).", ex);
+            throw new MailOfflineException($"Server POP3 {settings.Host}:{settings.Port} non raggiungibile (nessuna risposta).", ex)
+                .WithCode("pop3NoAnswer", ("address", $"{settings.Host}:{settings.Port}"));
         }
         catch (Exception ex) when (ex is System.Net.Sockets.SocketException or IOException && ex is not SslHandshakeException
                                    && !ct.IsCancellationRequested)
         {
-            throw new MailOfflineException($"Server POP3 {settings.Host}:{settings.Port} non raggiungibile ({ex.GetType().Name}).", ex);
+            throw new MailOfflineException($"Server POP3 {settings.Host}:{settings.Port} non raggiungibile ({ex.GetType().Name}).", ex)
+                .WithCode("pop3Unreachable", ("address", $"{settings.Host}:{settings.Port}"), ("reason", ex.GetType().Name));
         }
         await OAuth.MailAuth.AuthenticateAsync(client, settings.Username, settings.Password, settings.AccessToken, limit.Token);
     }

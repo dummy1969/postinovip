@@ -3,89 +3,105 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../models/calendar.dart';
 import '../models/favorite_folder.dart';
 import '../models/signature.dart';
 
 /// Quando mostrare la notifica di sistema per la nuova posta.
 enum NotifyMode {
-  always('Sempre'),
-  unfocused('Solo con la finestra non in primo piano'),
-  never('Mai');
+  always,
+  unfocused,
+  never;
 
-  const NotifyMode(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    always => l.notifyAlways,
+    unfocused => l.notifyUnfocused,
+    never => l.notifyNever,
+  };
 }
 
 /// Quando una mail aperta nel pannello di lettura viene segnata come letta (come in Outlook).
 enum ReadMode {
-  immediately('Subito all\'apertura'),
-  afterDelay('Dopo alcuni secondi di visualizzazione'),
-  manual('Mai automaticamente (solo con il pulsante)');
+  immediately,
+  afterDelay,
+  manual;
 
-  const ReadMode(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    immediately => l.readImmediately,
+    afterDelay => l.readAfterDelay,
+    manual => l.readManual,
+  };
 }
 
 /// Risposta alle richieste di conferma di lettura (R2, scelta 4a), come Outlook classico.
 enum ReceiptMode {
-  ask('Chiedi ogni volta'),
-  always('Invia sempre una conferma di lettura'),
-  never('Non inviare mai una conferma di lettura');
+  ask,
+  always,
+  never;
 
-  const ReceiptMode(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    ask => l.receiptAsk,
+    always => l.receiptAlways,
+    never => l.receiptNever,
+  };
 }
 
 /// Posizione del riquadro di lettura (3.9, Visualizza → Riquadro di lettura, come Outlook).
 enum ReadingPanePosition {
-  right('A destra'),
-  bottom('In basso'),
-  off('Disattivato');
+  right,
+  bottom,
+  off;
 
-  const ReadingPanePosition(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    ReadingPanePosition.right => l.readingPaneRight,
+    ReadingPanePosition.bottom => l.readingPaneBottom,
+    ReadingPanePosition.off => l.readingPaneOff,
+  };
 }
 
 /// Barra multifunzione classica (gruppi con l'etichetta, comandi grandi e piccoli su tre righe) o semplificata (una
 /// riga sola), come le «Opzioni di visualizzazione della barra multifunzione» di Outlook (tappa «Aspetto», V3b,
 /// scelta 1b del 12/11/2026). Predefinita la classica.
 enum RibbonLayout {
-  classic('Barra multifunzione classica'),
-  simplified('Barra multifunzione semplificata');
+  classic,
+  simplified;
 
-  const RibbonLayout(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    RibbonLayout.classic => l.ribbonClassic,
+    RibbonLayout.simplified => l.ribbonSimplified,
+  };
 }
 
 /// Posizione della barra dei moduli (Posta, Calendario, Persone), File → Opzioni → Generale (scelta 1c del
 /// 12/11/2026): a sinistra come l'Outlook di oggi (predefinita) o in fondo al riquadro di sinistra come Outlook 2016/2019.
 enum ModuleBarPosition {
-  left('A sinistra'),
-  bottom('In basso nel riquadro di sinistra');
+  left,
+  bottom;
 
-  const ModuleBarPosition(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    ModuleBarPosition.left => l.moduleBarLeft,
+    ModuleBarPosition.bottom => l.moduleBarBottom,
+  };
 }
 
 /// Tema di Office (File → Opzioni → Aspetto, Visualizza → Tema), come in Outlook classico.
 /// «Usa impostazione di sistema» = Colorato con il sistema chiaro, Nero con quello scuro.
 enum AppTheme {
-  system('Usa impostazione di sistema'),
-  colorful('Colorato'),
-  white('Bianco'),
-  darkGray('Grigio scuro'),
-  black('Nero');
+  system,
+  colorful,
+  white,
+  darkGray,
+  black;
 
-  const AppTheme(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    AppTheme.system => l.themeSystem,
+    AppTheme.colorful => l.themeColorful,
+    AppTheme.white => l.themeWhite,
+    AppTheme.darkGray => l.themeDarkGray,
+    AppTheme.black => l.themeBlack,
+  };
 }
 
 /// Dove leggere/scrivere le impostazioni: SharedPreferences nell'app, memoria nei test.
@@ -135,6 +151,7 @@ class AppSettings extends ChangeNotifier {
   static const _previewLinesKey = 'previewLines';
   static const _themeKey = 'theme';
   static const _moduleBarKey = 'moduleBar';
+  static const _languageKey = 'language';
   static const _showBccKey = 'showBcc';
   static const _calendarKey = 'calendar';
   static const _remindersKey = 'reminders';
@@ -386,6 +403,19 @@ class AppSettings extends ChangeNotifier {
     await _store.write(_moduleBarKey, value.name);
   }
 
+  /// Lingua dell'interfaccia (tappa «Lingua», L1); predefinita quella del sistema.
+  AppLanguage language = AppLanguage.system;
+
+  /// Testi nella lingua dell'interfaccia, per chi non ha un `BuildContext` (notifiche, promemoria).
+  AppLocalizations get l10n => l10nFor(language);
+
+  Future<void> setLanguage(AppLanguage value) async {
+    if (value == language) return;
+    language = value;
+    notifyListeners();
+    await _store.write(_languageKey, value.name);
+  }
+
   Future<void> setReadingPane(ReadingPanePosition position) async {
     readingPane = position;
     notifyListeners();
@@ -474,8 +504,18 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
-  /// Nome della categoria [number] (1–6).
-  String categoryName(int number) => categoryNames[number - 1];
+  /// Nomi predefiniti delle categorie nella lingua [l].
+  static List<String> defaultCategoryNamesIn(AppLocalizations l) =>
+      [l.categoryRed, l.categoryOrange, l.categoryYellow, l.categoryGreen, l.categoryBlue, l.categoryPurple];
+
+  /// Nome della categoria [number] (1–6): quello scelto dall'utente; un nome predefinito (in una qualsiasi lingua
+  /// dell'app) segue la lingua dell'app.
+  String categoryName(int number) {
+    final name = categoryNames[number - 1];
+    final isDefault = AppLocalizations.supportedLocales
+        .any((locale) => defaultCategoryNamesIn(lookupAppLocalizations(locale))[number - 1] == name);
+    return isDefault ? defaultCategoryNamesIn(l10n)[number - 1] : name;
+  }
 
   Future<void> load() async {
     final saved = await _store.read(_notifyKey);
@@ -522,6 +562,8 @@ class AppSettings extends ChangeNotifier {
     theme = AppTheme.values.where((t) => t.name == savedTheme).firstOrNull ?? AppTheme.system;
     final savedBar = await _store.read(_moduleBarKey);
     moduleBar = ModuleBarPosition.values.where((p) => p.name == savedBar).firstOrNull ?? ModuleBarPosition.left;
+    final savedLanguage = await _store.read(_languageKey);
+    language = AppLanguage.values.where((l) => l.name == savedLanguage).firstOrNull ?? AppLanguage.system;
     notifyListeners();
   }
 

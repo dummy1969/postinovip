@@ -69,11 +69,11 @@ public static class CacheAccounts
     public static void DeleteOrphan(string cacheRoot, string id, IReadOnlyCollection<string> configuredIds)
     {
         if (configuredIds.Contains(id))
-            throw new InvalidOperationException($"L'account '{id}' è ancora configurato: per svuotarne la cache usare \"Ricostruisci cache\".");
+            throw new InvalidOperationException($"L'account '{id}' è ancora configurato: per svuotarne la cache usare \"Ricostruisci cache\".").WithCode("accountAncoraConfiguratoPerSvuotarne", ("id", id));
         // L'id finisce in un percorso: solo caratteri ammessi, niente "..", niente collegamenti simbolici.
         var dir = MailAccountRegistry.IsValidId(id) ? new DirectoryInfo(MailAccountRegistry.CacheDirectory(cacheRoot, id)) : null;
         if (dir is null || !dir.Exists || IsLink(dir))
-            throw new MailNotFoundException($"Nessun dato locale per l'account '{id}'.");
+            throw new MailNotFoundException($"Nessun dato locale per l'account '{id}'.").WithCode("nessunDatoLocalePerAccount", ("id", id));
         dir.Delete(recursive: true);
     }
 

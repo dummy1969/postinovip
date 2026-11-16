@@ -14,15 +14,15 @@ public static class FolderNames
     {
         var clean = (name ?? "").Trim();
         if (clean.Length == 0)
-            throw new FieldValidationException("name", "Scrivere il nome della cartella.");
+            throw new FieldValidationException("name", "Scrivere il nome della cartella.").WithCode("scrivereIlNomeDellaCartella");
         if (clean.Length > MaxLength)
-            throw new FieldValidationException("name", $"Il nome può avere al massimo {MaxLength} caratteri.");
+            throw new FieldValidationException("name", $"Il nome può avere al massimo {MaxLength} caratteri.").WithCode("ilNomePuoAvereAl", ("maxLength", MaxLength));
         if (clean.Any(char.IsControl))
-            throw new FieldValidationException("name", "Il nome contiene caratteri non validi.");
+            throw new FieldValidationException("name", "Il nome contiene caratteri non validi.").WithCode("ilNomeContieneCaratteriNon");
         if (separator != '\0' && clean.Contains(separator))
-            throw new FieldValidationException("name", $"Il nome non può contenere il carattere \"{separator}\".");
+            throw new FieldValidationException("name", $"Il nome non può contenere il carattere \"{separator}\".").WithCode("ilNomeNonPuoContenere", ("separator", separator));
         if (topLevel && clean.Equals("INBOX", StringComparison.OrdinalIgnoreCase))
-            throw new FieldValidationException("name", "\"INBOX\" è il nome riservato della Posta in arrivo.");
+            throw new FieldValidationException("name", "\"INBOX\" è il nome riservato della Posta in arrivo.").WithCode("inboxIlNomeRiservatoDella");
         return clean;
     }
 

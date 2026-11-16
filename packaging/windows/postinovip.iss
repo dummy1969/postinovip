@@ -20,6 +20,7 @@
 #define AppUserModelId "Dumm1969.PostinoVip"
 
 [Setup]
+ShowLanguageDialog=auto
 ; AppId fisso: identifica il programma per aggiornamenti e disinstallazione. Non cambiarlo mai.
 AppId={{87660B32-165E-4DFB-AB99-7E8DE910162D}
 AppName={#AppName}
@@ -50,7 +51,10 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 
+; Lingua dell'installazione come quella di Windows (tappa «Lingua», L7): italiano o inglese; le altre lingue -> inglese,
+; come l'app. La finestra di scelta compare solo se la lingua di Windows non è tra queste.
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
 
 [Tasks]

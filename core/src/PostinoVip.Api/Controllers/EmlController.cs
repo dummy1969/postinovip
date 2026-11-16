@@ -59,7 +59,7 @@ public sealed class EmlController(MailAccountRegistry accounts, EmlStore store, 
     public IActionResult GetAttachment(string id, int index)
     {
         var attachment = Attachments.Extract(store.Get(id), index)
-            ?? throw new MailNotFoundException($"Allegato {index} non trovato.");
+            ?? throw new MailNotFoundException($"Allegato {index} non trovato.").WithCode("allegatoNonTrovato2", ("index", index));
         return File(attachment.Data, attachment.ContentType, attachment.FileName);
     }
 

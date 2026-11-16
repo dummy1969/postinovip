@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postinovip/api/api_client.dart';
+import 'package:postinovip/l10n/app_localizations.dart';
 import 'package:postinovip/main.dart';
 import 'package:postinovip/models/calendar.dart';
 import 'package:postinovip/notify/system_notifier.dart';
@@ -135,18 +136,25 @@ void main() {
 
   test('Descrizione della scadenza', () {
     final now = DateTime(2026, 11, 11, 10);
+    final it = lookupAppLocalizations(const Locale('it'));
+    final en = lookupAppLocalizations(const Locale('en'));
     CalendarOccurrence at(DateTime start, {bool allDay = false}) => CalendarOccurrence.fromJson('a', {
       'calendarId': 'c', 'eventId': 'e', 'uid': 'e', 'summary': 'x', 'recurring': false, 'allDay': allDay,
       'start': allDay ? start.toIso8601String().substring(0, 10) : start.toUtc().toIso8601String(),
       'end': allDay ? '2026-11-12' : start.add(const Duration(hours: 1)).toUtc().toIso8601String(),
     });
-    expect(ReminderModel.describe(at(now.add(const Duration(minutes: 15))), now), 'Tra 15 minuti');
-    expect(ReminderModel.describe(at(now.add(const Duration(minutes: 1))), now), 'Tra 1 minuto');
-    expect(ReminderModel.describe(at(now.add(const Duration(seconds: 20))), now), 'Adesso');
-    expect(ReminderModel.describe(at(now.subtract(const Duration(hours: 2))), now), 'Iniziato da 2 ore');
-    expect(ReminderModel.describe(at(now.add(const Duration(days: 1))), now), 'Tra 1 giorno');
-    expect(ReminderModel.describe(at(DateTime(2026, 11, 12), allDay: true), now), 'Giornata intera, domani');
-    expect(ReminderModel.describe(at(DateTime(2026, 11, 11), allDay: true), now), 'Giornata intera, oggi');
+    expect(ReminderModel.describe(it, at(now.add(const Duration(minutes: 15))), now), 'Tra 15 minuti');
+    expect(ReminderModel.describe(it, at(now.add(const Duration(minutes: 1))), now), 'Tra 1 minuto');
+    expect(ReminderModel.describe(it, at(now.add(const Duration(seconds: 20))), now), 'Adesso');
+    expect(ReminderModel.describe(it, at(now.subtract(const Duration(hours: 2))), now), 'Iniziato da 2 ore');
+    expect(ReminderModel.describe(it, at(now.add(const Duration(days: 1))), now), 'Tra 1 giorno');
+    expect(ReminderModel.describe(it, at(DateTime(2026, 11, 12), allDay: true), now), 'Giornata intera, domani');
+    expect(ReminderModel.describe(it, at(DateTime(2026, 11, 11), allDay: true), now), 'Giornata intera, oggi');
+    // In inglese (tappa «Lingua», L3a), come Outlook: «In 15 minutes», «2 hours overdue».
+    expect(ReminderModel.describe(en, at(now.add(const Duration(minutes: 15))), now), 'In 15 minutes');
+    expect(ReminderModel.describe(en, at(now.add(const Duration(minutes: 1))), now), 'In 1 minute');
+    expect(ReminderModel.describe(en, at(now.subtract(const Duration(hours: 2))), now), '2 hours overdue');
+    expect(ReminderModel.describe(en, at(DateTime(2026, 11, 10), allDay: true), now), 'All day, started 1 day ago');
   });
 
   test('Stato dei promemoria: JSON e voci vecchie tolte', () {

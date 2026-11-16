@@ -83,7 +83,8 @@ public sealed class FakeMailReader : IMailReader
         LastHeadersView = (unreadOnly, oldestFirst);
         LastHeadersSort = sort;
         if (folder == "SenzaRete")
-            throw new MailOfflineException("Server non raggiungibile (SocketException: Connection refused).");
+            throw new MailOfflineException("Server non raggiungibile (SocketException: Connection refused).")
+                .WithCode("serverUnreachable", ("reason", "SocketException: Connection refused"));
         if (folder == "Muto")
             throw new TimeoutException("Operation timed out after 10000 milliseconds");
         return Task.FromResult(new MessagePage(3, offset, limit,

@@ -1,5 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../settings/app_settings.dart';
@@ -121,9 +123,9 @@ class ModuleBar extends StatelessWidget {
     }
 
     final items = [
-      item(AppModule.mail, 'Posta (Ctrl+1)', FluentIcons.mail_24_regular, FluentIcons.mail_24_filled),
-      item(AppModule.calendar, 'Calendario (Ctrl+2)', FluentIcons.calendar_ltr_24_regular, FluentIcons.calendar_ltr_24_filled),
-      item(AppModule.people, 'Persone (Ctrl+3)', FluentIcons.people_24_regular, FluentIcons.people_24_filled),
+      item(AppModule.mail, context.l10n.moduleMail, FluentIcons.mail_24_regular, FluentIcons.mail_24_filled),
+      item(AppModule.calendar, context.l10n.moduleCalendar, FluentIcons.calendar_ltr_24_regular, FluentIcons.calendar_ltr_24_filled),
+      item(AppModule.people, context.l10n.modulePeople, FluentIcons.people_24_regular, FluentIcons.people_24_filled),
     ];
 
     if (bottom) {

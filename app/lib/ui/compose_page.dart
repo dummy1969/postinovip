@@ -7,6 +7,8 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../attachments/file_picker.dart';
 import '../compose/address_field.dart';
 import '../compose/address_list.dart';
@@ -41,11 +43,12 @@ Future<void> openCompose(
 }) async {
   final messenger = ScaffoldMessenger.of(context);
   final model = context.read<MailboxModel>();
+  final l = context.l10n;
   final result = await Navigator.of(context).push<SendResult>(
     MaterialPageRoute(
       builder: (_) => ComposePage(
         draft: draft,
-        title: title ?? 'Nuovo messaggio',
+        title: title,
         account: account,
         accounts: accounts,
         files: files,
@@ -63,8 +66,8 @@ Future<void> openCompose(
       SnackBar(
         content: Text(
           when != null
-              ? 'Messaggio nella Posta in uscita: verrà inviato dopo il ${formatSendAfter(when)} (con l\'app aperta).'
-              : 'Senza connessione: il messaggio è nella Posta in uscita e partirà da solo appena il server risponde.',
+              ? l.queuedSendAfter(formatSendAfter(when))
+              : l.queuedOffline,
         ),
       ),
     );
@@ -77,19 +80,16 @@ Future<void> openCompose(
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.warning_amber),
-        title: const Text('Messaggio inviato, copia non salvata'),
-        content: Text(
-          'La mail è stata inviata, ma la copia in Posta inviata non è stata salvata:\n'
-          '${result.saveError}\n\nNon reinviarla: i destinatari l\'hanno già ricevuta.',
-        ),
+        title: Text(l.sentCopyNotSavedTitle),
+        content: Text(l.sentCopyNotSaved('${result.saveError}')),
         actions: [FilledButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
       ),
     );
     return;
   }
 
-  final where = result.savedTo == null ? '' : ' e salvato in "${result.savedTo}"';
-  messenger.showSnackBar(SnackBar(content: Text('Messaggio inviato$where. Server: ${result.serverResponse}')));
+  final where = result.savedTo == null ? '' : l.sentSavedIn(result.savedTo!);
+  messenger.showSnackBar(SnackBar(content: Text(l.messageSent(where, '${result.serverResponse}'))));
 }
 
 /// Composizione con testo formattato (3.7b) e l'aspetto della finestra del messaggio di Outlook (3.7a). Chiusa con successo restituisce l'esito dell'invio;
@@ -98,7 +98,7 @@ class ComposePage extends StatefulWidget {
   const ComposePage({
     super.key,
     this.draft = const ComposeDraft(),
-    this.title = 'Nuovo messaggio',
+    this.title,
     this.account,
     this.accounts = const [],
     this.files = const [],
@@ -108,7 +108,9 @@ class ComposePage extends StatefulWidget {
 
   /// Allegati già presenti all'apertura (bozza riaperta: quelli della bozza, ripresi dal server).
   final List<PickedFile> files;
-  final String title;
+
+  /// null = «Nuovo messaggio» nella lingua dell'app.
+  final String? title;
 
   /// Salvataggio automatico della bozza come Outlook (3.8): ogni 3 minuti, se ci sono modifiche.
   static const autosaveInterval = Duration(minutes: 3);
@@ -192,14 +194,11 @@ class _ComposePageState extends State<ComposePage> {
         context: context,
         builder: (context) => AlertDialog(
           key: const Key('plain-text-confirm'),
-          title: const Text('Passare a testo normale?'),
-          content: const Text(
-            'La formattazione e le immagini nel testo andranno perse, anche tornando a HTML. '
-            'Il messaggio originale citato verrà aggiunto come testo.',
-          ),
+          title: Text(context.l10n.toPlainTextQuestion),
+          content: Text(context.l10n.toPlainTextContent),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Continua')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.continueButton)),
           ],
         ),
       );
@@ -400,13 +399,13 @@ class _ComposePageState extends State<ComposePage> {
             children: [
               _ComposeTitleBar(
                 key: ComposePage.titleKey,
-                title: widget.title,
+                title: widget.title ?? context.l10n.newMessageTitle,
                 subject: _subject.text.trim(),
-                info: _savingDraft ? 'Salvataggio della bozza…' : _draftInfo,
+                info: _savingDraft ? context.l10n.savingDraft : _draftInfo,
                 onClose: _sending ? null : () => Navigator.maybePop(context),
               ),
               RibbonFrame(
-                tabs: const ['Messaggio', 'Inserisci', 'Formato testo', 'Opzioni'],
+                tabs: [context.l10n.messageTab, context.l10n.tabInsert, context.l10n.tabFormatText, context.l10n.groupOptions],
                 selected: _tab,
                 onSelect: (i) => setState(() => _tab = i),
                 groups: _ribbonGroups(),
@@ -421,57 +420,53 @@ class _ComposePageState extends State<ComposePage> {
 
   /// Comandi della barra multifunzione (le firme arrivano con la 3.7c).
   List<Widget> _ribbonGroups() {
-    final format = FormatCommands(_editor, enabled: !_sending && !_plain, onEdited: _editorFocus.requestFocus);
+    final format = FormatCommands(_editor, l10n: context.l10n, enabled: !_sending && !_plain, onEdited: _editorFocus.requestFocus);
     final attach = RibbonLargeButton(
       icon: FluentIcons.attach_24_regular,
-      label: 'Allega file',
-      tooltip: 'Allega uno o più file dal computer',
+      label: context.l10n.attachFile,
+      tooltip: context.l10n.attachFileTooltip,
       onPressed: _sending ? null : _pickFiles,
     );
     final saveCopy = RibbonLargeButton(
       icon: _saveCopy ? FluentIcons.save_24_filled : FluentIcons.save_24_regular,
-      label: 'Salva copia in Posta inviata',
+      label: context.l10n.saveSentCopy,
       selected: _saveCopy,
-      tooltip: _saveCopy
-          ? 'Attivo: dopo l\'invio una copia va in Posta inviata (clic per non salvarla)'
-          : 'Non attivo: dopo l\'invio nessuna copia in Posta inviata (clic per salvarla)',
+      tooltip: _saveCopy ? context.l10n.saveSentCopyOnTooltip : context.l10n.saveSentCopyOffTooltip,
       onPressed: _sending ? null : () => setState(() => _saveCopy = !_saveCopy),
     );
     final saveDraft = RibbonLargeButton(
       icon: FluentIcons.document_save_24_regular,
-      label: 'Salva bozza',
-      tooltip: 'Salva in Bozze (Ctrl+S); anche da sola ogni 3 minuti',
+      label: context.l10n.saveDraft,
+      tooltip: context.l10n.saveDraftTooltip,
       onPressed: _sending || _savingDraft ? null : () => _saveDraft(),
     );
     final delay = RibbonLargeButton(
       icon: FluentIcons.calendar_clock_24_regular,
-      label: 'Ritarda recapito',
+      label: context.l10n.delayDelivery,
       selected: _sendAfter != null,
       tooltip: _sendAfter == null
-          ? 'Non inviare prima di una data e un\'ora (resta nella Posta in uscita)'
-          : 'Invio dopo il ${formatSendAfter(_sendAfter!)}: clic per cambiare',
+          ? context.l10n.delayDeliveryTooltip
+          : context.l10n.delayDeliveryActiveTooltip(formatSendAfter(_sendAfter!)),
       onPressed: _sending ? null : _pickSendAfter,
     );
     RibbonLargeButton importance(MailImportance value) => RibbonLargeButton(
       key: Key('compose-importance-${value.name}'),
       icon: value == MailImportance.high ? FluentIcons.important_24_regular : FluentIcons.arrow_down_24_regular,
-      label: value == MailImportance.high ? 'Priorità alta' : 'Priorità bassa',
+      label: value == MailImportance.high ? context.l10n.importanceHigh : context.l10n.importanceLow,
       selected: _importance == value,
-      tooltip: value == MailImportance.high
-          ? 'Segna il messaggio come importante (clic di nuovo per toglierlo)'
-          : 'Segna il messaggio come poco importante (clic di nuovo per toglierlo)',
+      tooltip: value == MailImportance.high ? context.l10n.importanceHighTooltip : context.l10n.importanceLowTooltip,
       onPressed: _sending ? null : () => setState(() => _importance = _importance == value ? MailImportance.normal : value),
     );
     return switch (_tab) {
       0 => [
         format.basicText(),
-        RibbonGroup(label: 'Includi', children: [attach, _signatureMenu()]),
-        RibbonGroup(label: 'Tag', children: [importance(MailImportance.high), importance(MailImportance.low)]),
-        RibbonGroup(label: 'Salva', children: [saveDraft, saveCopy]),
+        RibbonGroup(label: context.l10n.groupInclude, children: [attach, _signatureMenu()]),
+        RibbonGroup(label: context.l10n.groupTags, children: [importance(MailImportance.high), importance(MailImportance.low)]),
+        RibbonGroup(label: context.l10n.groupSave, children: [saveDraft, saveCopy]),
       ],
       1 => [
         RibbonGroup(
-          label: 'Includi',
+          label: context.l10n.groupInclude,
           children: [
             attach,
             FormatCommands.linkButton(context, _editor, enabled: !_sending && !_plain),
@@ -482,13 +477,13 @@ class _ComposePageState extends State<ComposePage> {
       2 => [_formatGroup(), ...format.formatTab()],
       _ => [
         RibbonGroup(
-          label: 'Mostra campi',
+          label: context.l10n.groupShowFields,
           children: [
             RibbonLargeButton(
               icon: FluentIcons.eye_off_24_regular,
-              label: 'Ccn',
+              label: context.l10n.bcc,
               selected: _showBcc(context),
-              tooltip: 'Copia conoscenza nascosta: i destinatari in Ccn non si vedono tra loro né dagli altri',
+              tooltip: context.l10n.bccTooltip,
               // Con dei Ccn già scritti il campo resta (nasconderlo li lascerebbe nella mail senza vederli).
               onPressed: _sending || (_bcc.text.trim().isNotEmpty && _showBcc(context))
                   ? null
@@ -497,44 +492,42 @@ class _ComposePageState extends State<ComposePage> {
           ],
         ),
         RibbonGroup(
-          label: 'Rilevamento',
+          label: context.l10n.groupTracking,
           children: [
             RibbonLargeButton(
               key: const Key('compose-read-receipt'),
               icon: FluentIcons.mail_read_24_regular,
-              label: 'Richiedi conferma di lettura',
+              label: context.l10n.requestReadReceipt,
               selected: _readReceipt,
-              tooltip: _readReceipt
-                  ? 'Attivo: il destinatario può mandarti una conferma quando legge il messaggio (clic per toglierlo)'
-                  : 'Chiedi al destinatario una conferma quando legge il messaggio (può rifiutarla)',
+              tooltip: _readReceipt ? context.l10n.requestReadReceiptOnTooltip : context.l10n.requestReadReceiptOffTooltip,
               onPressed: _sending ? null : () => setState(() => _readReceipt = !_readReceipt),
             ),
           ],
         ),
-        RibbonGroup(label: 'Altre opzioni', children: [delay]),
-        RibbonGroup(label: 'Salva', children: [saveCopy]),
+        RibbonGroup(label: context.l10n.groupMoreOptions, children: [delay]),
+        RibbonGroup(label: context.l10n.groupSave, children: [saveCopy]),
       ],
     };
   }
 
   /// Gruppo «Formato» della scheda Formato testo, come Outlook (senza Rich Text, scelta 4a).
   Widget _formatGroup() => RibbonGroup(
-    label: 'Formato',
+    label: context.l10n.groupFormat,
     children: [
       RibbonLargeButton(
         key: const Key('compose-format-html'),
         icon: FluentIcons.code_24_regular,
         label: 'HTML',
         selected: !_plain,
-        tooltip: 'Testo formattato, con immagini e collegamenti',
+        tooltip: context.l10n.formatHtmlTooltip,
         onPressed: _sending ? null : () => _setPlain(false),
       ),
       RibbonLargeButton(
         key: const Key('compose-format-plain'),
         icon: FluentIcons.text_t_24_regular,
-        label: 'Testo normale',
+        label: context.l10n.plainText,
         selected: _plain,
-        tooltip: 'Solo testo, senza formattazione: lo leggono tutti i programmi di posta',
+        tooltip: context.l10n.plainTextTooltip,
         onPressed: _sending ? null : () => _setPlain(true),
       ),
     ],
@@ -553,13 +546,13 @@ class _ComposePageState extends State<ComposePage> {
             accounts: widget.accounts.isNotEmpty ? widget.accounts : [?_account],
             account: _account?.id,
           ),
-          child: const Text('Firme…'),
+          child: Text(context.l10n.signaturesEllipsis),
         ),
       ],
       builder: (context, controller, _) => RibbonLargeButton(
         icon: FluentIcons.signature_24_regular,
-        label: 'Firma',
-        tooltip: 'Inserisci una firma, o crea e modifica le firme',
+        label: context.l10n.signature,
+        tooltip: context.l10n.signatureTooltip,
         onPressed: _sending ? null : () => controller.isOpen ? controller.close() : controller.open(),
       ),
     );
@@ -587,13 +580,13 @@ class _ComposePageState extends State<ComposePage> {
                     children: [
                       _fromRow(context),
                       // A obbligatorio solo se Cc e Ccn sono vuoti (come Outlook).
-                      _addressField(_to, 'A', 'to', required: true, autofocus: !_focusBody),
-                      _addressField(_cc, 'Cc', 'cc', required: false),
-                      if (_showBcc(context)) _addressField(_bcc, 'Ccn', 'bcc', required: false),
+                      _addressField(_to, context.l10n.headerTo, 'to', required: true, autofocus: !_focusBody),
+                      _addressField(_cc, context.l10n.headerCc, 'cc', required: false),
+                      if (_showBcc(context)) _addressField(_bcc, context.l10n.bcc, 'bcc', required: false),
                       TextFormField(
                         controller: _subject,
                         enabled: !_sending,
-                        decoration: _decoration('Oggetto'),
+                        decoration: _decoration(context.l10n.columnSubject),
                         onChanged: (_) => setState(() {}),
                       ),
                     ],
@@ -611,7 +604,7 @@ class _ComposePageState extends State<ComposePage> {
                       width: _SendButton.width + 12 + _labelWidth,
                       child: Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text('Allegati', textAlign: TextAlign.right, style: theme.textTheme.bodySmall),
+                        child: Text(context.l10n.attachments, textAlign: TextAlign.right, style: theme.textTheme.bodySmall),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -624,15 +617,15 @@ class _ComposePageState extends State<ComposePage> {
                             InputChip(
                               avatar: const Icon(Icons.forward, size: 16),
                               label: Text(a.fileName),
-                              tooltip: 'Allegato del messaggio originale',
-                              deleteButtonTooltipMessage: 'Rimuovi',
+                              tooltip: context.l10n.originalAttachment,
+                              deleteButtonTooltipMessage: context.l10n.remove,
                               onDeleted: _sending ? null : () => setState(() => _forwarded.remove(a)),
                             ),
                           for (final f in _files)
                             InputChip(
                               avatar: const Icon(Icons.attach_file, size: 16),
                               label: Text('${f.name} (${formatSize(f.bytes.length)})'),
-                              deleteButtonTooltipMessage: 'Rimuovi',
+                              deleteButtonTooltipMessage: context.l10n.remove,
                               onDeleted: _sending ? null : () => setState(() => _files.remove(f)),
                             ),
                         ],
@@ -645,7 +638,7 @@ class _ComposePageState extends State<ComposePage> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'Allegati troppo grandi: ${formatSize(_filesBytes)}, massimo ${formatSize(maxAttachmentBytes)}.',
+                  context.l10n.attachmentsTooLarge(formatSize(_filesBytes), formatSize(maxAttachmentBytes)),
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),
@@ -662,7 +655,7 @@ class _ComposePageState extends State<ComposePage> {
                   focusNode: _editorFocus,
                   scrollController: _editorScroll,
                   config: QuillEditorConfig(
-                    placeholder: 'Testo del messaggio',
+                    placeholder: context.l10n.messageBody,
                     autoFocus: _focusBody,
                     expands: true,
                     padding: const EdgeInsets.fromLTRB(4, 12, 4, 12),
@@ -704,7 +697,7 @@ class _ComposePageState extends State<ComposePage> {
 
   /// Etichetta a sinistra del campo, sempre visibile (non sparisce scrivendo), come in Outlook.
   /// [onLabel]: l'etichetta diventa un pulsante (A… e Cc… aprono la Rubrica, come in Outlook).
-  InputDecoration _decoration(String label, {String? hint, String? errorText, VoidCallback? onLabel}) => InputDecoration(
+  InputDecoration _decoration(String label, {String? hint, String? errorText, VoidCallback? onLabel, String? keyName}) => InputDecoration(
     isDense: true,
     hintText: hint,
     errorText: errorText,
@@ -717,7 +710,8 @@ class _ComposePageState extends State<ComposePage> {
             : Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: OutlinedButton(
-                  key: Key('book-open-$label'),
+                  // Chiave dal nome del campo (prima dall'etichetta, che ora cambia con la lingua): «A» = to, «Cc» = cc.
+                  key: Key('book-open-${keyName ?? label}'),
                   onPressed: _sending ? null : onLabel,
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -736,7 +730,7 @@ class _ComposePageState extends State<ComposePage> {
     if (_chooseFrom) {
       return DropdownButtonFormField<String>(
         initialValue: _account?.id,
-        decoration: _decoration('Da'),
+        decoration: _decoration(context.l10n.columnFrom),
         items: [for (final a in widget.accounts) DropdownMenuItem(value: a.id, child: Text(_fromLabel(a)))],
         onChanged: _sending
             ? null
@@ -750,15 +744,15 @@ class _ComposePageState extends State<ComposePage> {
       height: 36,
       child: Row(
         children: [
-          const SizedBox(
+          SizedBox(
             width: _labelWidth,
-            child: Text('Da', style: TextStyle(fontSize: 14)),
+            child: Text(context.l10n.columnFrom, style: const TextStyle(fontSize: 14)),
           ),
           Expanded(
             child: FutureBuilder(
               future: _from,
               builder: (context, snap) => Text(
-                snap.data ?? (snap.hasError ? '(account non disponibile)' : '…'),
+                snap.data ?? (snap.hasError ? context.l10n.accountUnavailable : '…'),
                 key: const ValueKey('compose-from'),
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodyMedium,
@@ -787,13 +781,13 @@ class _ComposePageState extends State<ComposePage> {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'Messaggio originale (viene aggiunto in fondo, com\'è)',
+                  context.l10n.originalMessageQuote,
                   style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 ),
               ),
               TextButton(
                 onPressed: _sending ? null : () => setState(() => _quoteHtml = null),
-                child: const Text('Rimuovi citazione'),
+                child: Text(context.l10n.removeQuote),
               ),
             ],
           ),
@@ -830,12 +824,14 @@ class _ComposePageState extends State<ComposePage> {
       removeRecent: api.removeRecentAddress,
       decoration: _decoration(
         label,
-        hint: 'indirizzi separati da virgola',
+        hint: context.l10n.addressesHint,
         // Errore restituito dal core per questo campo (validazione rigorosa).
         errorText: _serverFieldErrors[field]?.join('\n'),
         onLabel: () => _openAddressBook(target: field),
+        keyName: switch (field) { 'to' => 'A', 'cc' => 'Cc', _ => 'Ccn' },
       ),
       validator: (text) => validateAddressField(
+        context.l10n,
         text ?? '',
         required: required && splitAddresses(_cc.text).isEmpty && splitAddresses(_bcc.text).isEmpty,
       ),
@@ -873,9 +869,6 @@ class _ComposePageState extends State<ComposePage> {
 
   // Senza connessione la mail va nella Posta in uscita; 503 arriva solo se serve l'originale (citazione,
   // allegati inoltrati) e non è sul computer.
-  static const _offlineSendMessage =
-      'Non connesso al server e il messaggio originale (citazione o allegati) non è sul computer: '
-      'la mail non è stata inviata e resta qui. Riprova quando torna la connessione.';
 
   void _sendShortcut() {
     if (!_sending) _send();
@@ -930,8 +923,8 @@ class _ComposePageState extends State<ComposePage> {
         _error = attachmentErrors != null
             ? attachmentErrors.join('\n')
             : e.statusCode == 503
-            ? _offlineSendMessage
-            : (e.fieldErrors.isEmpty ? 'Invio non riuscito: $e' : null);
+            ? context.l10n.offlineSendMessage
+            : (e.fieldErrors.isEmpty ? context.l10n.sendFailed('$e') : null);
       });
     }
   }
@@ -970,7 +963,7 @@ class _ComposePageState extends State<ComposePage> {
   /// può essere incompleta.
   Future<bool> _saveDraft({bool auto = false}) async {
     if (_filesBytes > maxAttachmentBytes) {
-      if (!auto) setState(() => _error = 'Bozza non salvata: allegati oltre ${formatSize(maxAttachmentBytes)}.');
+      if (!auto) setState(() => _error = context.l10n.draftTooLarge(formatSize(maxAttachmentBytes)));
       return false;
     }
     final values = _values();
@@ -998,16 +991,14 @@ class _ComposePageState extends State<ComposePage> {
         _draftRef = result.ref;
         _saved = values;
         _error = null;
-        _draftInfo = result.pending
-            ? 'Bozza salvata sul computer alle $at: andrà in Bozze quando il server risponde'
-            : 'Bozza salvata alle $at';
+        _draftInfo = result.pending ? context.l10n.draftSavedLocally(at) : context.l10n.draftSavedAt(at);
       });
       return true;
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
-          _draftInfo = 'Bozza non salvata';
-          _error = 'Bozza non salvata: $e';
+          _draftInfo = context.l10n.draftNotSaved;
+          _error = context.l10n.draftNotSavedError('$e');
         });
       }
       return false;
@@ -1034,38 +1025,38 @@ class _ComposePageState extends State<ComposePage> {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Inviare il messaggio?'),
+        title: Text(context.l10n.sendQuestion),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_chooseFrom && _account != null) Text('Da: ${_fromLabel(_account!)}'),
-            if (to.isNotEmpty) Text('A: ${to.join(', ')}'),
-            if (cc.isNotEmpty) Text('Cc: ${cc.join(', ')}'),
-            if (bcc.isNotEmpty) Text('Ccn: ${bcc.join(', ')}'),
-            Text('Oggetto: ${subject.isEmpty ? '(nessun oggetto)' : subject}'),
-            Text('Allegati: ${_attachmentSummary()}'),
-            Text('Copia in Posta inviata: ${_saveCopy ? 'sì' : 'no'}'),
-            if (_sendAfter case final after?) Text('Recapito: non prima del ${formatSendAfter(after)}'),
+            if (_chooseFrom && _account != null) Text('${context.l10n.columnFrom}: ${_fromLabel(_account!)}'),
+            if (to.isNotEmpty) Text('${context.l10n.headerTo}: ${to.join(', ')}'),
+            if (cc.isNotEmpty) Text('${context.l10n.headerCc}: ${cc.join(', ')}'),
+            if (bcc.isNotEmpty) Text('${context.l10n.bcc}: ${bcc.join(', ')}'),
+            Text('${context.l10n.columnSubject}: ${subject.isEmpty ? context.l10n.noSubject : subject}'),
+            Text('${context.l10n.attachments}: ${_attachmentSummary(context.l10n)}'),
+            Text(context.l10n.sendSummaryCopy(_saveCopy ? context.l10n.yesValue : context.l10n.noValue)),
+            if (_sendAfter case final after?) Text(context.l10n.sendSummaryDelivery(formatSendAfter(after))),
             if (subject.isEmpty) ...[
               const SizedBox(height: 8),
-              Text('Attenzione: l\'oggetto è vuoto.', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              Text(context.l10n.emptySubjectWarning, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             ],
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Invia')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.receiptSend)),
         ],
       ),
     );
     return result ?? false;
   }
 
-  String _attachmentSummary() {
+  String _attachmentSummary(AppLocalizations l) {
     final count = _files.length + _forwarded.length;
-    if (count == 0) return 'nessuno';
-    final size = _files.isEmpty ? '' : ', file dal disco ${formatSize(_filesBytes)}';
+    if (count == 0) return l.attachmentsNone;
+    final size = _files.isEmpty ? '' : l.attachmentsFromDisk(formatSize(_filesBytes));
     return '$count$size';
   }
 
@@ -1079,16 +1070,12 @@ class _ComposePageState extends State<ComposePage> {
   Future<bool?> _confirmSave() => showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Salvare le modifiche?'),
-      content: Text(
-        _draftRef == null
-            ? 'Il messaggio non è stato inviato. Salvarlo in Bozze per finirlo dopo?'
-            : 'Il messaggio non è stato inviato. Salvare le ultime modifiche nella bozza?',
-      ),
+      title: Text(context.l10n.saveChangesQuestion),
+      content: Text(_draftRef == null ? context.l10n.composeSaveNew : context.l10n.composeSaveExisting),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sì')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.no)),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.yes)),
       ],
     ),
   );
@@ -1139,7 +1126,7 @@ class _ComposeTitleBar extends StatelessWidget {
               child: Text(text, style: TextStyle(color: scheme.onPrimary.withValues(alpha: 0.85), fontSize: 12)),
             ),
           IconButton(
-            tooltip: 'Chiudi (Esc)',
+            tooltip: context.l10n.closeEsc,
             onPressed: onClose,
             icon: Icon(FluentIcons.dismiss_20_regular, size: 18, color: scheme.onPrimary),
           ),
@@ -1175,7 +1162,7 @@ class _SendButton extends StatelessWidget {
               ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(FluentIcons.send_24_regular, size: 26),
           const SizedBox(height: 4),
-          Text(sending ? 'Invio…' : 'Invia'),
+          Text(sending ? context.l10n.sending : context.l10n.receiptSend),
         ],
       ),
     ),
@@ -1223,14 +1210,14 @@ class _SendAfterDialogState extends State<_SendAfterDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Ritarda recapito'),
+    title: Text(context.l10n.delayDelivery),
     content: SizedBox(
       width: 380,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Non recapitare prima del:'),
+          Text(context.l10n.doNotDeliverBefore),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1252,8 +1239,8 @@ class _SendAfterDialogState extends State<_SendAfterDialog> {
           const SizedBox(height: 12),
           Text(
             _inFuture
-                ? 'Dopo "Invia" la mail resta nella Posta in uscita e parte da sola a quell\'ora, se l\'app è aperta.'
-                : 'Scegli un momento nel futuro.',
+                ? context.l10n.delayDeliveryHint
+                : context.l10n.chooseFutureTime,
             style: TextStyle(
               fontSize: 12,
               color: _inFuture ? Theme.of(context).colorScheme.onSurfaceVariant : Theme.of(context).colorScheme.error,
@@ -1266,9 +1253,9 @@ class _SendAfterDialogState extends State<_SendAfterDialog> {
       if (widget.active)
         TextButton(
           onPressed: () => Navigator.pop(context, const _DelayChoice(null)),
-          child: const Text('Nessun ritardo'),
+          child: Text(context.l10n.noDelay),
         ),
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
       FilledButton(
         onPressed: _inFuture ? () => Navigator.pop(context, _DelayChoice(_when)) : null,
         child: const Text('OK'),

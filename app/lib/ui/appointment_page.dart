@@ -4,6 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../models/calendar.dart';
 import '../settings/app_settings.dart';
 import '../state/calendar_model.dart';
@@ -128,7 +131,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
   Future<bool> _save() async {
     if (_readOnly) return false;
     if (_end.isBefore(_start)) {
-      setState(() => _error = 'La fine è prima dell\'inizio.');
+      setState(() => _error = context.l10n.endBeforeStart);
       return false;
     }
     setState(() {
@@ -190,16 +193,14 @@ class _AppointmentPageState extends State<AppointmentPage> {
   static Future<bool?> confirmDelete(BuildContext context, {required bool occurrence}) => showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(occurrence ? 'Eliminare questa occorrenza?' : "Eliminare l'appuntamento?"),
-      content: Text(occurrence
-          ? 'Solo questa occorrenza viene tolta dalla serie; le altre restano. Non si può recuperare.'
-          : "L'appuntamento (con tutte le sue occorrenze, se è ricorrente) viene eliminato; con la sincronizzazione anche dal server. Non si può recuperare."),
+      title: Text(occurrence ? context.l10n.deleteOccurrenceQuestion : context.l10n.deleteAppointmentQuestion),
+      content: Text(occurrence ? context.l10n.deleteOccurrenceContent : context.l10n.deleteSeriesContent),
       actions: [
-        TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+        TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Elimina'),
+          child: Text(context.l10n.delete),
         ),
       ],
     ),
@@ -208,12 +209,12 @@ class _AppointmentPageState extends State<AppointmentPage> {
   Future<bool?> _confirmSave() => showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Salvare le modifiche?'),
-      content: const Text("Le modifiche all'appuntamento non sono state salvate."),
+      title: Text(context.l10n.saveChangesQuestion),
+      content: Text(context.l10n.appointmentNotSavedContent),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sì')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.no)),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.yes)),
       ],
     ),
   );
@@ -250,7 +251,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
   Widget build(BuildContext context) {
     final settings = context.read<AppSettings>();
     final theme = Theme.of(context);
-    final title = _summary.text.trim().isEmpty ? 'Senza titolo' : _summary.text.trim();
+    final title = _summary.text.trim().isEmpty ? context.l10n.untitled : _summary.text.trim();
     return PopScope(
       canPop: _closing || !_dirty || _readOnly,
       onPopInvokedWithResult: (didPop, _) async {
@@ -284,14 +285,14 @@ class _AppointmentPageState extends State<AppointmentPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        '${_occurrence ? 'Occorrenza' : 'Appuntamento'} - $title',
+                        '${_occurrence ? context.l10n.occurrence : context.l10n.appointment} - $title',
                         key: const Key('appointment-title'),
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onPrimary),
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Chiudi (Esc)',
+                      tooltip: context.l10n.closeEsc,
                       icon: Icon(FluentIcons.dismiss_20_regular, color: theme.colorScheme.onPrimary),
                       onPressed: () => Navigator.maybePop(context),
                     ),
@@ -299,7 +300,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
                 ),
               ),
               RibbonFrame(
-                tabs: [_occurrence ? 'Occorrenza' : 'Appuntamento'],
+                tabs: [_occurrence ? context.l10n.occurrence : context.l10n.appointment],
                 selected: 0,
                 onSelect: (_) {},
                 groups: _groups(),
@@ -316,13 +317,13 @@ class _AppointmentPageState extends State<AppointmentPage> {
   List<Widget> _groups() => _readOnly
       ? [
           RibbonGroup(
-            label: 'Azioni',
+            label: context.l10n.groupActions,
             children: [
               RibbonLargeButton(
                 key: const Key('appointment-close'),
                 icon: FluentIcons.dismiss_24_regular,
-                label: 'Chiudi',
-                tooltip: 'Chiudi (Esc)',
+                label: context.l10n.close,
+                tooltip: context.l10n.closeEsc,
                 onPressed: () => Navigator.maybePop(context),
               ),
             ],
@@ -330,68 +331,64 @@ class _AppointmentPageState extends State<AppointmentPage> {
         ]
       : [
     RibbonGroup(
-      label: 'Azioni',
+      label: context.l10n.groupActions,
       children: [
         RibbonLargeButton(
           key: const Key('appointment-save'),
           icon: FluentIcons.save_24_regular,
-          label: 'Salva e chiudi',
-          tooltip: 'Salva e chiudi (Ctrl+S)',
+          label: context.l10n.saveAndClose,
+          tooltip: context.l10n.saveAndCloseTooltip,
           onPressed: _saving ? null : _save,
         ),
         if (!_isNew)
           RibbonLargeButton(
             key: const Key('appointment-delete'),
             icon: FluentIcons.delete_24_regular,
-            label: 'Elimina',
-            tooltip: _occurrence ? 'Elimina solo questa occorrenza' : "Elimina l'appuntamento",
+            label: context.l10n.delete,
+            tooltip: _occurrence ? context.l10n.deleteOnlyOccurrenceTooltip : context.l10n.deleteAppointmentTooltip,
             onPressed: _saving ? null : _delete,
           ),
       ],
     ),
     RibbonGroup(
-      label: 'Opzioni',
+      label: context.l10n.groupOptions,
       children: [
         if (!_occurrence)
           RibbonLargeButton(
             key: const Key('appointment-recurrence'),
             icon: FluentIcons.arrow_repeat_all_24_regular,
-            label: 'Ricorrenza',
-            tooltip: 'Rendi ricorrente o cambia la ricorrenza',
+            label: context.l10n.recurrence,
+            tooltip: context.l10n.recurrenceTooltip,
             selected: _recurrence != null || (_custom != null && !_recurrenceChanged),
             onPressed: _saving ? null : _editRecurrence,
           ),
         PopupMenuButton<int>(
           key: const Key('appointment-reminder'),
-          tooltip: 'Promemoria',
+          tooltip: context.l10n.reminder,
           onSelected: (m) => setState(() => _reminder = m < 0 ? null : m),
           itemBuilder: (_) => [
             for (final m in AppointmentPage.reminders)
-              CheckedPopupMenuItem(value: m ?? -1, checked: m == _reminder, child: Text(_reminderLabel(m))),
+              CheckedPopupMenuItem(value: m ?? -1, checked: m == _reminder, child: Text(_reminderLabel(context.l10n, m))),
           ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(FluentIcons.alert_24_regular),
-                const SizedBox(height: 4),
-                Text('Promemoria: ${_reminderLabel(_reminder)}', style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
+          // Pulsante standard della barra (come «Sposta»): segue la barra classica e la semplificata. Prima era una
+          // colonna fatta a mano, che nella barra semplificata (più bassa) traboccava di 2 px (16/11/2026).
+          child: RibbonLargeButton(
+            icon: FluentIcons.alert_24_regular,
+            label: context.l10n.reminderValue(_reminderLabel(context.l10n, _reminder)),
+            enabled: true,
           ),
         ),
       ],
     ),
   ];
 
-  static String _reminderLabel(int? minutes) => switch (minutes) {
-    null => 'Nessuno',
-    0 => "All'inizio",
-    final m when m % (7 * 24 * 60) == 0 => '${m ~/ (7 * 24 * 60)} settimana',
-    final m when m % (24 * 60) == 0 => '${m ~/ (24 * 60)} giorno',
-    final m when m % 60 == 0 => '${m ~/ 60} or${m == 60 ? 'a' : 'e'}',
-    final m => '$m minuti',
+  static String _reminderLabel(AppLocalizations l, int? minutes) => switch (minutes) {
+    null => l.reminderNone,
+    0 => l.reminderAtStart,
+    final m when m % (7 * 24 * 60) == 0 => l.durationWeeks(m ~/ (7 * 24 * 60)),
+    final m when m % (24 * 60) == 0 => l.durationDays(m ~/ (24 * 60)),
+    final m when m % 60 == 0 => l.durationHours(m ~/ 60),
+    final m => l.durationMinutes(m),
   };
 
   Widget _form(ThemeData theme) {
@@ -401,7 +398,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
       child: Row(children: [label(text), Expanded(child: child)]),
     );
     final recurrenceText = _recurrence?.describe() ??
-        (_custom != null && !_recurrenceChanged ? 'Ricorrenza personalizzata ($_custom): resta com\'è salvando' : null);
+        (_custom != null && !_recurrenceChanged ? context.l10n.customRecurrence(_custom) : null);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       children: [
@@ -420,19 +417,18 @@ class _AppointmentPageState extends State<AppointmentPage> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Il calendario «${context.read<CalendarModel>().calendarName(_account, _calendarId)}» è di sola lettura: '
-                    'l\'appuntamento si può vedere ma non modificare.',
+                    context.l10n.calendarReadOnly(context.read<CalendarModel>().calendarName(_account, _calendarId)),
                     style: theme.textTheme.bodySmall,
                   ),
                 ),
               ],
             ),
           ),
-        line('Oggetto', TextField(key: const Key('appointment-summary'), controller: _summary, readOnly: _readOnly, autofocus: _isNew, onChanged: (_) => setState(() {}))),
-        line('Luogo', TextField(key: const Key('appointment-location'), controller: _location, readOnly: _readOnly, onChanged: (_) => setState(() {}))),
+        line(context.l10n.columnSubject, TextField(key: const Key('appointment-summary'), controller: _summary, readOnly: _readOnly, autofocus: _isNew, onChanged: (_) => setState(() {}))),
+        line(context.l10n.location, TextField(key: const Key('appointment-location'), controller: _location, readOnly: _readOnly, onChanged: (_) => setState(() {}))),
         if (_isNew && widget.choices.length > 1)
           line(
-            'Calendario',
+            context.l10n.optionsPageCalendar,
             DropdownButton<String>(
               key: const Key('appointment-calendar'),
               isExpanded: true,
@@ -448,8 +444,8 @@ class _AppointmentPageState extends State<AppointmentPage> {
               },
             ),
           ),
-        line('Inizio', _dateTimeRow('start', _start, (d) => _setStart(d))),
-        line('Fine', _dateTimeRow('end', _end, (d) => setState(() => _end = d))),
+        line(context.l10n.startTime, _dateTimeRow('start', _start, (d) => _setStart(d))),
+        line(context.l10n.endTime, _dateTimeRow('end', _end, (d) => setState(() => _end = d))),
         Padding(
           padding: const EdgeInsets.only(left: 90),
           child: CheckboxListTile(
@@ -457,7 +453,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
             dense: true,
-            title: const Text('Giornata intera'),
+            title: Text(context.l10n.allDayEvent),
             value: _allDay,
             onChanged: _readOnly ? null : (v) => setState(() {
               _allDay = v ?? false;
@@ -478,14 +474,14 @@ class _AppointmentPageState extends State<AppointmentPage> {
               children: [
                 const Icon(FluentIcons.arrow_repeat_all_16_regular, size: 16),
                 const SizedBox(width: 6),
-                Expanded(child: Text('Ricorrenza: $recurrenceText', key: const Key('appointment-recurrence-text'))),
+                Expanded(child: Text(context.l10n.recurrenceValue(recurrenceText), key: const Key('appointment-recurrence-text'))),
               ],
             ),
           ),
         if (_occurrence)
           Padding(
             padding: const EdgeInsets.only(left: 90, bottom: 8),
-            child: Text('Solo questa occorrenza della serie: le altre non cambiano.', style: theme.textTheme.bodySmall),
+            child: Text(context.l10n.onlyThisOccurrenceHint, style: theme.textTheme.bodySmall),
           ),
         const Divider(),
         TextField(
@@ -494,7 +490,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
           readOnly: _readOnly,
           maxLines: null,
           minLines: 8,
-          decoration: const InputDecoration(hintText: 'Note', border: InputBorder.none),
+          decoration: InputDecoration(hintText: context.l10n.notes, border: InputBorder.none),
           onChanged: (_) => setState(() {}),
         ),
       ],
@@ -515,7 +511,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
         OutlinedButton.icon(
           key: Key('appointment-$key-date'),
           icon: const Icon(FluentIcons.calendar_20_regular, size: 18),
-          label: Text('${CalendarModel.weekdaysShort[value.weekday - 1]} ${_two(value.day)}/${_two(value.month)}/${value.year}'),
+          label: Text(formatWeekdayDate(value)),
           onPressed: _readOnly ? null : () async {
             final d = await _pickDate(value);
             if (d != null) onChanged(DateTime(d.year, d.month, d.day, value.hour, value.minute));
@@ -526,7 +522,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
           DropdownButton<int>(
             key: Key('appointment-$key-time'),
             value: minutes,
-            items: [for (final m in slots) DropdownMenuItem(value: m, child: Text('${_two(m ~/ 60)}:${_two(m % 60)}'))],
+            items: [for (final m in slots) DropdownMenuItem(value: m, child: Text(formatMinutes(m)))],
             onChanged: _readOnly ? null : (m) {
               if (m != null) onChanged(DateTime(value.year, value.month, value.day, m ~/ 60, m % 60));
             },
@@ -557,7 +553,8 @@ class RecurrenceDialog extends StatefulWidget {
 
 class _RecurrenceDialogState extends State<RecurrenceDialog> {
   static const _codes = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-  static const _weekNames = {1: 'primo', 2: 'secondo', 3: 'terzo', 4: 'quarto', -1: 'ultimo'};
+  static Map<int, String> _weekNames(AppLocalizations l) =>
+      {1: l.weekFirst, 2: l.weekSecond, 3: l.weekThird, 4: l.weekFourth, -1: l.weekLast};
 
   late String _frequency;
   late final _interval = TextEditingController();
@@ -611,7 +608,7 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
   CalendarRecurrence? _build() {
     final interval = int.tryParse(_interval.text.trim()) ?? 0;
     if (interval < 1 || interval > 999) {
-      setState(() => _error = 'Ripetizione non valida (ogni 1–999).');
+      setState(() => _error = context.l10n.recurrenceBadInterval);
       return null;
     }
     int? count;
@@ -619,7 +616,7 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
     if (_end == 'count') {
       count = int.tryParse(_count.text.trim());
       if (count == null || count < 1 || count > 999) {
-        setState(() => _error = 'Numero di occorrenze non valido (1–999).');
+        setState(() => _error = context.l10n.recurrenceBadCount);
         return null;
       }
     } else if (_end == 'until') {
@@ -632,7 +629,7 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
             : CalendarRecurrence(frequency: 'daily', interval: interval, count: count, until: until);
       case 'weekly':
         if (_days.isEmpty) {
-          setState(() => _error = 'Scegliere almeno un giorno della settimana.');
+          setState(() => _error = context.l10n.recurrenceNoDays);
           return null;
         }
         return CalendarRecurrence(
@@ -657,7 +654,7 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
     );
     DropdownButton<int> weekPicker() => DropdownButton<int>(
       value: _week,
-      items: [for (final e in _weekNames.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+      items: [for (final e in _weekNames(context.l10n).entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
       onChanged: (v) => setState(() => _week = v ?? _week),
     );
     DropdownButton<String> dayPicker() => DropdownButton<String>(
@@ -692,20 +689,22 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
         ],
       ),
     );
+    final l = context.l10n;
+    final interval = number(_interval, const Key('rec-interval'));
     final pattern = switch (_frequency) {
       'daily' => [
-        option(!_weekdays, () => setState(() => _weekdays = false), [const Text('Ogni '), number(_interval, const Key('rec-interval')), const Text(' giorni')]),
-        option(_weekdays, () => setState(() => _weekdays = true), [const Text('Ogni giorno feriale')]),
+        option(!_weekdays, () => setState(() => _weekdays = false), fillTemplate(l.recurEveryNDays, {'n': interval})),
+        option(_weekdays, () => setState(() => _weekdays = true), [Text(l.recurEveryWeekday)]),
       ],
       'weekly' => [
-        Row(children: [const Text('Ricorre ogni '), number(_interval, const Key('rec-interval')), const Text(' settimane il:')]),
+        Row(children: fillTemplate(l.recurEveryNWeeksOn, {'n': interval})),
         Wrap(
           spacing: 4,
           children: [
             for (final (i, c) in _codes.indexed)
               FilterChip(
                 key: Key('rec-day-$c'),
-                label: Text(CalendarModel.weekdaysShort[i]),
+                label: Text(CalendarModel.weekdayShort(i + 1)),
                 selected: _days.contains(c),
                 onSelected: (on) => setState(() => on ? _days.add(c) : _days.remove(c)),
               ),
@@ -714,32 +713,33 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
       ],
       'monthly' => [
         option(!_byWeek, () => setState(() => _byWeek = false),
-            [const Text('Il giorno '), monthDayPicker(), const Text(' ogni '), number(_interval, const Key('rec-interval')), const Text(' mesi')]),
-        option(_byWeek, () => setState(() => _byWeek = true), [const Text('Il '), weekPicker(), const Text(' '), dayPicker(), const Text(' ogni mese')]),
+            fillTemplate(l.recurMonthlyDay, {'day': monthDayPicker(), 'n': interval})),
+        option(_byWeek, () => setState(() => _byWeek = true),
+            fillTemplate(l.recurMonthlyWeekday, {'week': weekPicker(), 'weekday': dayPicker()})),
       ],
       _ => [
-        option(!_byWeek, () => setState(() => _byWeek = false), [const Text('Ogni '), monthDayPicker(), const Text(' '), monthPicker()]),
+        option(!_byWeek, () => setState(() => _byWeek = false), fillTemplate(l.recurYearlyDay, {'day': monthDayPicker(), 'month': monthPicker()})),
         option(_byWeek, () => setState(() => _byWeek = true),
-            [const Text('Il '), weekPicker(), const Text(' '), dayPicker(), const Text(' di '), monthPicker()]),
+            fillTemplate(l.recurYearlyWeekday, {'week': weekPicker(), 'weekday': dayPicker(), 'month': monthPicker()})),
       ],
     };
     return AlertDialog(
       key: const Key('recurrence-dialog'),
-      title: const Text('Ricorrenza appuntamento'),
+      title: Text(l.appointmentRecurrence),
       content: SizedBox(
         width: 520,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Criterio di ricorrenza', style: theme.textTheme.titleSmall),
+            Text(l.recurrencePattern, style: theme.textTheme.titleSmall),
             SegmentedButton<String>(
               key: const Key('rec-frequency'),
-              segments: const [
-                ButtonSegment(value: 'daily', label: Text('Giornaliera')),
-                ButtonSegment(value: 'weekly', label: Text('Settimanale')),
-                ButtonSegment(value: 'monthly', label: Text('Mensile')),
-                ButtonSegment(value: 'yearly', label: Text('Annuale')),
+              segments: [
+                ButtonSegment(value: 'daily', label: Text(l.recurDaily)),
+                ButtonSegment(value: 'weekly', label: Text(l.recurWeekly)),
+                ButtonSegment(value: 'monthly', label: Text(l.recurMonthly)),
+                ButtonSegment(value: 'yearly', label: Text(l.recurYearly)),
               ],
               selected: {_frequency},
               onSelectionChanged: (s) => setState(() => _frequency = s.first),
@@ -747,32 +747,31 @@ class _RecurrenceDialogState extends State<RecurrenceDialog> {
             const SizedBox(height: 8),
             ...pattern,
             const Divider(),
-            Text('Intervallo ricorrenza', style: theme.textTheme.titleSmall),
-            option(_end == 'none', () => setState(() => _end = 'none'), [const Text('Nessuna data di fine')]),
+            Text(l.recurrenceRange, style: theme.textTheme.titleSmall),
+            option(_end == 'none', () => setState(() => _end = 'none'), [Text(l.recurNoEnd)]),
             option(_end == 'count', () => setState(() => _end = 'count'),
-                [const Text('Termina dopo '), number(_count, const Key('rec-count')), const Text(' occorrenze')]),
-            option(_end == 'until', () => setState(() => _end = 'until'), [
-              const Text('Termina entro '),
-              TextButton(
+                fillTemplate(l.recurEndAfter, {'n': number(_count, const Key('rec-count'))})),
+            option(_end == 'until', () => setState(() => _end = 'until'), fillTemplate(l.recurEndBy, {
+              'date': TextButton(
                 key: const Key('rec-until'),
                 onPressed: () async {
                   final d = await showDatePicker(context: context, initialDate: _until, firstDate: widget.start, lastDate: DateTime(2200));
                   if (d != null) setState(() => _until = d);
                 },
-                child: Text('${_until.day.toString().padLeft(2, '0')}/${_until.month.toString().padLeft(2, '0')}/${_until.year}'),
+                child: Text(formatDate(_until)),
               ),
-            ]),
+            })),
             if (_error != null) Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         if (widget.initial != null)
           TextButton(
             key: const Key('rec-remove'),
             onPressed: () => Navigator.pop(context, const RecurrenceChoice(null)),
-            child: const Text('Rimuovi ricorrenza'),
+            child: Text(l.removeRecurrence),
           ),
         FilledButton(
           key: const Key('rec-ok'),

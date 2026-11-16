@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/language.dart';
 import '../settings/app_settings.dart';
 import '../state/mailbox_model.dart';
 
@@ -27,17 +28,12 @@ class ConversationViewCommand {
     final allFolders = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(on ? 'Mostra come conversazioni' : 'Non mostrare come conversazioni'),
-        content: Text(
-          on
-              ? 'Le mail della stessa conversazione verranno raccolte in una riga, con le risposte che stanno in altre cartelle.\n\n'
-                    'Applicare a "$name" o a tutte le cartelle?'
-              : 'Applicare a "$name" o a tutte le cartelle?',
-        ),
+        title: Text(on ? context.l10n.showAsConversations : context.l10n.dontShowAsConversations),
+        content: Text(on ? context.l10n.conversationsOnQuestion(name) : context.l10n.conversationsApplyQuestion(name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Tutte le cartelle')),
-          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Questa cartella')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.allFolders)),
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.thisFolder)),
         ],
       ),
     );

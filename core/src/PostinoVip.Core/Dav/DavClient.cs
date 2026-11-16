@@ -129,7 +129,8 @@ public sealed class DavClient : IDisposable
                 response.Dispose();
                 invalidate?.Invoke();
                 throw new DavException($"{provider} ha rifiutato l'accesso al {kind.ServerLabel}: rifai «Accedi con {provider}» " +
-                    $"permettendo l'accesso {access}.", 401);
+                    $"permettendo l'accesso {access}.", 401)
+                    .WithCode(kind == DavKind.CalDav ? "davSignInRejectedCalendar" : "davSignInRejectedContacts", ("provider", provider));
             }
             if (response.StatusCode == HttpStatusCode.Forbidden)
             {
@@ -145,8 +146,9 @@ public sealed class DavClient : IDisposable
                         (link.Success ? $" ({link.Value}); se è appena stata attivata, aspettare qualche minuto." : "."), 403);
                 }
                 if (body.Contains("SCOPE_INSUFFICIENT", StringComparison.Ordinal) || body.Contains("insufficient", StringComparison.OrdinalIgnoreCase))
-                    throw new DavException($"L'accesso con {provider} non comprende il permesso {permission}: rifai «Accedi con {provider}».", 403);
-                throw new DavException($"Il {kind.ServerLabel} ha rifiutato la richiesta (403).", 403);
+                    throw new DavException($"L'accesso con {provider} non comprende il permesso {permission}: rifai «Accedi con {provider}».", 403)
+                        .WithCode(kind == DavKind.CalDav ? "davScopeMissingCalendar" : "davScopeMissingContacts", ("provider", provider));
+                throw new DavException($"Il {kind.ServerLabel} ha rifiutato la richiesta (403).", 403).WithCode("ilHaRifiutatoLaRichiesta", ("serverLabel", kind.ServerLabel));
             }
             return response;
         }
@@ -174,7 +176,7 @@ public sealed class DavClient : IDisposable
     {
         if (url.Scheme == Uri.UriSchemeHttps || (url.Scheme == Uri.UriSchemeHttp && url.IsLoopback))
             return;
-        throw new DavException($"Indirizzo del {(kind ?? DavKind.CardDav).ServerLabel} non ammesso: serve https ({url.Scheme}://{url.Host}).");
+        throw new DavException($"Indirizzo del {(kind ?? DavKind.CardDav).ServerLabel} non ammesso: serve https ({url.Scheme}://{url.Host}).").WithCode("indirizzoDelNonAmmessoServe", ("value", (kind ?? DavKind.CardDav).ServerLabel), ("scheme", url.Scheme), ("host", url.Host));
     }
 
     // ---------------------------------------------------------------- scoperta
@@ -232,7 +234,9 @@ public sealed class DavClient : IDisposable
                 // cartella non leggibile: si passa alla successiva
             }
         }
-        throw new DavException($"Nessun{(_kind == DavKind.CalDav ? "" : "a")} {_kind.CollectionLabel} trovat{(_kind == DavKind.CalDav ? "o" : "a")} sul {_kind.ServerLabel}.");
+        throw _kind == DavKind.CalDav
+            ? new DavException("Nessun calendario trovato sul server del calendario.").WithCode("nessunCalendarioTrovatoSulServer")
+            : new DavException("Nessuna rubrica trovata sul server dei contatti.").WithCode("nessunaRubricaTrovataSulServer");
     }
 
     private async Task<List<DavCollectionInfo>> CollectionsInAsync(Uri folder, CancellationToken ct)
@@ -473,10 +477,10 @@ public sealed class DavClient : IDisposable
         using var response = await SendRequestAsync(request, ct);
         EnsureSuccess(response);
         if (response.Headers.Location is not { } location)
-            throw new DavException($"Il {_kind.ServerLabel} ha creato l'elemento senza dire dove (manca Location).");
+            throw new DavException($"Il {_kind.ServerLabel} ha creato l'elemento senza dire dove (manca Location).").WithCode("ilHaCreatoElementoSenza", ("serverLabel", _kind.ServerLabel));
         var url = new Uri(collection, location);
         if (!Inside(collection, url))
-            throw new DavException($"Il {_kind.ServerLabel} ha creato l'elemento fuori dalla raccolta.");
+            throw new DavException($"Il {_kind.ServerLabel} ha creato l'elemento fuori dalla raccolta.").WithCode("ilHaCreatoElementoFuori", ("serverLabel", _kind.ServerLabel));
         var postEtag = response.Headers.ETag is { IsWeak: false } e ? e.Tag : null;
         return (url, postEtag, $"POST {(int)response.StatusCode}, ETag {(postEtag is null ? "no" : "sì")}, Location {Last(url)}");
     }
@@ -543,7 +547,7 @@ public sealed class DavClient : IDisposable
             EnsureSuccess(response);
             return (url, ParseMultistatus(await ReadXmlAsync(response, ct)));
         }
-        throw new DavException($"Troppi reindirizzamenti dal {_kind.ServerLabel}.");
+        throw new DavException($"Troppi reindirizzamenti dal {_kind.ServerLabel}.").WithCode("troppiReindirizzamentiDal", ("serverLabel", _kind.ServerLabel));
     }
 
     private Task<HttpResponseMessage> SendAsync(HttpMethod method, Uri url, XDocument? body, int? depth, CancellationToken ct)
@@ -568,21 +572,23 @@ public sealed class DavClient : IDisposable
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 response.Dispose();
-                throw new DavException($"Il {_kind.ServerLabel} ha rifiutato nome utente o password.", 401);
+                throw new DavException($"Il {_kind.ServerLabel} ha rifiutato nome utente o password.", 401).WithCode("ilHaRifiutatoNomeUtente", ("serverLabel", _kind.ServerLabel));
             }
             return response;
         }
         catch (HttpRequestException ex) when (ex.InnerException is AuthenticationException)
         {
-            throw new DavException($"Certificato del {_kind.ServerLabel} non valido.", inner: ex);
+            throw new DavException($"Certificato del {_kind.ServerLabel} non valido.", inner: ex).WithCode("certificatoDelNonValido", ("serverLabel", _kind.ServerLabel));
         }
         catch (HttpRequestException ex)
         {
-            throw new MailOfflineException($"{Capital(_kind.ServerLabel)} non raggiungibile.", ex);
+            throw new MailOfflineException($"{Capital(_kind.ServerLabel)} non raggiungibile.", ex)
+                .WithCode(_kind == DavKind.CalDav ? "calendarServerUnreachable" : "contactsServerUnreachable");
         }
         catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
         {
-            throw new MailOfflineException($"Il {_kind.ServerLabel} non risponde.", ex);
+            throw new MailOfflineException($"Il {_kind.ServerLabel} non risponde.", ex)
+                .WithCode(_kind == DavKind.CalDav ? "calendarServerNoAnswer" : "contactsServerNoAnswer");
         }
         finally
         {
@@ -598,7 +604,7 @@ public sealed class DavClient : IDisposable
         if (response.IsSuccessStatusCode)
             return;
         var code = (int)response.StatusCode;
-        throw new DavException($"Il {_kind.ServerLabel} ha risposto {code} {response.ReasonPhrase}.", code);
+        throw new DavException($"Il {_kind.ServerLabel} ha risposto {code} {response.ReasonPhrase}.", code).WithCode("ilHaRisposto", ("serverLabel", _kind.ServerLabel), ("code", code), ("reasonPhrase", response.ReasonPhrase));
     }
 
     private async Task<XDocument> ReadXmlAsync(HttpResponseMessage response, CancellationToken ct)
@@ -610,7 +616,7 @@ public sealed class DavClient : IDisposable
         }
         catch (System.Xml.XmlException ex)
         {
-            throw new DavException($"Risposta del {_kind.ServerLabel} non leggibile.", inner: ex);
+            throw new DavException($"Risposta del {_kind.ServerLabel} non leggibile.", inner: ex).WithCode("rispostaDelNonLeggibile", ("serverLabel", _kind.ServerLabel));
         }
     }
 

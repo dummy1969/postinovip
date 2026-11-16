@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/language.dart';
+
 /// Messaggio d'errore con pulsante "Riprova".
 class ErrorView extends StatelessWidget {
   const ErrorView({super.key, required this.message, required this.onRetry});
@@ -19,7 +21,7 @@ class ErrorView extends StatelessWidget {
             const SizedBox(height: 8),
             SelectableText(message, textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            FilledButton.tonal(onPressed: onRetry, child: const Text('Riprova')),
+            FilledButton.tonal(onPressed: onRetry, child: Text(context.l10n.retry)),
           ],
         ),
       ),

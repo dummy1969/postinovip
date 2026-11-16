@@ -2,6 +2,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/language.dart';
 import '../models/send_result.dart';
 import '../state/mailbox_model.dart';
 import 'format.dart';
@@ -24,15 +25,14 @@ class OutboxView extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: Text(
-            'Posta in uscita: mail sul computer che partono da sole quando è il momento e il server risponde, '
-            'con l\'app aperta.',
+            context.l10n.outboxHint,
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ),
         const Divider(height: 1),
         Expanded(
           child: items.isEmpty
-              ? const Center(child: Text('Nessuna mail in attesa di invio'))
+              ? Center(child: Text(context.l10n.outboxEmpty))
               : ListView.separated(
                   key: listKey,
                   itemCount: items.length,
@@ -66,11 +66,11 @@ class _OutboxTile extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminare la mail?'),
-        content: Text('"${entry.subject.isEmpty ? '(nessun oggetto)' : entry.subject}" non verrà inviata.'),
+        title: Text(context.l10n.deleteOutboxQuestion),
+        content: Text(context.l10n.deleteOutboxContent(entry.subject.isEmpty ? context.l10n.noSubject : entry.subject)),
         actions: [
-          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina')),
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.delete)),
         ],
       ),
     );
@@ -83,19 +83,19 @@ class _OutboxTile extends StatelessWidget {
     final model = context.watch<MailboxModel>();
     final online = model.isOnline(account);
     final status = entry.error != null
-        ? 'Non inviata: ${entry.error}'
+        ? context.l10n.outboxNotSent('${entry.error}')
         : entry.sendAfter != null && entry.sendAfter!.isAfter(DateTime.now())
-        ? 'Invio dopo il ${formatSendAfter(entry.sendAfter!)}'
+        ? context.l10n.outboxSendAfter(formatSendAfter(entry.sendAfter!))
         : online
-        ? 'In invio…'
-        : 'In attesa di connessione';
+        ? context.l10n.sending
+        : context.l10n.outboxWaiting;
     return ListTile(
       key: ValueKey('outbox-item:${entry.id}'),
-      title: Text(entry.to.isEmpty ? '(nessun destinatario)' : entry.to.join(', '), overflow: TextOverflow.ellipsis),
+      title: Text(entry.to.isEmpty ? context.l10n.noRecipients : entry.to.join(', '), overflow: TextOverflow.ellipsis),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(entry.subject.isEmpty ? '(nessun oggetto)' : entry.subject, overflow: TextOverflow.ellipsis),
+          Text(entry.subject.isEmpty ? context.l10n.noSubject : entry.subject, overflow: TextOverflow.ellipsis),
           Text(
             status,
             style: TextStyle(
@@ -110,17 +110,17 @@ class _OutboxTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            tooltip: 'Invia ora',
+            tooltip: context.l10n.sendNow,
             icon: const Icon(FluentIcons.send_20_regular),
             onPressed: () => _run(context, (m) => m.outboxSendNow(account, entry.id)),
           ),
           IconButton(
-            tooltip: online ? 'Sposta in Bozze (per modificarla)' : MailboxModel.offlineMessage,
+            tooltip: online ? context.l10n.moveToDrafts : context.l10n.offlineUnavailable,
             icon: const Icon(FluentIcons.document_edit_20_regular),
             onPressed: online ? () => _run(context, (m) => m.outboxToDrafts(account, entry.id)) : null,
           ),
           IconButton(
-            tooltip: 'Elimina (non verrà inviata)',
+            tooltip: context.l10n.deleteOutboxTooltip,
             icon: const Icon(FluentIcons.delete_20_regular),
             onPressed: () => _delete(context),
           ),

@@ -14,6 +14,8 @@ calendario e contatti.
 
 ## Cosa fa
 
+- **Lingua**: interfaccia in italiano e in inglese, come il sistema o scelta in File → Opzioni → Generale; anche date, errori
+  del core e testi delle mail inviate (citazioni, conferme di lettura) seguono la lingua scelta.
 - **Posta**: IMAP e POP3, più account, invio SMTP; connessioni cifrate (SSL/TLS o STARTTLS obbligatorio), certificati
   sempre verificati (un certificato autofirmato si accetta solo dopo conferma, per impronta).
 - **Copia locale** della posta (SQLite con indice di ricerca): le mail si aprono subito, si cercano in un attimo e restano
@@ -138,7 +140,7 @@ commands of **classic Outlook for desktop**: ribbon, Favorites, message list gro
 contacts.
 
 > **Alpha.** A personal and learning project. I use it daily, but it has been tested with few servers: read the known
-> limits above and start with a test account. No warranty. The user interface is in **Italian only**.
+> limits above and start with a test account. No warranty. The user interface is in **Italian and English** (as the system, or chosen in File → Options → General).
 
 - IMAP, POP3 and SMTP with multiple accounts; encrypted connections and strict certificate checks.
 - A local copy of your mail (SQLite with full-text search): fast, searchable, readable offline; an Outbox for mail sent

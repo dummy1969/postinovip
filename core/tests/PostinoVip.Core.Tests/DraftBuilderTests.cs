@@ -33,7 +33,7 @@ public class DraftBuilderTests
 
         Assert.Equal(["\"Mario Rossi\" <mario@example.com>"], d.To);
         Assert.Empty(d.Cc);
-        Assert.Equal("Re: Riunione", d.Subject);
+        Assert.Equal("R: Riunione", d.Subject); // come Outlook in italiano (L6b, scelta 3a)
         Assert.Equal("orig-123@example.com", d.InReplyTo);
         Assert.Equal(["root-1@example.com", "orig-123@example.com"], d.References);
         Assert.StartsWith("\n\nIl ", d.Body);
@@ -73,12 +73,34 @@ public class DraftBuilderTests
     [InlineData("Re: Riunione", DraftMode.Reply, "Re: Riunione")]
     [InlineData("R: Riunione", DraftMode.Reply, "R: Riunione")]       // Outlook in italiano
     [InlineData("RE:Riunione", DraftMode.ReplyAll, "RE:Riunione")]
-    [InlineData("Riunione", DraftMode.Forward, "Fwd: Riunione")]
+    [InlineData("Riunione", DraftMode.Forward, "I: Riunione")]
+    [InlineData("Fwd: Riunione", DraftMode.Forward, "Fwd: Riunione")]
+    [InlineData("FW: Riunione", DraftMode.Forward, "FW: Riunione")]
     [InlineData("I: Riunione", DraftMode.Forward, "I: Riunione")]
     [InlineData("Fw: Riunione", DraftMode.Forward, "Fw: Riunione")]
     public void PrefissiNonRaddoppiati(string subject, DraftMode mode, string expected)
     {
         Assert.Equal(expected, DraftBuilder.Build(Original(subject), mode, Me).Subject);
+    }
+
+    [Fact]
+    public void RispostaEInoltroInIngleseConLaLinguaDellApp()
+    {
+        // Tappa «Lingua», L6b (scelta 3a): prefissi, intestazioni e data nella lingua dell'app, come Outlook in inglese.
+        using var english = PostinoVip.Core.Texts.CoreTexts.Use("en");
+        var reply = DraftBuilder.Build(Original(), DraftMode.Reply, Me);
+        var forward = DraftBuilder.Build(Original(), DraftMode.Forward, Me);
+
+        Assert.Equal("RE: Riunione", reply.Subject);
+        Assert.Contains(" wrote:\n> Ciao,", reply.Body);
+        Assert.StartsWith("\n\nOn ", reply.Body);
+        Assert.Contains("<b>From:</b>", reply.QuoteHtml);
+        Assert.Contains("<b>Subject:</b>", reply.QuoteHtml);
+        Assert.Equal("FW: Riunione", forward.Subject);
+        Assert.Contains("---------- Forwarded message ----------", forward.Body);
+        Assert.Contains("Subject: Riunione", forward.Body);
+        Assert.Matches(@"Date: \d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2} (AM|PM)", forward.Body);
+        Assert.Equal("RE: Riunione", DraftBuilder.Build(Original(), DraftMode.ReplyAll, Me).Subject);
     }
 
     [Fact]

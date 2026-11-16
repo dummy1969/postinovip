@@ -80,7 +80,7 @@ public sealed class BodyStore(string root)
     {
         // L'impronta arriva dal database: controllata comunque, finisce in un percorso.
         if (!IsSha256(sha256))
-            throw new ArgumentException("Impronta SHA-256 non valida.", nameof(sha256));
+            throw new ArgumentException("Impronta SHA-256 non valida.", nameof(sha256)).WithCode("improntaSha256NonValida");
         return Path.Combine(Root, sha256[..2], sha256[2..4], sha256 + Extension);
     }
 

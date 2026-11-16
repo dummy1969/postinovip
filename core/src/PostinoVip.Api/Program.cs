@@ -138,6 +138,14 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseMiddleware<TokenAuthMiddleware>(); // prima di tutto il resto, OpenAPI compreso
+// Lingua dell'app (tappa «Lingua», L6, scelta 2a): ogni richiesta la porta; il core la usa per i testi che scrive da solo.
+// Solo le richieste dell'app (con il token): il browser che torna dall'accesso OAuth ha la sua lingua, non quella dell'app.
+app.Use((context, next) =>
+{
+    if (context.Request.Headers.Authorization.Count > 0)
+        PostinoVip.Core.UiLanguage.Set(context.Request.Headers.AcceptLanguage);
+    return next(context);
+});
 
 // Documento OpenAPI su /openapi/v1.json in sviluppo e nei test; non nella build di rilascio.
 if (!app.Environment.IsProduction())

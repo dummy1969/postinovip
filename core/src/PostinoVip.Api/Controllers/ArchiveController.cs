@@ -25,7 +25,7 @@ public sealed class ArchiveRequest
 public sealed class ArchiveController(MailAccountRegistry accounts, ILogger<ArchiveController> logger) : MailControllerBase(accounts)
 {
     private ArchiveStore Store =>
-        CurrentAccount.Archive ?? throw new NotSupportedException("Archivia richiede la copia locale (Cache:Enabled=false).");
+        CurrentAccount.Archive ?? throw new NotSupportedException("Archivia richiede la copia locale (Cache:Enabled=false).").WithCode("archiviaRichiedeLaCopiaLocale");
 
     [HttpGet("archive")]
     [HttpGet("accounts/{accountId}/archive")]
@@ -63,10 +63,10 @@ public sealed class ArchiveController(MailAccountRegistry accounts, ILogger<Arch
         var account = CurrentAccount;
         var configured = Store.Load().Folder;
         var archive = ArchiveFolders.InUse(await account.Reader.GetFoldersAsync(ct), configured)
-                      ?? throw new InvalidOperationException("Nessuna cartella di archiviazione: sceglierla con «Imposta cartella di archiviazione».");
+                      ?? throw new InvalidOperationException("Nessuna cartella di archiviazione: sceglierla con «Imposta cartella di archiviazione».").WithCode("nessunaCartellaDiArchiviazioneSceglierla");
         var name = FolderName.FromRoute(folder);
         if (name == archive)
-            throw new InvalidOperationException("Le mail sono già nella cartella di archiviazione.");
+            throw new InvalidOperationException("Le mail sono già nella cartella di archiviazione.").WithCode("leMailSonoGiaNella");
         var result = await account.Writer.MoveAsync(name, uids, archive, ct);
         logger.LogInformation("[{Account}] ARCHIVIA {Folder} {Count} mail -> {Destination}", account.Id, name, result.Uids.Count, result.Destination);
         return Ok(new BatchMoveResponse(result.Destination, false, result.Uids));
@@ -82,9 +82,9 @@ public sealed class ArchiveController(MailAccountRegistry accounts, ILogger<Arch
     private static IReadOnlyCollection<uint> RequireUids(uint[]? uids)
     {
         if (uids is null || uids.Length == 0)
-            throw new FieldValidationException("uids", "Indicare almeno una mail.");
+            throw new FieldValidationException("uids", "Indicare almeno una mail.").WithCode("indicareAlmenoUnaMail");
         if (uids.Length > MessagesController.MaxBatch)
-            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.");
+            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.").WithCode("alMassimoMailPerVolta", ("maxBatch", MessagesController.MaxBatch));
         return uids.Distinct().ToList();
     }
 }

@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../account/accounts_page.dart' show AccountsEditing, AccountsPage;
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../models/mail_folder.dart';
 import '../models/message_header.dart';
 import '../models/message_tags.dart';
@@ -41,7 +43,7 @@ class MessageListPane extends StatelessWidget {
     final theme = Theme.of(context);
 
     if (model.selectedFolder == null) {
-      return const Center(child: Text('Nessuna cartella selezionata'));
+      return Center(child: Text(context.l10n.noFolderSelected));
     }
     if (model.showingOutbox) return const OutboxView();
 
@@ -55,7 +57,7 @@ class MessageListPane extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
-              _searchTitle(model),
+              _searchTitle(context.l10n, model),
               style: theme.textTheme.titleSmall!.copyWith(fontSize: 16),
               overflow: TextOverflow.ellipsis,
             ),
@@ -70,46 +72,46 @@ class MessageListPane extends StatelessWidget {
           child: _KeyboardScroll(
             model: model,
             child: model.searchActive
-                ? _searchBody(model)
-                : (model.conversationView ? _conversationBody(model) : _folderBody(model)),
+                ? _searchBody(context.l10n, model)
+                : (model.conversationView ? _conversationBody(context.l10n, model) : _folderBody(context.l10n, model)),
           ),
         ),
       ],
     );
   }
 
-  static String _searchTitle(MailboxModel model) {
+  static String _searchTitle(AppLocalizations l, MailboxModel model) {
     final where = switch (model.searchScope) {
-      SearchScope.folder => 'in ${model.selectedFolder}',
+      SearchScope.folder => l.searchWhereFolder(model.selectedFolder ?? ''),
       SearchScope.account =>
         model.multipleAccounts && model.currentAccount != null
-            ? 'in tutte le cartelle di ${model.currentAccount!.name}'
-            : 'in tutte le cartelle',
-      SearchScope.allAccounts => model.multipleAccounts ? 'in tutti gli account' : 'in tutte le cartelle',
+            ? l.searchWhereAccount(model.currentAccount!.name)
+            : l.searchWhereAllFolders,
+      SearchScope.allAccounts => model.multipleAccounts ? l.searchWhereAllAccounts : l.searchWhereAllFolders,
     };
-    if (model.searching && model.searchResults.isEmpty) return 'Ricerca $where…';
-    return '${model.searchTotal} ${model.searchTotal == 1 ? 'risultato' : 'risultati'} $where';
+    if (model.searching && model.searchResults.isEmpty) return l.searchInProgress(where);
+    return l.searchResultsTitle(model.searchTotal, where);
   }
 
   /// Lista vuota: caricamento, errore o cartella senza mail (anche in vista conversazioni).
-  static Widget? _emptyBody(MailboxModel model) {
+  static Widget? _emptyBody(AppLocalizations l, MailboxModel model) {
     if (model.messages.isNotEmpty) return null;
     if (model.loadingMessages) return const Center(child: CircularProgressIndicator());
     if (model.messagesError != null) return ErrorView(message: model.messagesError!, onRetry: model.loadMore);
     return Center(
-      child: Text(model.listFilter == ListFilter.unread ? 'Nessun messaggio da leggere' : 'Cartella vuota'),
+      child: Text(model.listFilter == ListFilter.unread ? l.listNoUnread : l.listEmptyFolder),
     );
   }
 
-  Widget _folderBody(MailboxModel model) {
-    if (_emptyBody(model) case final empty?) return empty;
+  Widget _folderBody(AppLocalizations l, MailboxModel model) {
+    if (_emptyBody(l, model) case final empty?) return empty;
 
     // Righe: intestazione di gruppo (Oggi, Ieri, …) e messaggi, come in Outlook classico.
     final now = DateTime.now();
     final rows = <_Row>[];
     String? group;
     for (final (i, m) in model.messages.indexed) {
-      final label = _groupLabel(model.sort, m, now);
+      final label = _groupLabel(l, model.sort, m, now);
       if (label != group) {
         group = label;
         rows.add(_Row.group(label, i));
@@ -136,7 +138,7 @@ class MessageListPane extends StatelessWidget {
             error: model.messagesError,
             load: model.loadMore,
           );
-          if (i == rows.length) return _footer(error: model.messagesError, onRetry: model.loadMore);
+          if (i == rows.length) return _footer(l, error: model.messagesError, onRetry: model.loadMore);
           final row = rows[i];
           if (row.group case final label?) {
             return _GroupHeader(
@@ -154,10 +156,10 @@ class MessageListPane extends StatelessWidget {
 
   /// Gruppo della riga secondo l'ordinamento, come Outlook: per data (Oggi, Ieri…), per mittente, per oggetto
   /// o per fascia di dimensione.
-  static String _groupLabel(ListSort sort, MessageHeader m, DateTime now) => switch (sort) {
+  static String _groupLabel(AppLocalizations l, ListSort sort, MessageHeader m, DateTime now) => switch (sort) {
     ListSort.date => listGroupLabel(m.listDate, now: now),
-    ListSort.from => m.from.trim().isEmpty ? '(mittente sconosciuto)' : m.from,
-    ListSort.subject => m.subject.trim().isEmpty ? '(nessun oggetto)' : m.subject,
+    ListSort.from => m.from.trim().isEmpty ? l.unknownSender : m.from,
+    ListSort.subject => m.subject.trim().isEmpty ? l.noSubject : m.subject,
     ListSort.size => sizeGroupLabel(m.size),
   };
 
@@ -205,11 +207,11 @@ class MessageListPane extends StatelessWidget {
   /// Vista per conversazioni (3.6, come Outlook classico): una riga per conversazione con la mail più
   /// recente della cartella, il numero di mail, grassetto se ce n'è una da leggere; il triangolo
   /// mostra sotto, rientrate, tutte le sue mail (anche di altre cartelle, con il nome della cartella).
-  Widget _conversationBody(MailboxModel model) {
-    if (_emptyBody(model) case final empty?) return empty;
+  Widget _conversationBody(AppLocalizations l, MailboxModel model) {
+    if (_emptyBody(l, model) case final empty?) return empty;
     final account = model.selectedAccount!;
     final folder = model.selectedFolder!;
-    final names = {for (final f in model.foldersByAccount[account] ?? const <MailFolder>[]) f.fullName: f.displayName};
+    final names = {for (final f in model.foldersByAccount[account] ?? const <MailFolder>[]) f.fullName: f.displayName(l)};
     final now = DateTime.now();
     final rows = <_Row>[];
     String? group;
@@ -246,7 +248,7 @@ class MessageListPane extends StatelessWidget {
             error: model.messagesError,
             load: model.loadMore,
           );
-          if (i == rows.length) return _footer(error: model.messagesError, onRetry: model.loadMore);
+          if (i == rows.length) return _footer(l, error: model.messagesError, onRetry: model.loadMore);
           final row = rows[i];
           if (row.group case final label?) {
             return _GroupHeader(
@@ -330,7 +332,7 @@ class MessageListPane extends StatelessWidget {
     );
   }
 
-  Widget _searchBody(MailboxModel model) {
+  Widget _searchBody(AppLocalizations l, MailboxModel model) {
     final results = model.searchResults;
     if (results.isEmpty && model.searching) return const Center(child: CircularProgressIndicator());
     if (results.isEmpty && model.searchError != null) {
@@ -341,7 +343,7 @@ class MessageListPane extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Nessun risultato nella cache locale'),
+            Text(l.searchNoLocalResults),
             const SizedBox(height: 8),
             _ServerSearchFooter(model),
           ],
@@ -369,7 +371,7 @@ class MessageListPane extends StatelessWidget {
           error: model.searchError,
           load: model.loadMoreResults,
         );
-        if (i == results.length && more) return _footer(error: model.searchError, onRetry: model.loadMoreResults);
+        if (i == results.length && more) return _footer(l, error: model.searchError, onRetry: model.loadMoreResults);
         if (i >= results.length) return _ServerSearchFooter(model);
         final r = results[i];
         final ref = MessageRef(r.account, r.hit.folder, r.hit.uid);
@@ -458,11 +460,11 @@ class MessageListPane extends StatelessWidget {
     WidgetsBinding.instance.addPostFrameCallback((_) => load());
   }
 
-  Widget _footer({required String? error, required VoidCallback onRetry}) {
+  Widget _footer(AppLocalizations l, {required String? error, required VoidCallback onRetry}) {
     if (error != null) {
       return ListTile(
         title: Text(error),
-        trailing: TextButton(onPressed: onRetry, child: const Text('Riprova')),
+        trailing: TextButton(onPressed: onRetry, child: Text(l.retry)),
       );
     }
     return const Padding(
@@ -491,8 +493,7 @@ class _OfflineStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Non connesso: mostro la copia sul computer. Spostare, eliminare, segnare come letto e '
-              'inviare tornano disponibili da soli quando il server risponde.',
+              context.l10n.offlineStrip,
               style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
           ),
@@ -508,10 +509,10 @@ class _OfflineStrip extends StatelessWidget {
 class _LoginExpiredStrip extends StatelessWidget {
   const _LoginExpiredStrip();
 
-  static String providerName(String? id) => switch (id) {
+  static String providerName(AppLocalizations l, String? id) => switch (id) {
     'google' => 'Google',
     'microsoft' => 'Microsoft',
-    null || '' => 'il fornitore',
+    null || '' => l.theProvider,
     _ => id,
   };
 
@@ -522,7 +523,7 @@ class _LoginExpiredStrip extends StatelessWidget {
     final theme = Theme.of(context);
     final color = theme.colorScheme.onErrorContainer;
     final config = editing?.accounts.where((a) => a.id == model.selectedAccount).firstOrNull;
-    final name = providerName(config?.oauthProvider);
+    final name = providerName(context.l10n, config?.oauthProvider);
     return Container(
       key: const Key('login-expired-strip'),
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -534,7 +535,7 @@ class _LoginExpiredStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Accesso a $name scaduto: questo account non riceve né invia posta finché non accedi di nuovo.',
+              context.l10n.loginExpired(name),
               style: theme.textTheme.bodySmall?.copyWith(color: color),
             ),
           ),
@@ -549,7 +550,7 @@ class _LoginExpiredStrip extends StatelessWidget {
                 signInAgain: true,
               ),
               style: TextButton.styleFrom(foregroundColor: color),
-              child: const Text('Accedi di nuovo'),
+              child: Text(context.l10n.signInAgain),
             ),
         ],
       ),
@@ -580,14 +581,14 @@ class _AutoReplyStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Le risposte automatiche sono attive per questo account.',
+              context.l10n.autoReplyStrip,
               style: theme.textTheme.bodySmall?.copyWith(color: foreground),
             ),
           ),
           TextButton(
             onPressed: account == null ? null : () => AutoReplyDialog.show(context, account: account),
             style: TextButton.styleFrom(foregroundColor: foreground),
-            child: const Text('Modifica…'),
+            child: Text(context.l10n.editEllipsis),
           ),
           TextButton(
             key: const Key('autoreply-strip-off'),
@@ -595,15 +596,16 @@ class _AutoReplyStrip extends StatelessWidget {
                 ? null
                 : () async {
                     final messenger = ScaffoldMessenger.of(context);
+                    final l = context.l10n;
                     try {
                       await model.saveAutoReply(account, model.autoReplies[account]!.copyWith(enabled: false));
-                      messenger.showSnackBar(const SnackBar(content: Text('Risposte automatiche disattivate.')));
+                      messenger.showSnackBar(SnackBar(content: Text(l.autoReplyTurnedOff)));
                     } on ApiException catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('Non disattivate: $e')));
+                      messenger.showSnackBar(SnackBar(content: Text(l.autoReplyNotTurnedOff('$e'))));
                     }
                   },
             style: TextButton.styleFrom(foregroundColor: foreground),
-            child: const Text('Disattiva'),
+            child: Text(context.l10n.turnOff),
           ),
         ],
       ),
@@ -622,22 +624,22 @@ class _ServerSearchFooter extends StatelessWidget {
     final small = Theme.of(context).textTheme.bodySmall;
     if (!model.canSearchServer) return const SizedBox.shrink(); // solo account POP3: niente da cercare sul server
     if (model.serverSearching) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
+      return Padding(
+        padding: const EdgeInsets.all(12),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-            SizedBox(width: 8),
-            Text('Ricerca sul server…'),
+            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(width: 8),
+            Text(context.l10n.serverSearching),
           ],
         ),
       );
     }
     if (model.serverSearchError != null) {
       return ListTile(
-        title: Text('Ricerca sul server non riuscita: ${model.serverSearchError}'),
-        trailing: TextButton(onPressed: model.searchServer, child: const Text('Riprova')),
+        title: Text(context.l10n.serverSearchFailed('${model.serverSearchError}')),
+        trailing: TextButton(onPressed: model.searchServer, child: Text(context.l10n.retry)),
       );
     }
     if (model.serverSearchDone) {
@@ -645,10 +647,8 @@ class _ServerSearchFooter extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.all(12),
         child: Text(
-          (added == 0
-                  ? 'Il server non ha trovato altre mail.'
-                  : 'Il server ha trovato $added mail in più (con l\'icona della nuvola).') +
-              (model.serverTruncated ? ' Mostrate le ${MailboxModel.serverSearchLimit} più recenti.' : ''),
+          (added == 0 ? context.l10n.serverFoundNone : context.l10n.serverFoundMore(added)) +
+              (model.serverTruncated ? context.l10n.serverTruncated(MailboxModel.serverSearchLimit) : ''),
           textAlign: TextAlign.center,
           style: small,
         ),
@@ -661,12 +661,11 @@ class _ServerSearchFooter extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: model.searchServer,
             icon: const Icon(Icons.cloud_outlined),
-            label: const Text('Cerca anche sul server'),
+            label: Text(context.l10n.searchServerToo),
           ),
           const SizedBox(height: 4),
           Text(
-            'Per le mail più vecchie del limite della cache e per Posta eliminata e Indesiderata,\n'
-            'di cui qui sono state cercate solo le intestazioni.',
+            context.l10n.searchServerHint,
             textAlign: TextAlign.center,
             style: small,
           ),
@@ -789,7 +788,7 @@ class _ConversationToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: expanded ? 'Chiudi la conversazione' : 'Mostra tutte le mail della conversazione',
+    message: expanded ? context.l10n.conversationCollapse : context.l10n.conversationExpand,
     child: InkWell(
       onTap: onTap,
       child: SizedBox(
@@ -809,22 +808,22 @@ class _ConversationToggle extends StatelessWidget {
 class _ViewBar extends StatelessWidget {
   const _ViewBar();
 
-  static const _sortChoices = [
-    ((ListSort.date, false), 'Per data: più recenti in cima'),
-    ((ListSort.date, true), 'Per data: più vecchi in cima'),
-    ((ListSort.from, true), 'Per mittente: A → Z'),
-    ((ListSort.from, false), 'Per mittente: Z → A'),
-    ((ListSort.subject, true), 'Per oggetto: A → Z'),
-    ((ListSort.subject, false), 'Per oggetto: Z → A'),
-    ((ListSort.size, false), 'Per dimensione: più grandi in cima'),
-    ((ListSort.size, true), 'Per dimensione: più piccole in cima'),
+  static List<((ListSort, bool), String)> _sortChoices(AppLocalizations l) => [
+    ((ListSort.date, false), l.sortDateNewest),
+    ((ListSort.date, true), l.sortDateOldest),
+    ((ListSort.from, true), l.sortFromAZ),
+    ((ListSort.from, false), l.sortFromZA),
+    ((ListSort.subject, true), l.sortSubjectAZ),
+    ((ListSort.subject, false), l.sortSubjectZA),
+    ((ListSort.size, false), l.sortSizeLargest),
+    ((ListSort.size, true), l.sortSizeSmallest),
   ];
 
-  static String _sortLabel(ListSort sort) => switch (sort) {
-    ListSort.date => 'Per data',
-    ListSort.from => 'Per mittente',
-    ListSort.subject => 'Per oggetto',
-    ListSort.size => 'Per dimensione',
+  static String _sortLabel(AppLocalizations l, ListSort sort) => switch (sort) {
+    ListSort.date => l.sortByDate,
+    ListSort.from => l.sortByFrom,
+    ListSort.subject => l.sortBySubject,
+    ListSort.size => l.sortBySize,
   };
 
   @override
@@ -841,7 +840,7 @@ class _ViewBar extends StatelessWidget {
         builder: (context, box) {
           final narrow = box.maxWidth < 320;
           final tabs = [
-            for (final (filter, label) in [(ListFilter.all, 'Tutti'), (ListFilter.unread, 'Da leggere')])
+            for (final (filter, label) in [(ListFilter.all, context.l10n.filterAll), (ListFilter.unread, context.l10n.filterUnread)])
               _FilterTab(label: label, selected: model.listFilter == filter, onTap: () => model.setListFilter(filter)),
           ];
           return Row(
@@ -864,11 +863,11 @@ class _ViewBar extends StatelessWidget {
               Flexible(
                 flex: narrow ? 1 : 2,
                 child: PopupMenuButton<(ListSort, bool)>(
-                  tooltip: 'Ordina per',
+                  tooltip: context.l10n.sortTooltip,
                   initialValue: (model.conversationView ? ListSort.date : model.sort, model.oldestFirst),
                   onSelected: (choice) => model.setSort(choice.$1, ascending: choice.$2),
                   itemBuilder: (context) => [
-                    for (final (value, label) in _sortChoices)
+                    for (final (value, label) in _sortChoices(context.l10n))
                       // In vista conversazioni solo per data, come Outlook.
                       if (!model.conversationView || value.$1 == ListSort.date)
                         PopupMenuItem(value: value, child: Text(label)),
@@ -881,7 +880,7 @@ class _ViewBar extends StatelessWidget {
                         if (!narrow) ...[
                           Flexible(
                             child: Text(
-                              _sortLabel(model.conversationView ? ListSort.date : model.sort),
+                              _sortLabel(context.l10n, model.conversationView ? ListSort.date : model.sort),
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall,
                             ),
@@ -914,7 +913,7 @@ class _ConversationBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Tooltip(
-      message: 'Vista per conversazioni attiva in questa cartella: clic per cambiarla',
+      message: context.l10n.conversationBadgeTooltip,
       child: InkWell(
         onTap: () => ConversationViewCommand.toggle(context),
         borderRadius: BorderRadius.circular(12),
@@ -931,7 +930,7 @@ class _ConversationBadge extends StatelessWidget {
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  'Conversazioni',
+                  context.l10n.conversations,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: scheme.primary, fontWeight: FontWeight.w600),
                 ),
@@ -1162,7 +1161,7 @@ class _MessageTileState extends State<_MessageTile> {
         Padding(
           padding: const EdgeInsets.only(left: 6),
           child: Tooltip(
-            message: '$n mail nella conversazione',
+            message: context.l10n.conversationCount(n),
             child: Text(
               '$n',
               style: TextStyle(fontSize: 12, color: muted, fontWeight: FontWeight.w600),
@@ -1288,7 +1287,7 @@ class _MessageTileState extends State<_MessageTile> {
                                     ?ImportanceIcon.of(message.importance),
                                     if (attachments)
                                       Tooltip(
-                                        message: 'Contiene allegati',
+                                        message: context.l10n.hasAttachments,
                                         child: Icon(FluentIcons.attach_16_regular, size: 14, color: muted),
                                       ),
                                     ...categories,
@@ -1354,12 +1353,12 @@ class _FlagButton extends StatelessWidget {
             FluentIcons.flag_16_filled,
             scheme.error,
             tags.due == null
-                ? 'Contrassegnato: clic per completare'
-                : 'Completare entro ${formatDueDate(tags.due!)}: clic per completare',
+                ? context.l10n.flaggedClickToComplete
+                : context.l10n.dueByClickToComplete(formatDueDate(tags.due!)),
           )
         : tags.completed
-        ? (FluentIcons.checkmark_16_regular, scheme.onSurfaceVariant, 'Completato: clic per contrassegnare di nuovo')
-        : (FluentIcons.flag_16_regular, hover ? scheme.onSurfaceVariant : Colors.transparent, 'Contrassegna per oggi');
+        ? (FluentIcons.checkmark_16_regular, scheme.onSurfaceVariant, context.l10n.completedClickToFlag)
+        : (FluentIcons.flag_16_regular, hover ? scheme.onSurfaceVariant : Colors.transparent, context.l10n.flagToday);
     return SizedBox(
       width: 26,
       height: 26,
@@ -1408,7 +1407,7 @@ class _SearchTile extends StatelessWidget {
           if (hit.fromServer) ...[
             const SizedBox(width: 8),
             Tooltip(
-              message: 'Trovata sul server',
+              message: context.l10n.foundOnServer,
               child: Icon(Icons.cloud_outlined, size: 16, color: small?.color),
             ),
           ],
@@ -1514,7 +1513,7 @@ class _ColumnHeader extends StatelessWidget {
       );
       if (!enabled) return text;
       return Tooltip(
-        message: 'Ordina per ${label.toLowerCase()}',
+        message: context.l10n.sortByColumn(label.toLowerCase()),
         child: InkWell(onTap: () => model.sortBy(column), child: text),
       );
     }
@@ -1538,18 +1537,18 @@ class _ColumnHeader extends StatelessWidget {
       child: Row(
         children: [
           const SizedBox(width: MailColumns.icons),
-          Expanded(flex: MailColumns.fromFlex, child: cell('Da', ListSort.from)),
+          Expanded(flex: MailColumns.fromFlex, child: cell(context.l10n.columnFrom, ListSort.from)),
           const SizedBox(width: 8),
-          Expanded(flex: MailColumns.subjectFlex, child: cell('Oggetto', ListSort.subject)),
-          SizedBox(width: MailColumns.received, child: cell('Ricevuto', ListSort.date)),
+          Expanded(flex: MailColumns.subjectFlex, child: cell(context.l10n.columnSubject, ListSort.subject)),
+          SizedBox(width: MailColumns.received, child: cell(context.l10n.columnReceived, ListSort.date)),
           SizedBox(
             width: MailColumns.size,
-            child: cell('Dimensione', ListSort.size, align: TextAlign.right),
+            child: cell(context.l10n.columnSize, ListSort.size, align: TextAlign.right),
           ),
           if (MailColumns.showCategories(width))
             SizedBox(
               width: MailColumns.categories,
-              child: Padding(padding: const EdgeInsets.only(left: 8), child: cell('Categorie', null)),
+              child: Padding(padding: const EdgeInsets.only(left: 8), child: cell(context.l10n.columnCategories, null)),
             ),
           const SizedBox(width: MailColumns.flag, child: Icon(FluentIcons.flag_16_regular, size: 14)),
         ],

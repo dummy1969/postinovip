@@ -114,7 +114,7 @@ public sealed class EmlEndpointTests : IClassFixture<WebApplicationFactory<Progr
         var (id, _) = await Open();
 
         var draft = await _client.GetFromJsonAsync<JsonElement>($"/eml/{id}/draft?mode=replyAll");
-        Assert.Equal("Re: Verbale", draft.GetProperty("subject").GetString());
+        Assert.Equal("R: Verbale", draft.GetProperty("subject").GetString());
         Assert.True(draft.GetProperty("plainText").GetBoolean()); // originale di solo testo: risposta in testo normale
         var to = draft.GetProperty("to").EnumerateArray().Select(e => e.GetString()).ToList();
         Assert.Contains(to, a => a!.Contains("anna@example.com"));

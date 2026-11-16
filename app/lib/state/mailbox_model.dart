@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale;
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
 import '../models/account_info.dart';
 import '../models/auto_reply.dart';
 import '../models/conversation.dart';
@@ -22,16 +24,7 @@ import '../settings/app_settings.dart';
 enum ListFilter { all, unread }
 
 /// Colonna per cui è ordinata la lista (3.9, clic sull'intestazione come Outlook).
-enum ListSort {
-  date('Data'),
-  from('Da'),
-  subject('Oggetto'),
-  size('Dimensione');
-
-  const ListSort(this.label);
-
-  final String label;
-}
+enum ListSort { date, from, subject, size }
 
 /// Dove cercare: nella cartella aperta (predefinito, come Outlook), in tutte le cartelle del suo
 /// account o in tutti gli account.
@@ -126,7 +119,10 @@ class MailboxModel extends ChangeNotifier {
   bool needsLogin(String? account) => loginStatus[account ?? accounts.firstOrNull?.id] ?? false;
 
   /// Messaggio per le operazioni che richiedono il server (letto, sposta, elimina, invio).
-  static const offlineMessage = 'Non disponibile senza connessione al server.';
+  /// Testi degli avvisi nella lingua dell'app (tappa «Lingua», L4e); senza impostazioni (alcuni test) in italiano.
+  AppLocalizations get _l => _settings?.l10n ?? lookupAppLocalizations(const Locale('it'));
+
+  String get offlineMessage => _l.offlineUnavailable;
 
   AccountInfo? get currentAccount => accounts.where((a) => a.id == selectedAccount).firstOrNull;
 
@@ -392,7 +388,7 @@ class MailboxModel extends ChangeNotifier {
         handled(); // già trattata (anche da un altro computer) o non più valida: niente da chiedere
       } else {
         _receiptsAnswered.remove(key);
-        actionError = 'Conferma di lettura ${send ? 'non inviata' : 'non registrata'}: $e';
+        actionError = send ? _l.receiptNotSent('$e') : _l.receiptNotRecorded('$e');
       }
     }
     notifyListeners();
@@ -467,21 +463,21 @@ class MailboxModel extends ChangeNotifier {
       return (ok: true, message: done);
     } on ApiException catch (e) {
       await loadOutbox(account);
-      return (ok: false, message: e.statusCode == 503 ? offlineMessage : 'Operazione non riuscita: ${_refusal(e)}');
+      return (ok: false, message: e.statusCode == 503 ? offlineMessage : _l.operationFailed(_refusal(e)));
     }
   }
 
   /// "Invia ora": niente più attesa (né errore precedente); parte appena il server risponde.
   Future<({bool ok, String message})> outboxSendNow(String account, String id) =>
-      _outboxAction(account, (api) => api.sendOutboxNow(id), 'Invio in corso: la mail parte appena il server risponde.');
+      _outboxAction(account, (api) => api.sendOutboxNow(id), _l.outboxSending);
 
   /// La mail non verrà inviata (chi chiama ha chiesto conferma).
   Future<({bool ok, String message})> outboxDelete(String account, String id) =>
-      _outboxAction(account, (api) => api.deleteOutbox(id), 'Mail eliminata dalla Posta in uscita: non verrà inviata.');
+      _outboxAction(account, (api) => api.deleteOutbox(id), _l.outboxDeleted);
 
   /// MODIFICA la casella: la mail torna in Bozze per modificarla.
   Future<({bool ok, String message})> outboxToDrafts(String account, String id) async {
-    final outcome = await _outboxAction(account, (api) => api.outboxToDrafts(id), 'Mail spostata in Bozze: aprila da lì per modificarla.');
+    final outcome = await _outboxAction(account, (api) => api.outboxToDrafts(id), _l.outboxMovedToDrafts);
     await _refreshFolderCounts(account);
     return outcome;
   }
@@ -725,7 +721,7 @@ class MailboxModel extends ChangeNotifier {
       // Il server può confermare la creazione e poi non elencare la cartella: va detto, non taciuto.
       if (created != null && !(foldersByAccount[edit.account] ?? const <MailFolder>[]).any((f) => f.fullName == created)) {
         folderLog('«$created» non è nell\'elenco delle cartelle restituito dal server');
-        folderNotice = 'Il server ha confermato la cartella «$created», ma non la mostra nell\'elenco delle cartelle.';
+        folderNotice = _l.folderNotListed(created);
       }
       return true;
     } on ApiException catch (e) {
@@ -743,7 +739,7 @@ class MailboxModel extends ChangeNotifier {
   /// "Elimina cartella" (scelta 3.4-3a): fuori da Posta eliminata la sposta lì dentro, dentro Posta
   /// eliminata la elimina definitivamente (chi chiama deve aver chiesto conferma). Testo dell'esito.
   Future<({bool ok, String message})> deleteFolder(String account, MailFolder folder) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     try {
@@ -755,10 +751,10 @@ class MailboxModel extends ChangeNotifier {
       }
       await _refreshFolderCounts(account);
       return result.permanent
-          ? (ok: true, message: 'Cartella "${folder.name}" eliminata definitivamente')
-          : (ok: true, message: 'Cartella "${folder.name}" spostata in Posta eliminata');
+          ? (ok: true, message: _l.folderDeletedPermanently(folder.name))
+          : (ok: true, message: _l.folderMovedToTrash(folder.name));
     } on ApiException catch (e) {
-      return (ok: false, message: e.statusCode == 503 ? offlineMessage : 'Cartella non eliminata: $e');
+      return (ok: false, message: e.statusCode == 503 ? offlineMessage : _l.folderNotDeleted('$e'));
     } finally {
       actionInProgress = false;
       notifyListeners();
@@ -783,7 +779,7 @@ class MailboxModel extends ChangeNotifier {
   /// MODIFICA la casella, NON reversibile: elimina definitivamente le mail di [folder] e, in Posta eliminata, le
   /// sottocartelle. Chi chiama ha già chiesto conferma.
   Future<({bool ok, String message})> emptyFolder(String account, MailFolder folder) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     try {
@@ -795,15 +791,17 @@ class MailboxModel extends ChangeNotifier {
       if (selectedAccount == account && selectedFolder == folder.fullName) {
         await selectFolder(folder.fullName, account: account);
       }
-      final mails = result.messages == 1 ? '1 mail eliminata' : '${result.messages} mail eliminate';
-      final folders = switch (result.removedFolders.length) {
-        0 => '',
-        1 => ' e 1 cartella',
-        final n => ' e $n cartelle',
-      };
-      return (ok: true, message: '"${folder.name}" svuotata: $mails$folders definitivamente');
+      final folders = result.removedFolders.length;
+      return (
+        ok: true,
+        message: _l.folderEmptied(
+          folder.name,
+          _l.emptiedMails(result.messages),
+          folders == 0 ? '' : _l.emptiedFolders(folders),
+        ),
+      );
     } on ApiException catch (e) {
-      return (ok: false, message: e.statusCode == 503 ? offlineMessage : 'Cartella non svuotata: $e');
+      return (ok: false, message: e.statusCode == 503 ? offlineMessage : _l.folderNotEmptied('$e'));
     } finally {
       actionInProgress = false;
       notifyListeners();
@@ -835,22 +833,24 @@ class MailboxModel extends ChangeNotifier {
   /// MODIFICA la casella: sposta [folder] (con mail e sottocartelle) dentro [newParent] (null = in cima).
   /// Preferiti e cartella aperta seguono il nuovo nome. Testo dell'esito.
   Future<({bool ok, String message})> moveFolder(String account, MailFolder folder, String? newParent) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     try {
       final change = await _apiFor(account).moveFolder(folder.fullName, newParent);
       _followRename(account, folder.fullName, change.fullName, change.separator);
       await _refreshFolderCounts(account);
-      final where = newParent == null
-          ? 'in cima all\'account'
-          : 'in "${(foldersByAccount[account] ?? const <MailFolder>[]).where((f) => f.fullName == newParent).firstOrNull?.name ?? newParent}"';
-      return (ok: true, message: 'Cartella "${folder.name}" spostata $where');
+      return (
+        ok: true,
+        message: newParent == null
+            ? _l.folderMovedToTop(folder.name)
+            : _l.folderMovedInto(folder.name, _folderName(account, newParent)),
+      );
     } on ApiException catch (e) {
       final reason = e.statusCode == 503
           ? offlineMessage
           : (e.fieldErrors['parent']?.join(' ') ?? (e.statusCode == 409 ? e.message.split(': ').last : '$e'));
-      return (ok: false, message: 'Cartella non spostata: $reason');
+      return (ok: false, message: _l.folderNotMoved(reason));
     } finally {
       actionInProgress = false;
       notifyListeners();
@@ -955,7 +955,7 @@ class MailboxModel extends ChangeNotifier {
     } on ApiException catch (e) {
       if (generation != _detailGeneration) return;
       detailError = e.statusCode == 503
-          ? 'Mail non disponibile senza connessione: non è ancora stata scaricata sul computer.'
+          ? _l.mailNotDownloadedOffline
           : e.toString();
     } finally {
       if (generation == _detailGeneration) {
@@ -1065,7 +1065,7 @@ class MailboxModel extends ChangeNotifier {
       if (previous != null && previous != confirmed) _adjustUnread(account, folder, confirmed ? -1 : 1);
     } on ApiException catch (e) {
       if (previous != null) _replaceSeen(account, folder, uid, previous);
-      actionError = e.statusCode == 503 ? offlineMessage : 'Stato letto/non letto non aggiornato: $e';
+      actionError = e.statusCode == 503 ? offlineMessage : _l.readStateNotUpdated('$e');
       notifyListeners();
     }
   }
@@ -1088,14 +1088,14 @@ class MailboxModel extends ChangeNotifier {
       notifyListeners();
       return null;
     } on ApiException catch (e) {
-      return e.statusCode == 503 ? offlineMessage : 'Contrassegno o categorie non aggiornati: $e';
+      return e.statusCode == 503 ? offlineMessage : _l.tagsNotUpdated('$e');
     }
   }
 
   /// MODIFICA la casella: sposta il messaggio (dentro lo stesso account). Restituisce un testo di
   /// esito, null in caso di errore.
   Future<String?> moveMessage(int uid, String destination) =>
-      _removeAfter(uid, (api, folder) => api.move(folder, uid, destination), (to) => 'Spostato in "$to"');
+      _removeAfter(uid, (api, folder) => api.move(folder, uid, destination), (to) => _l.movedTo(to ?? ''));
 
   /// MODIFICA la casella: in Posta eliminata elimina definitivamente, altrove sposta in Posta eliminata.
   Future<String?> deleteMessage(int uid) {
@@ -1103,7 +1103,7 @@ class MailboxModel extends ChangeNotifier {
     return _removeAfter(
       uid,
       (api, folder) => api.delete(folder, uid, permanent: permanent),
-      (to) => permanent ? 'Eliminato definitivamente' : 'Spostato in "$to"',
+      (to) => permanent ? _l.deletedPermanently : _l.movedTo(to ?? ''),
     );
   }
 
@@ -1151,7 +1151,7 @@ class MailboxModel extends ChangeNotifier {
       if (wasOpen) _clearDetail();
       return describe(to);
     } on ApiException catch (e) {
-      actionError = e.statusCode == 503 ? offlineMessage : 'Operazione non riuscita: ${_refusal(e)}';
+      actionError = e.statusCode == 503 ? offlineMessage : _l.operationFailed(_refusal(e));
       return null;
     } finally {
       actionInProgress = false;
@@ -1498,7 +1498,7 @@ class MailboxModel extends ChangeNotifier {
 
   /// MODIFICA la casella: letto/non letto su tutte le selezionate. Testo dell'esito.
   Future<({bool ok, String message})> setSeenSelected(bool seen) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     var done = 0;
@@ -1519,10 +1519,10 @@ class MailboxModel extends ChangeNotifier {
       actionInProgress = false;
       notifyListeners();
     }
-    final what = seen ? 'segnate come lette' : 'segnate come da leggere';
+    final text = seen ? _l.markedRead(done) : _l.markedUnread(done);
     return error == null
-        ? (ok: true, message: '$done mail $what')
-        : (ok: false, message: done > 0 ? '$done mail $what; le altre no: $error' : 'Stato letto non aggiornato: $error');
+        ? (ok: true, message: text)
+        : (ok: false, message: done > 0 ? _l.othersFailed(text, error) : _l.readNotUpdated(error));
   }
 
   /// MODIFICA la casella: contrassegno e/o categorie (aggiunte o tolte) su tutte le selezionate.
@@ -1546,7 +1546,7 @@ class MailboxModel extends ChangeNotifier {
         );
         _patchHeaders(account, folder, tags.keys.toSet(), (m) => m.copyWith(tags: tags[m.uid]));
       } on ApiException catch (e) {
-        error = e.statusCode == 503 ? offlineMessage : 'Contrassegno o categorie non aggiornati: $e';
+        error = e.statusCode == 503 ? offlineMessage : _l.tagsNotUpdated('$e');
       }
     }
     notifyListeners();
@@ -1558,7 +1558,7 @@ class MailboxModel extends ChangeNotifier {
     final name = _folderName(selectionAccount, destination); // prima: la selezione poi si azzera
     return _removeSelected(
       (api, folder, uids) => api.moveMany(folder, uids, destination),
-      (count, permanent) => '$count mail spostate in "$name"',
+      (count, permanent) => _l.mailsMovedTo(count, name),
     );
   }
 
@@ -1566,7 +1566,7 @@ class MailboxModel extends ChangeNotifier {
   /// le altre spostate in Posta eliminata.
   Future<({bool ok, String message})> deleteSelected() => _removeSelected(
     (api, folder, uids) => api.deleteMany(folder, uids, permanent: _roleOf(api.account ?? '', folder) == 'trash'),
-    (count, permanent) => permanent ? '$count mail eliminate definitivamente' : '$count mail spostate in Posta eliminata',
+    (count, permanent) => permanent ? _l.mailsDeletedPermanently(count) : _l.mailsMovedToTrash(count),
   );
 
   // ---------------------------------------------------------------------------------------------
@@ -1608,7 +1608,7 @@ class MailboxModel extends ChangeNotifier {
   /// stesso percorso di Sposta in blocco (lista e conteggi aggiornati subito).
   Future<({bool ok, String message})> archiveSelected() => _removeSelected(
     (api, folder, uids) => api.archiveMany(folder, uids),
-    (count, _) => count == 1 ? '1 mail archiviata' : '$count mail archiviate',
+    (count, _) => _l.mailsArchived(count),
   );
 
   // ---------------------------------------------------------------------------------------------
@@ -1648,9 +1648,7 @@ class MailboxModel extends ChangeNotifier {
   Future<({bool ok, String message})> ignoreSelected() async {
     final outcome = await _removeSelected(
       (api, folder, uids) => api.ignoreConversations(folder, uids),
-      (count, _) => count == 0
-          ? 'Conversazione ignorata: le mail che arriveranno andranno in Posta eliminata'
-          : '$count mail spostate in Posta eliminata; anche quelle che arriveranno andranno lì',
+      (count, _) => count == 0 ? _l.conversationIgnored : _l.conversationIgnoredMoved(count),
     );
     _ignored.clear();
     return outcome;
@@ -1660,7 +1658,7 @@ class MailboxModel extends ChangeNotifier {
   Future<({bool ok, String message})> stopIgnoringSelected() async {
     final outcome = await _removeSelected(
       (api, folder, uids) => api.stopIgnoring(folder, uids),
-      (count, _) => count == 0 ? 'La conversazione non è più ignorata' : '$count mail riportate in Posta in arrivo',
+      (count, _) => count == 0 ? _l.conversationNotIgnored : _l.mailsBackToInbox(count),
     );
     _ignored.clear();
     return outcome;
@@ -1676,7 +1674,7 @@ class MailboxModel extends ChangeNotifier {
 
   /// «Pulisci cartella», MODIFICA la casella: come [cleanUpSelected] su tutte le conversazioni di [folder].
   Future<({bool ok, String message})> cleanUpFolder(String account, String folder) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     try {
@@ -1684,18 +1682,14 @@ class MailboxModel extends ChangeNotifier {
       if (selection.any((r) => r.account == account && r.folder == folder && gone.contains(r.uid))) _clearDetail();
       return (ok: true, message: _cleanUpText(gone.length, false));
     } on ApiException catch (e) {
-      return (ok: false, message: 'Operazione non riuscita: ${e.statusCode == 503 ? offlineMessage : _refusal(e)}');
+      return (ok: false, message: _l.operationFailed(e.statusCode == 503 ? offlineMessage : _refusal(e)));
     } finally {
       actionInProgress = false;
       notifyListeners();
     }
   }
 
-  static String _cleanUpText(int count, bool _) => switch (count) {
-    0 => 'Nessuna mail superflua da spostare',
-    1 => '1 mail superflua spostata in Posta eliminata',
-    _ => '$count mail superflue spostate in Posta eliminata',
-  };
+  String _cleanUpText(int count, bool _) => _l.cleanUpDone(count);
 
   /// Rilegge le cartelle di [account] (dopo le Opzioni posta indesiderata il ruolo "junk" può cambiare cartella).
   Future<void> reloadFolders(String account) => _refreshFolderCounts(account);
@@ -1709,10 +1703,13 @@ class MailboxModel extends ChangeNotifier {
         entries.addAll(r.entries);
         return BatchOutcome(r.folder, r.moved);
       },
-      (count, _) => count == 0 ? 'Nessuna mail spostata' : '$count mail spostate nella posta indesiderata',
+      (count, _) => count == 0 ? _l.noMailMoved : _l.mailsMovedToJunk(count),
     );
     if (entries.isEmpty) return outcome;
-    return (ok: outcome.ok, message: '${_entriesText('bloccato', 'bloccati', entries)}. ${outcome.message}');
+    return (
+      ok: outcome.ok,
+      message: '${entries.length == 1 ? _l.senderBlocked(entries.single) : _l.sendersBlocked(entries.length, entries.join(', '))}. ${outcome.message}',
+    );
   }
 
   /// «Non è posta indesiderata», MODIFICA la casella: le selezionate tornano in Posta in arrivo; con
@@ -1725,16 +1722,19 @@ class MailboxModel extends ChangeNotifier {
         entries.addAll(r.entries);
         return BatchOutcome(r.folder, r.moved);
       },
-      (count, _) => '$count mail riportate in Posta in arrivo',
+      (count, _) => _l.mailsBackToInbox(count),
     );
     if (entries.isEmpty) return outcome;
-    return (ok: outcome.ok, message: '${outcome.message}. ${_entriesText('attendibile', 'attendibili', entries)}');
+    return (
+      ok: outcome.ok,
+      message: '${outcome.message}. ${entries.length == 1 ? _l.senderTrusted(entries.single) : _l.sendersTrusted(entries.length, entries.join(', '))}',
+    );
   }
 
   /// «Non bloccare mai…»: solo gli elenchi, la casella non cambia (vale anche senza connessione: il core legge la
   /// copia locale).
   Future<({bool ok, String message})> neverBlockSelected(NeverBlockKind kind) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     final entries = <String>{};
     String? error;
     for (final MapEntry(key: (account, folder), value: uids) in _selectionGroups.entries) {
@@ -1744,19 +1744,19 @@ class MailboxModel extends ChangeNotifier {
         error = _refusal(e);
       }
     }
-    final list = kind == NeverBlockKind.group ? 'tra i destinatari attendibili' : 'tra i mittenti attendibili';
-    final text = entries.isEmpty ? '' : '${entries.join(', ')} aggiunt${entries.length == 1 ? 'o' : 'i'} $list';
+    final text = entries.isEmpty
+        ? ''
+        : kind == NeverBlockKind.group
+        ? _l.addedToSafeRecipients(entries.length, entries.join(', '))
+        : _l.addedToSafeSenders(entries.length, entries.join(', '));
     if (error == null) return (ok: true, message: text);
-    return (ok: false, message: text.isEmpty ? 'Elenchi non aggiornati: $error' : '$text; le altre no: $error');
+    return (ok: false, message: text.isEmpty ? _l.listsNotUpdated(error) : _l.othersFailed(text, error));
   }
 
   /// Testo di un errore del core per l'utente: un rifiuto (409) dice già il motivo, senza «Operazione non
   /// consentita» né il codice HTTP (prima: «Operazione non riuscita: Operazione non consentita: … (HTTP 409)»).
   static String _refusal(ApiException e) =>
       e.statusCode == 409 ? e.message.replaceFirst('Operazione non consentita: ', '') : '$e';
-
-  static String _entriesText(String one, String many, Set<String> entries) =>
-      entries.length == 1 ? '${entries.single} $one' : '${entries.length} mittenti $many (${entries.join(', ')})';
 
   /// Trascinamento di mail (3.5c): [refs] possono andare nella cartella [folder] di [account]? Solo
   /// mail di quell'account (scelta 3.5c-1a), server raggiungibile e almeno una che non sia già lì.
@@ -1777,7 +1777,7 @@ class MailboxModel extends ChangeNotifier {
   /// MODIFICA la casella: copia le selezionate (stesso account) in [destination]; gli originali restano
   /// e la selezione non cambia. I conteggi delle cartelle vengono riletti dal server.
   Future<({bool ok, String message})> copySelected(String destination) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     var done = 0;
@@ -1799,10 +1799,10 @@ class MailboxModel extends ChangeNotifier {
     for (final account in accounts) {
       await _refreshFolderCounts(account);
     }
-    final text = '$done mail copiate in "${_folderName(accounts.firstOrNull, destination)}"';
+    final text = _l.mailsCopiedTo(done, _folderName(accounts.firstOrNull, destination));
     return error == null
         ? (ok: true, message: text)
-        : (ok: false, message: done > 0 ? '$text; le altre no: $error' : 'Mail non copiate: $error');
+        : (ok: false, message: done > 0 ? _l.othersFailed(text, error) : _l.mailsNotCopied(error));
   }
 
   String _folderName(String? account, String folder) =>
@@ -1815,7 +1815,7 @@ class MailboxModel extends ChangeNotifier {
     String Function(int count, bool permanent) describe, {
     bool keepSurvivors = false,
   }) async {
-    if (actionInProgress) return (ok: false, message: 'Un\'altra operazione è in corso');
+    if (actionInProgress) return (ok: false, message: _l.anotherOperation);
     actionInProgress = true;
     notifyListeners();
     var done = 0;
@@ -1843,7 +1843,7 @@ class MailboxModel extends ChangeNotifier {
     final text = describe(done, allPermanent && done > 0);
     return error == null
         ? (ok: true, message: text)
-        : (ok: false, message: done > 0 ? '$text; le altre no: $error' : 'Operazione non riuscita: $error');
+        : (ok: false, message: done > 0 ? _l.othersFailed(text, error) : _l.operationFailed(error));
   }
 
   /// Le mail [outcome].uids sono uscite da [folder] di [account] (in [outcome].movedTo, o eliminate): via dalla lista e

@@ -36,7 +36,7 @@ public sealed class SendController(MailAccountRegistry accounts, MailboxEventHub
         if (request.SendAfter is { } after && after > DateTimeOffset.Now)
         {
             if (account.Outbox is null)
-                throw new NotSupportedException("Ritarda recapito richiede la cache locale (Cache:Enabled=false).");
+                throw new NotSupportedException("Ritarda recapito richiede la cache locale (Cache:Enabled=false).").WithCode("ritardaRecapitoRichiedeLaCache");
             return Ok(await QueueAsync(account, message, request, after, offline: false, ct));
         }
 
@@ -91,7 +91,7 @@ public sealed class SendController(MailAccountRegistry accounts, MailboxEventHub
             try
             {
                 if (offline)
-                    throw new MailOfflineException("non connesso");
+                    throw new MailOfflineException("non connesso").WithCode("notConnected");
                 await account.Writer.DeleteDraftAsync(uid, ct);
             }
             catch (MailOfflineException)

@@ -62,7 +62,7 @@ public sealed class BodyCache(string account, AccountCache cache, BodyPolicy pol
         }
 
         var bytes = cache.Bodies.TryRead(saved)
-            ?? throw new IOException($"Corpo {folderName}/{uid} appena salvato e non rileggibile.");
+            ?? throw new IOException($"Corpo {folderName}/{uid} appena salvato e non rileggibile.").WithCode("corpoAppenaSalvatoNonRileggibile", ("folderName", folderName), ("uid", uid));
         var message = await MimeMessage.LoadAsync(new MemoryStream(bytes, writable: false), ct);
         // Prima il file, poi la riga: collegato e già cercabile.
         cache.SetBody(folder!.Id, uid, saved, SearchText.From(message));

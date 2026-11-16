@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../api/api_client.dart';
+import '../l10n/formats.dart' as formats;
 import '../models/account_info.dart';
 import '../models/calendar.dart';
 import '../models/carddav.dart';
@@ -96,25 +97,17 @@ class CalendarModel extends ChangeNotifier {
     return (d.first, DateTime(last.year, last.month, last.day + 1));
   }
 
-  static const _months = [
-    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
-  ];
-  static const _weekdays = ['lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
-  static const weekdaysShort = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
-
-  static String monthName(int month) => _months[month - 1];
-  static String weekdayName(int weekday) => _weekdays[weekday - 1];
+  /// Nomi di mesi e giorni nella lingua dell'app (L5b).
+  static String monthName(int month) => formats.monthName(month);
+  static String weekdayName(int weekday) => formats.weekdayName(weekday);
+  static String weekdayShort(int weekday) => formats.weekdayShortName(weekday);
 
   /// Titolo del periodo, come Outlook: «9 – 13 novembre 2026», «novembre 2026», «lunedì 9 novembre 2026».
   String get title {
-    if (view == CalendarViewKind.month) return '${monthName(anchor.month)} ${anchor.year}';
+    if (view == CalendarViewKind.month) return formats.formatMonthYear(anchor);
     final d = days;
-    if (d.length == 1) return '${weekdayName(d.first.weekday)} ${d.first.day} ${monthName(d.first.month)} ${d.first.year}';
-    final a = d.first, b = d.last;
-    if (a.year != b.year) return '${a.day} ${monthName(a.month)} ${a.year} – ${b.day} ${monthName(b.month)} ${b.year}';
-    if (a.month != b.month) return '${a.day} ${monthName(a.month)} – ${b.day} ${monthName(b.month)} ${b.year}';
-    return '${a.day} – ${b.day} ${monthName(a.month)} ${a.year}';
+    if (d.length == 1) return formats.formatFullDate(d.first);
+    return formats.formatDayRange(d.first, d.last);
   }
 
   // ---------------------------------------------------------------- navigazione
@@ -189,7 +182,7 @@ class CalendarModel extends ChangeNotifier {
       calendars[account]?.where((c) => c.id == calendarId).firstOrNull?.readOnly ?? false;
 
   String calendarName(String account, String calendarId) =>
-      calendars[account]?.where((c) => c.id == calendarId).firstOrNull?.name ?? 'Calendario';
+      calendars[account]?.where((c) => c.id == calendarId).firstOrNull?.name ?? formats.formatL10n.calendarSection;
 
   /// Le occorrenze dei calendari visibili.
   List<CalendarOccurrence> get visibleOccurrences => [

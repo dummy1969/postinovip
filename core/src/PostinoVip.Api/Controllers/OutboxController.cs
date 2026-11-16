@@ -15,7 +15,7 @@ public sealed class OutboxController(MailAccountRegistry accounts, MailboxEventH
     : MailControllerBase(accounts)
 {
     private OutboxStore Store =>
-        CurrentAccount.Outbox ?? throw new NotSupportedException("La Posta in uscita richiede la cache locale (Cache:Enabled=false).");
+        CurrentAccount.Outbox ?? throw new NotSupportedException("La Posta in uscita richiede la cache locale (Cache:Enabled=false).").WithCode("laPostaInUscitaRichiede");
 
     /// <summary>GET — mail in attesa, dalla più vecchia; Error = l'ultimo invio non è riuscito.</summary>
     [HttpGet]
@@ -29,7 +29,7 @@ public sealed class OutboxController(MailAccountRegistry accounts, MailboxEventH
     {
         var store = Store;
         if (store.Get(id) is not { Kind: OutboxKind.Send } || !store.Remove(id))
-            throw new MailNotFoundException("Mail non trovata nella Posta in uscita.");
+            throw new MailNotFoundException("Mail non trovata nella Posta in uscita.").WithCode("mailNonTrovataNellaPosta");
         Changed(store);
         return NoContent();
     }
@@ -39,7 +39,7 @@ public sealed class OutboxController(MailAccountRegistry accounts, MailboxEventH
     public IActionResult SendNow(string id)
     {
         var store = Store;
-        var item = store.Get(id) is { Kind: OutboxKind.Send } found ? found : throw new MailNotFoundException("Mail non trovata nella Posta in uscita.");
+        var item = store.Get(id) is { Kind: OutboxKind.Send } found ? found : throw new MailNotFoundException("Mail non trovata nella Posta in uscita.").WithCode("mailNonTrovataNellaPosta");
         store.Update(item with { SendAfter = null, Error = null });
         outboxSignal.Wake();
         Changed(store);
@@ -55,7 +55,7 @@ public sealed class OutboxController(MailAccountRegistry accounts, MailboxEventH
     {
         var store = Store;
         if (store.Get(id) is not { Kind: OutboxKind.Send } || store.LoadMessage(id) is not { } message)
-            throw new MailNotFoundException("Mail non trovata nella Posta in uscita.");
+            throw new MailNotFoundException("Mail non trovata nella Posta in uscita.").WithCode("mailNonTrovataNellaPosta");
         var saved = await CurrentAccount.Writer.SaveDraftAsync(message, null, ct);
         store.Remove(id);
         Changed(store);

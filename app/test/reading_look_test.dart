@@ -10,6 +10,8 @@ import 'package:postinovip/ui/reading_pane.dart';
 import 'package:postinovip/ui/sender_avatar.dart';
 import 'package:postinovip/ui/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:postinovip/main.dart' show appLocalizationsDelegates;
+import 'package:postinovip/l10n/app_localizations.dart';
 
 // Tappa «Aspetto», V5: riquadro di lettura come l'Outlook classico di oggi.
 
@@ -59,6 +61,8 @@ void main() {
       ChangeNotifierProvider(
         create: (_) => AppSettings(MemorySettingsStore()),
         child: MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
           theme: OfficeTheme.light(),
           home: Scaffold(
             body: MessageView(

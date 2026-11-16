@@ -50,7 +50,7 @@ public sealed class CalendarSet(string directory)
     public CalendarInfo Get(string id)
     {
         lock (_lock)
-            return Loaded().FirstOrDefault(c => c.Id == id) ?? throw new MailNotFoundException("Calendario non trovato.");
+            return Loaded().FirstOrDefault(c => c.Id == id) ?? throw new MailNotFoundException("Calendario non trovato.").WithCode("calendarioNonTrovato");
     }
 
     /// <summary>L'archivio degli appuntamenti di un calendario.</summary>
@@ -59,7 +59,7 @@ public sealed class CalendarSet(string directory)
         lock (_lock)
         {
             if (!Loaded().Any(c => c.Id == id))
-                throw new MailNotFoundException("Calendario non trovato.");
+                throw new MailNotFoundException("Calendario non trovato.").WithCode("calendarioNonTrovato");
             if (!_stores.TryGetValue(id, out var store))
             {
                 store = new CalendarStore(Path.Combine(Directory, id));
@@ -81,7 +81,7 @@ public sealed class CalendarSet(string directory)
             var list = Loaded();
             var i = list.FindIndex(c => c.Id == id);
             if (i < 0)
-                throw new MailNotFoundException("Calendario non trovato.");
+                throw new MailNotFoundException("Calendario non trovato.").WithCode("calendarioNonTrovato");
             list[i] = list[i] with { Href = href, Name = string.IsNullOrWhiteSpace(name) ? list[i].Name : name.Trim(), ReadOnly = readOnly };
             Save();
             return list[i];

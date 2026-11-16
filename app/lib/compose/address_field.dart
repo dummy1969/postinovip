@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/language.dart';
+
 import '../models/contact.dart';
 import 'address_list.dart';
 
@@ -154,7 +156,7 @@ class _SuggestionListState extends State<_SuggestionList> {
                     trailing: o.isRecent
                         ? IconButton(
                             key: Key('suggestion-remove:${o.address}'),
-                            tooltip: 'Non suggerire più questo indirizzo',
+                            tooltip: context.l10n.dontSuggestAddress,
                             icon: const Icon(FluentIcons.dismiss_16_regular, size: 16),
                             onPressed: () {
                               setState(() => _hidden.add(o));
@@ -165,7 +167,7 @@ class _SuggestionListState extends State<_SuggestionList> {
                     onTap: () => widget.onSelected(o),
                   ),
               if (shown.isEmpty)
-                const ListTile(dense: true, title: Text('Nessun altro suggerimento')),
+                ListTile(dense: true, title: Text(context.l10n.noMoreSuggestions)),
             ],
           ),
         ),

@@ -31,9 +31,9 @@ public sealed class JunkController(MailAccountRegistry accounts, RuleJobs jobs, 
     : MailControllerBase(accounts)
 {
     private JunkStore Store =>
-        CurrentAccount.Junk ?? throw new NotSupportedException("La posta indesiderata richiede la copia locale (Cache:Enabled=false).");
+        CurrentAccount.Junk ?? throw new NotSupportedException("La posta indesiderata richiede la copia locale (Cache:Enabled=false).").WithCode("laPostaIndesiderataRichiedeLa");
 
-    private JunkFilter Filter => jobs.JunkFor(CurrentAccount) ?? throw new NotSupportedException("La posta indesiderata richiede la copia locale.");
+    private JunkFilter Filter => jobs.JunkFor(CurrentAccount) ?? throw new NotSupportedException("La posta indesiderata richiede la copia locale.").WithCode("laPostaIndesiderataRichiedeLa2");
 
     [HttpGet("junk")]
     [HttpGet("accounts/{accountId}/junk")]
@@ -49,11 +49,11 @@ public sealed class JunkController(MailAccountRegistry accounts, RuleJobs jobs, 
         {
             var folders = await CurrentAccount.Reader.GetFoldersAsync(ct);
             if (folders.All(f => f.FullName != folder))
-                throw new FieldValidationException("folder", "La cartella scelta non esiste.");
+                throw new FieldValidationException("folder", "La cartella scelta non esiste.").WithCode("laCartellaSceltaNonEsiste");
             if (folders.First(f => f.FullName == folder).SpecialUse is "inbox" or "sent" or "drafts" or "trash")
-                throw new FieldValidationException("folder", "Scegliere una cartella diversa da Posta in arrivo, Posta inviata, Bozze e Posta eliminata.");
+                throw new FieldValidationException("folder", "Scegliere una cartella diversa da Posta in arrivo, Posta inviata, Bozze e Posta eliminata.").WithCode("scegliereUnaCartellaDiversaDa");
             if (folder == CurrentAccount.Archive?.Load().Folder)
-                throw new FieldValidationException("folder", "È la cartella di archiviazione: sceglierne un'altra.");
+                throw new FieldValidationException("folder", "È la cartella di archiviazione: sceglierne un'altra.").WithCode("laCartellaDiArchiviazioneSceglierne");
         }
         return Ok(await ToResponse(Store.Save(clean), ct));
     }
@@ -93,9 +93,9 @@ public sealed class JunkController(MailAccountRegistry accounts, RuleJobs jobs, 
     private static IReadOnlyCollection<uint> RequireUids(uint[]? uids)
     {
         if (uids is null || uids.Length == 0)
-            throw new FieldValidationException("uids", "Indicare almeno una mail.");
+            throw new FieldValidationException("uids", "Indicare almeno una mail.").WithCode("indicareAlmenoUnaMail");
         if (uids.Length > MessagesController.MaxBatch)
-            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.");
+            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.").WithCode("alMassimoMailPerVolta", ("maxBatch", MessagesController.MaxBatch));
         return uids.Distinct().ToList();
     }
 }

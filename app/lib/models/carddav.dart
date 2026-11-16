@@ -1,3 +1,5 @@
+import '../l10n/core_errors.dart';
+
 /// Stato della sincronizzazione CardDAV della rubrica di un account (C4c, GET …/contacts/sync).
 class CardDavStatus {
   const CardDavStatus({
@@ -8,9 +10,13 @@ class CardDavStatus {
     this.needsConfirmation = false,
     this.pendingUpload = 0,
     this.addressBook,
+    this.errorCode,
   });
 
   static const off = CardDavStatus(enabled: false, state: 'off');
+
+  /// Codice di [error] dal core (L6): la striscia «Accedi di nuovo» lo riconosce da qui.
+  final String? errorCode;
 
   /// false = sincronizzazione non attiva per l'account (rubrica solo sul computer).
   final bool enabled;
@@ -33,7 +39,8 @@ class CardDavStatus {
     enabled: json['enabled'] as bool? ?? false,
     state: json['state'] as String? ?? 'off',
     lastSync: json['lastSync'] == null ? null : DateTime.parse(json['lastSync'] as String).toLocal(),
-    error: json['error'] as String?,
+    error: coreErrorText(json['errorCode'] as String?, coreErrorArgs(json['errorArgs']), json['error'] as String?),
+    errorCode: json['errorCode'] as String?,
     needsConfirmation: json['needsConfirmation'] as bool? ?? false,
     pendingUpload: json['pendingUpload'] as int? ?? 0,
     addressBook: json['addressBook'] as String?,

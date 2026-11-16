@@ -110,12 +110,12 @@ public sealed class JunkFilter(MailAccount account, JunkStore store, Action<stri
     public async Task<JunkCommandResult> BlockAsync(string folder, IReadOnlyCollection<uint> uids, CancellationToken ct = default)
     {
         var junk = await JunkFolderAsync(ct)
-                   ?? throw new InvalidOperationException("Nessuna cartella della posta indesiderata: sceglierla in «Opzioni posta indesiderata».");
+                   ?? throw new InvalidOperationException("Nessuna cartella della posta indesiderata: sceglierla in «Opzioni posta indesiderata».").WithCode("nessunaCartellaDellaPostaIndesiderata");
         var messages = await ReadAsync(folder, uids, ct);
         var senders = messages.Select(m => JunkClassifier.SenderAddress(m.Message)).OfType<string>()
             .Where(s => !string.Equals(s, account.Address, StringComparison.OrdinalIgnoreCase)).Distinct().ToList();
         if (senders.Count == 0)
-            throw new InvalidOperationException("Nessun mittente da bloccare (le mail sono state inviate da questo account o non hanno mittente).");
+            throw new InvalidOperationException("Nessun mittente da bloccare (le mail sono state inviate da questo account o non hanno mittente).").WithCode("nessunMittenteDaBloccareLe");
         var entries = senders.Select(s => store.Add(JunkList.BlockedSenders, s)).ToList();
 
         var found = messages.Select(m => m.Uid).ToList();
@@ -160,7 +160,7 @@ public sealed class JunkFilter(MailAccount account, JunkStore store, Action<stri
     {
         var junk = await JunkFolderAsync(ct);
         if (folder != junk)
-            throw new InvalidOperationException("«Non è posta indesiderata» vale solo per le mail della cartella della posta indesiderata.");
+            throw new InvalidOperationException("«Non è posta indesiderata» vale solo per le mail della cartella della posta indesiderata.").WithCode("nonPostaIndesiderataValeSolo");
         var messages = await ReadAsync(folder, uids, ct);
         var entries = new List<string>();
         if (trustSenders)
@@ -189,7 +189,7 @@ public sealed class JunkFilter(MailAccount account, JunkStore store, Action<stri
                 // non c'è più: ignorata, come negli altri comandi in blocco
             }
         }
-        return result.Count > 0 ? result : throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.");
+        return result.Count > 0 ? result : throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.").WithCode("nessunaDelleMailIndicateIn", ("folder", folder));
     }
 
     /// <summary>Parole chiave $Junk / $NotJunk: un di più, se il server non le accetta si va avanti.</summary>

@@ -45,15 +45,15 @@ public sealed class ReadReceiptController(MailAccountRegistry accounts, ILogger<
         var folders = PostinoVip.Core.Junk.JunkFolders.WithRole(await account.Reader.GetFoldersAsync(ct), account.Junk?.Load().Folder);
         var role = folders.FirstOrDefault(f => f.FullName == name)?.SpecialUse;
         if (role is "junk" or "sent" or "drafts")
-            throw new InvalidOperationException("Nessuna conferma di lettura per le mail di Posta indesiderata, Posta inviata e Bozze.");
+            throw new InvalidOperationException("Nessuna conferma di lettura per le mail di Posta indesiderata, Posta inviata e Bozze.").WithCode("nessunaConfermaDiLetturaPer");
         var cache = account.Bodies?.Cache;
         var cached = cache?.FindFolder(name);
         if (cache is not null && cached is not null && cache.GetFlags(cached.Id, uid) is var (known, _) && (known & MailFlags.ReceiptHandled) != 0)
-            throw new InvalidOperationException("Alla richiesta di conferma di lettura si è già risposto.");
+            throw new InvalidOperationException("Alla richiesta di conferma di lettura si è già risposto.").WithCode("allaRichiestaDiConfermaDi");
 
         var original = await account.Reader.GetMimeMessageAsync(name, uid, ct);
         if (ReadReceipts.RequestedBy(original) is null)
-            throw new InvalidOperationException("La mail non chiede una conferma di lettura al suo mittente.");
+            throw new InvalidOperationException("La mail non chiede una conferma di lettura al suo mittente.").WithCode("laMailNonChiedeUna2");
 
         if (send)
         {

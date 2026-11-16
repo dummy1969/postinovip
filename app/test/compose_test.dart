@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_quill/flutter_quill.dart' show ChangeSource;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:postinovip/l10n/app_localizations.dart';
 
 import 'compose_helpers.dart';
 import 'package:http/http.dart' as http;
@@ -66,9 +67,10 @@ void main() {
     // Virgola nel nome visualizzato (tra virgolette) e dentro <...>: non divide.
     expect(splitAddresses('"Rossi, Mario" <m@x.it>, b@y.it'), ['"Rossi, Mario" <m@x.it>', 'b@y.it']);
     expect(splitAddresses('Anna <a,b@x.it>'), ['Anna <a,b@x.it>']);
-    expect(validateAddressField('', required: true), isNotNull);
-    expect(validateAddressField('', required: false), isNull);
-    expect(validateAddressField('a@x.it, mario', required: true), contains('mario'));
+    final it = lookupAppLocalizations(const Locale('it'));
+    expect(validateAddressField(it, '', required: true), isNotNull);
+    expect(validateAddressField(it, '', required: false), isNull);
+    expect(validateAddressField(it, 'a@x.it, mario', required: true), contains('mario'));
   });
 
   testWidgets('invio: conferma, POST con liste to/cc, snackbar di esito', (tester) async {

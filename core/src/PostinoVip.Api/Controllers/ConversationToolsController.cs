@@ -26,7 +26,7 @@ public sealed record CleanUpResponse(string? MovedTo, IReadOnlyList<uint> Uids, 
 public sealed class ConversationToolsController(MailAccountRegistry accounts, RuleJobs jobs) : MailControllerBase(accounts)
 {
     private ConversationTools Tools =>
-        jobs.ConversationsFor(CurrentAccount) ?? throw new NotSupportedException("Ignora e Pulisci richiedono la copia locale (Cache:Enabled=false).");
+        jobs.ConversationsFor(CurrentAccount) ?? throw new NotSupportedException("Ignora e Pulisci richiedono la copia locale (Cache:Enabled=false).").WithCode("ignoraPulisciRichiedonoLaCopia");
 
     /// <summary>GET …/messages/{folder}/{uid}/ignored — sola lettura: per il pulsante «Ignora» premuto.</summary>
     [HttpGet("messages/{folder}/{uid}/ignored")]
@@ -74,9 +74,9 @@ public sealed class ConversationToolsController(MailAccountRegistry accounts, Ru
     private static IReadOnlyCollection<uint> RequireUids(uint[]? uids)
     {
         if (uids is null || uids.Length == 0)
-            throw new FieldValidationException("uids", "Indicare almeno una mail.");
+            throw new FieldValidationException("uids", "Indicare almeno una mail.").WithCode("indicareAlmenoUnaMail");
         if (uids.Length > MessagesController.MaxBatch)
-            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.");
+            throw new FieldValidationException("uids", $"Al massimo {MessagesController.MaxBatch} mail per volta.").WithCode("alMassimoMailPerVolta", ("maxBatch", MessagesController.MaxBatch));
         return uids.Distinct().ToList();
     }
 }

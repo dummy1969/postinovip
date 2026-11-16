@@ -5,6 +5,8 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
+import '../l10n/formats.dart';
+
 /// Dove raggiungere il core e con quale token.
 class CoreConnection {
   const CoreConnection({required this.baseUrl, required this.token});
@@ -101,10 +103,7 @@ class CoreLauncher {
 
     final exe = executable ?? findExecutable(env);
     if (exe == null) {
-      throw const CoreStartException(
-        'Eseguibile del core non trovato. Compilarlo con "cd core && dotnet build" '
-        'oppure indicarne il percorso in POSTINOVIP_CORE.',
-      );
+      throw CoreStartException(formatL10n.coreExecutableNotFound);
     }
 
     final token = generateToken();
@@ -128,7 +127,7 @@ class CoreLauncher {
         },
       );
     } on ProcessException catch (e) {
-      throw CoreStartException('Impossibile avviare il core ($exe): ${e.message}');
+      throw CoreStartException(formatL10n.coreCannotStart(exe, e.message));
     }
 
     final output = _OutputTail();
@@ -158,7 +157,7 @@ class CoreLauncher {
         await Future.wait([stdoutDone, stderrDone]).catchError((_) => <void>[]);
         if (!ready.isCompleted) {
           ready.completeError(
-            CoreStartException('Il core è terminato durante l\'avvio (codice $code).', log: output.lines),
+            CoreStartException(formatL10n.coreExitedAtStart('$code'), log: output.lines),
           );
         }
       }),
@@ -169,7 +168,7 @@ class CoreLauncher {
       return CoreHandle._(CoreConnection(baseUrl: 'http://127.0.0.1:$port', token: token), process, output);
     } on TimeoutException {
       process.kill();
-      throw CoreStartException('Il core non ha risposto entro ${timeout.inSeconds} s.', log: output.lines);
+      throw CoreStartException(formatL10n.coreNoAnswerAtStart('${timeout.inSeconds}'), log: output.lines);
     }
   }
 

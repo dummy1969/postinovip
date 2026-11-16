@@ -59,7 +59,7 @@ public sealed class ArchiveStore(string directory)
     {
         var folder = string.IsNullOrWhiteSpace(s.Folder) ? null : s.Folder;
         if (folder is { Length: > 1000 } || folder?.Any(char.IsControl) == true)
-            throw new FieldValidationException("folder", "Cartella non valida.");
+            throw new FieldValidationException("folder", "Cartella non valida.").WithCode("cartellaNonValida");
         return s with { Folder = folder };
     }
 }

@@ -1,6 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/language.dart';
 import '../models/mail_importance.dart';
 
 /// «!» rosso per la priorità alta, freccia blu in giù per la bassa (P1), come in Outlook; niente per la normale.
@@ -16,7 +17,7 @@ class ImportanceIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final high = importance == MailImportance.high;
     return Tooltip(
-      message: high ? 'Priorità alta' : 'Priorità bassa',
+      message: high ? context.l10n.importanceHigh : context.l10n.importanceLow,
       child: Icon(
         high ? FluentIcons.important_16_filled : FluentIcons.arrow_down_16_filled,
         size: 14,

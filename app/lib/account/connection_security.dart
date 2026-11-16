@@ -1,14 +1,19 @@
+import '../l10n/app_localizations.dart';
+import '../l10n/core_errors.dart';
+
 /// Crittografia della connessione con un server (4.1), come il menu "Crittografia" di Outlook.
 /// [coreName]: il valore che il core legge (enum `ConnectionSecurity`).
 enum MailSecurity {
   ssl('SslOnConnect', 'SSL/TLS'),
   startTls('StartTls', 'STARTTLS'),
-  none('None', 'Nessuna');
+  none('None', '');
 
-  const MailSecurity(this.coreName, this.label);
+  const MailSecurity(this.coreName, this._label);
 
   final String coreName;
-  final String label;
+  final String _label;
+
+  String label(AppLocalizations l) => this == none ? l.securityNone : _label;
 
   static MailSecurity? fromCore(String? value) {
     for (final s in values) {
@@ -111,8 +116,17 @@ class CertificateInfo {
     notBefore: DateTime.tryParse(json['notBefore'] as String? ?? '')?.toLocal(),
     notAfter: DateTime.tryParse(json['notAfter'] as String? ?? '')?.toLocal(),
     sha256: json['sha256'] as String,
-    problems: [for (final p in json['problems'] as List? ?? const []) p as String],
+    problems: _problems(json),
   );
+}
+
+/// Problemi nella lingua dell'app dai codici (L6); senza codici quelli scritti dal core.
+List<String> _problems(Map<String, dynamic> json) {
+  final texts = [for (final p in json['problems'] as List? ?? const []) p as String];
+  final codes = [for (final c in json['problemCodes'] as List? ?? const []) c as String];
+  if (codes.length != texts.length) return texts;
+  final host = json['host'] as String? ?? '';
+  return [for (final (i, c) in codes.indexed) certificateProblemText(c, host) ?? texts[i]];
 }
 
 /// Esito di "Verifica connessione": errore per server (null = riuscita) e, se la causa è il certificato,

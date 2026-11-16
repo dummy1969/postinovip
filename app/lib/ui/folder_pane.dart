@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/language.dart';
 import '../models/account_info.dart';
 import '../models/favorite_folder.dart';
 import '../models/mail_folder.dart';
@@ -59,7 +60,7 @@ class FolderPane extends StatelessWidget {
                   onDrop: (data) =>
                       menu.place(FavoriteFolder((data as FolderDrag).account, data.folder.fullName), null),
                   child: _SectionHeader(
-                    title: 'Preferiti',
+                    title: context.l10n.favorites,
                     expanded: !settings.favoritesCollapsed,
                     onToggle: (expanded) => settings.setFavoritesCollapsed(!expanded),
                   ),
@@ -71,8 +72,8 @@ class FolderPane extends StatelessWidget {
                       folder: s.folder,
                       // Con più account il nome della cartella da solo non basta (come Outlook).
                       label: model.accounts.length > 1
-                          ? '${s.folder.displayName} - ${s.account.name}'
-                          : s.folder.displayName,
+                          ? '${s.folder.displayName(context.l10n)} - ${s.account.name}'
+                          : s.folder.displayName(context.l10n),
                       indent: 32,
                       selected: s.account.id == model.selectedAccount && s.folder.fullName == model.selectedFolder,
                       onTap: () => model.selectFolder(s.folder.fullName, account: s.account.id),
@@ -91,11 +92,11 @@ class FolderPane extends StatelessWidget {
                         _ => null,
                       },
                       menuItems: [
-                        _item(FluentIcons.star_off_20_regular, 'Rimuovi dai Preferiti', () => menu.remove(s.favorite)),
-                        _item(FluentIcons.arrow_up_20_regular, 'Sposta su', i > 0 ? () => menu.swap(i, i - 1) : null),
+                        _item(FluentIcons.star_off_20_regular, context.l10n.removeFromFavorites, () => menu.remove(s.favorite)),
+                        _item(FluentIcons.arrow_up_20_regular, context.l10n.moveUp, i > 0 ? () => menu.swap(i, i - 1) : null),
                         _item(
                           FluentIcons.arrow_down_20_regular,
-                          'Sposta giù',
+                          context.l10n.moveDown,
                           i < shown.length - 1 ? () => menu.swap(i, i + 1) : null,
                         ),
                       ],
@@ -106,7 +107,7 @@ class FolderPane extends StatelessWidget {
                     menuItems: [
                       _item(
                         FluentIcons.folder_add_20_regular,
-                        'Nuova cartella',
+                        context.l10n.newFolder,
                         model.isOnline(account.id) ? () => model.startNewFolder(account.id, null) : null,
                       ),
                     ],
@@ -145,7 +146,7 @@ class FolderPane extends StatelessWidget {
           contentPadding: const EdgeInsets.only(left: 32, right: 8),
           leading: Icon(Icons.error_outline, size: 20, color: Theme.of(context).colorScheme.error),
           title: Text(error, maxLines: 3, overflow: TextOverflow.ellipsis),
-          trailing: TextButton(onPressed: () => model.loadAccountFolders(account.id), child: const Text('Riprova')),
+          trailing: TextButton(onPressed: () => model.loadAccountFolders(account.id), child: Text(context.l10n.retry)),
         ),
       ];
     }
@@ -166,7 +167,7 @@ class FolderPane extends StatelessWidget {
         _FolderRow(
           key: ValueKey('folder:${account.id}:${folder.fullName}'),
           folder: folder,
-          label: folder.displayName,
+          label: folder.displayName(context.l10n),
           indent: 32.0 + folder.depth * 16,
           selected: account.id == model.selectedAccount && folder.fullName == model.selectedFolder,
           editing: edit != null && edit.folder == folder.fullName,
@@ -187,24 +188,24 @@ class FolderPane extends StatelessWidget {
             if (menu.contains(account.id, folder.fullName))
               _item(
                 FluentIcons.star_off_20_regular,
-                'Rimuovi dai Preferiti',
+                context.l10n.removeFromFavorites,
                 () => menu.remove(FavoriteFolder(account.id, folder.fullName)),
               )
             else
               _item(
                 FluentIcons.star_20_regular,
-                'Mostra nei Preferiti',
+                context.l10n.showInFavorites,
                 () => menu.add(FavoriteFolder(account.id, folder.fullName)),
               ),
             const Divider(height: 8),
             _item(
               FluentIcons.folder_add_20_regular,
-              'Nuova cartella',
+              context.l10n.newFolder,
               online ? () => model.startNewFolder(account.id, folder.fullName) : null,
             ),
             _item(
               FluentIcons.rename_20_regular,
-              'Rinomina cartella',
+              context.l10n.renameFolder,
               model.canEditFolder(account.id, folder)
                   ? () => model.startRenameFolder(account.id, folder.fullName)
                   : null,
@@ -212,7 +213,7 @@ class FolderPane extends StatelessWidget {
             // Pulisci cartella (C2): come il tasto destro sulle cartelle di Outlook.
             _item(
               FluentIcons.broom_20_regular,
-              'Pulisci cartella',
+              context.l10n.cleanUpFolder,
               ConversationToolActions.canCleanUpFolder(model, account: account.id, folder: folder.fullName)
                   ? () => ConversationToolActions.cleanUpFolder(context, account: account.id, folder: folder.fullName)
                   : null,
@@ -221,12 +222,12 @@ class FolderPane extends StatelessWidget {
             if (folder.role == 'trash' || folder.role == 'junk')
               _item(
                 FluentIcons.delete_dismiss_20_regular,
-                'Svuota cartella',
+                context.l10n.emptyFolder,
                 model.canEmptyFolder(account.id, folder) ? () => FolderActions.empty(context, account.id, folder) : null,
               ),
             _item(
               FluentIcons.delete_20_regular,
-              'Elimina cartella',
+              context.l10n.deleteFolder,
               model.canEditFolder(account.id, folder) ? () => FolderActions.delete(context, account.id, folder) : null,
             ),
           ],
@@ -241,7 +242,7 @@ class FolderPane extends StatelessWidget {
           key: ValueKey('outbox:${account.id}'),
           indent: 32,
           leading: const Icon(FluentIcons.mail_clock_20_regular, size: 20),
-          title: const Text('Posta in uscita', overflow: TextOverflow.ellipsis),
+          title: Text(context.l10n.outbox, overflow: TextOverflow.ellipsis),
           trailing: outbox.isEmpty
               ? null
               : Text('[${outbox.length}]', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
@@ -498,7 +499,7 @@ class _FolderNameFieldState extends State<_FolderNameField> {
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           isDense: true,
-          hintText: 'Nome della cartella',
+          hintText: context.l10n.folderNameHint,
           errorText: model.folderEditError,
           errorMaxLines: 4,
           border: const OutlineInputBorder(),
@@ -586,9 +587,7 @@ class _AccountHeader extends StatelessWidget {
       ),
       trailing: watching == false
           ? Tooltip(
-              message:
-                  'Aggiornamento automatico non attivo per ${account.address}: '
-                  'le nuove mail compaiono solo con "Aggiorna"',
+              message: context.l10n.noAutoUpdate(account.address),
               child: Icon(Icons.sync_disabled, size: 20, color: theme.colorScheme.error),
             )
           : null,

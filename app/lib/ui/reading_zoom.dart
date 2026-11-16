@@ -1,6 +1,8 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -97,7 +99,7 @@ class ZoomControl extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        button(const Key('zoom-out'), FluentIcons.subtract_16_regular, 'Riduci (Ctrl+-)', -1),
+        button(const Key('zoom-out'), FluentIcons.subtract_16_regular, context.l10n.zoomOut, -1),
         SizedBox(
           width: 110,
           height: 22,
@@ -120,9 +122,9 @@ class ZoomControl extends StatelessWidget {
             ),
           ),
         ),
-        button(const Key('zoom-in'), FluentIcons.add_16_regular, 'Ingrandisci (Ctrl++)', 1),
+        button(const Key('zoom-in'), FluentIcons.add_16_regular, context.l10n.zoomIn, 1),
         Tooltip(
-          message: 'Zoom del riquadro di lettura: clic per tornare al 100% (Ctrl+0)',
+          message: context.l10n.zoomReset,
           child: InkWell(
             key: const Key('zoom-reset'),
             onTap: () => settings.setReadingZoom(100),

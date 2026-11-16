@@ -15,6 +15,10 @@ public sealed record ConnectionCheck(bool Ok, string? Error, CertificateInfo? Ce
 {
     public static readonly ConnectionCheck Success = new(true, null);
     public static ConnectionCheck Failure(string error) => new(false, error);
+
+    /// <summary>Codice e valori di <see cref="Error"/> per l'app (L6); null = solo il testo.</summary>
+    public string? ErrorCode { get; init; }
+    public IReadOnlyDictionary<string, string>? ErrorArgs { get; init; }
 }
 
 /// <summary>
@@ -51,7 +55,8 @@ public static class AccountTester
             using var client = new MailKit.Net.Pop3.Pop3Client { Timeout = (int)Timeout.TotalMilliseconds };
             await Pop3.Pop3Fetcher.ConnectAsync(client, settings, timeout.Token);
             if (!client.Capabilities.HasFlag(MailKit.Net.Pop3.Pop3Capabilities.UIDL))
-                return ConnectionCheck.Failure($"Il server POP3 {settings.Host}:{settings.Port} non supporta UIDL: necessario per non scaricare due volte le mail.");
+                return ConnectionCheck.Failure($"Il server POP3 {settings.Host}:{settings.Port} non supporta UIDL: necessario per non scaricare due volte le mail.")
+                    with { ErrorCode = "pop3NoUidl", ErrorArgs = Address(settings.Host, settings.Port) };
             await client.DisconnectAsync(quit: true, timeout.Token); // nessun DELE: non cambia nulla
             return ConnectionCheck.Success;
         }
@@ -76,8 +81,30 @@ public static class AccountTester
         }
     }
 
-    private static ConnectionCheck Fail(Exception ex, string host, int port) =>
-        new(false, Describe(ex, host, port), Untrusted(ex)?.Certificate);
+    private static ConnectionCheck Fail(Exception ex, string host, int port)
+    {
+        var (code, args) = CodeOf(ex, host, port);
+        return new(false, Describe(ex, host, port), Untrusted(ex)?.Certificate) { ErrorCode = code, ErrorArgs = args };
+    }
+
+    private static Dictionary<string, string> Address(string host, int port) => new() { ["address"] = $"{host}:{port}" };
+
+    /// <summary>Codice per l'app dello stesso caso di <see cref="Describe"/> (L6).</summary>
+    public static (string? Code, IReadOnlyDictionary<string, string>? Args) CodeOf(Exception ex, string host, int port) => ex switch
+    {
+        ArgumentException or OAuth.OAuthException => (CoreError.CodeOf(ex), CoreError.CodeOf(ex) is null ? null : CoreError.ArgsOf(ex)),
+        UntrustedCertificateException e => ("testCertificateInvalid",
+            new Dictionary<string, string>(Address(host, port)) { ["host"] = host, ["problems"] = string.Join(",", e.Certificate.ProblemCodes) }),
+        NotSupportedException => ("testNoStartTls", Address(host, port)),
+        AuthenticationException => ("testAuthRejected", null),
+        SslHandshakeException => ("testTlsFailed", Address(host, port)),
+        SocketException => ("testUnreachable", Address(host, port)),
+        MailOfflineException { InnerException: { } inner } => CodeOf(inner, host, port),
+        OperationCanceledException or TimeoutException =>
+            ("testNoAnswer", new Dictionary<string, string>(Address(host, port)) { ["seconds"] = $"{Timeout.TotalSeconds:0}" }),
+        ProtocolException or IOException => ("testUnexpectedAnswer", Address(host, port)),
+        _ => (null, null),
+    };
 
     private static UntrustedCertificateException? Untrusted(Exception ex) => ex switch
     {

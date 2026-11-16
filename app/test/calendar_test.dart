@@ -20,6 +20,7 @@ import 'package:postinovip/ui/calendar_view.dart';
 import 'package:postinovip/ui/ribbon_parts.dart';
 
 import 'multi_select_test.dart' as ms;
+import 'package:postinovip/l10n/app_localizations.dart';
 
 // Calendario K3 (app, sola lettura): modulo Calendario, viste Giorno / Settimana lavorativa / Settimana / Mese, navigazione,
 // calendari visibili e colori, scheda in sola lettura, Opzioni, sezione «Calendario» dell'account. Core finto della
@@ -278,6 +279,22 @@ void main() {
 
   final riunione = find.byKey(const Key('event:a1|c1|e1|2026-11-11T09:00:00Z'));
 
+  // Prima il pulsante del promemoria era una colonna fatta a mano che traboccava di 2 px nella barra semplificata
+  // (segnalato dall'utente con una schermata il 16/11/2026); anche con la barra classica.
+  for (final layout in RibbonLayout.values) {
+    testWidgets('Appuntamento con la barra ${layout.name}: nessun trabocco (pulsante del promemoria)', (tester) async {
+      final settings = AppSettings(MemorySettingsStore())..ribbonLayout = layout;
+      final (fake, _) = await start(tester, settings: settings);
+      await doubleTap(tester, riunione);
+      await tester.tap(find.byKey(const Key('choose-series')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AppointmentPage), findsOneWidget);
+      expect(find.text('Promemoria: 15 minuti'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: layout.name);
+      await fake.core.sse.close();
+    });
+  }
+
   testWidgets('Serie ricorrente: «Tutta la serie», finestra con ricorrenza, salvataggio che la conserva', (tester) async {
     final (fake, _) = await start(tester);
     await doubleTap(tester, riunione);
@@ -489,7 +506,7 @@ void main() {
         oauthProvider: 'google', refreshToken: 'RT1', calDavEnabled: true);
     final (fake, _) = await start(tester, editing: AccountsEditing(accounts: [gmail], coreAddress: '', save: (_) async {}));
     expect(find.byKey(const Key('caldav-relogin-strip')), findsNothing);
-    fake.status = {...fake.status, 'state': 'error', 'error': error};
+    fake.status = {...fake.status, 'state': 'error', 'error': error, 'errorCode': 'davScopeMissingCalendar', 'errorArgs': {'provider': 'Google'}};
     fake.event({'type': 'calendars-changed', 'account': 'a1', 'count': 2});
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('caldav-relogin-strip')), findsOneWidget);
@@ -542,7 +559,9 @@ void main() {
     );
     AccountConfig? saved;
     final initial = AccountConfig(id: 'a1', email: 'io@example.com', password: 'x', imapHost: 'imap.example.com', smtpHost: 'smtp.example.com');
-    await tester.pumpWidget(MaterialApp(home: AccountSetupPage(api: api, initial: initial, onSave: (a) async => saved = a)));
+    await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,home: AccountSetupPage(api: api, initial: initial, onSave: (a) async => saved = a)));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('caldav-enabled')));
     await tester.tap(find.byKey(const Key('caldav-enabled')));

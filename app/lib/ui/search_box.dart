@@ -1,5 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../state/mailbox_model.dart';
@@ -54,20 +56,17 @@ class _MailSearchBoxState extends State<MailSearchBox> {
         isCollapsed: true,
         contentPadding: EdgeInsets.zero, // niente margini del tema (V6): il testo resta allineato alla lente
         border: InputBorder.none,
-        hintText: 'Cerca',
+        hintText: context.l10n.search,
         hintStyle: textStyle?.copyWith(color: scheme.onSurfaceVariant),
       ),
     );
     final trailing = model.searchText.isEmpty
         ? Tooltip(
-            message:
-                'Parole (anche iniziali: "fatt" trova "fattura"), "frase esatta"\n'
-                'da:anna   a:mario   oggetto:riunione\n'
-                'allegato:pdf   allegati:sì   allegati:no',
+            message: context.l10n.searchHelp,
             child: Icon(FluentIcons.question_circle_20_regular, size: 18, color: scheme.onSurfaceVariant),
           )
         : IconButton(
-            tooltip: 'Chiudi la ricerca',
+            tooltip: context.l10n.searchClose,
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints.tightFor(width: 28, height: 28),
@@ -87,9 +86,10 @@ class _MailSearchBoxState extends State<MailSearchBox> {
         icon: Icon(FluentIcons.chevron_down_16_regular, size: 14, color: scheme.onSurfaceVariant),
         onChanged: enabled ? (s) => model.setSearchScope(s!) : null,
         items: [
-          DropdownMenuItem(value: SearchScope.folder, child: item('Cartella attuale')),
-          DropdownMenuItem(value: SearchScope.account, child: item('Tutte le cartelle')),
-          if (model.multipleAccounts) DropdownMenuItem(value: SearchScope.allAccounts, child: item('Tutti gli account')),
+          DropdownMenuItem(value: SearchScope.folder, child: item(context.l10n.searchScopeFolder)),
+          DropdownMenuItem(value: SearchScope.account, child: item(context.l10n.searchScopeAccount)),
+          if (model.multipleAccounts)
+            DropdownMenuItem(value: SearchScope.allAccounts, child: item(context.l10n.searchScopeAllAccounts)),
         ],
       ),
     );

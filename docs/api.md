@@ -3,6 +3,13 @@
 Endpoint REST/JSON del core C# (`core/src/PostinoVip.Api`), su `127.0.0.1` con `Authorization: Bearer <token>`.
 Spostato da `CLAUDE.md` il 06/11/2026 (0.0.120): **aggiornare qui** quando si aggiunge o cambia un endpoint.
 
+## Lingua ed errori (tappa «Lingua», L6, dal 0.0.255)
+
+- Ogni richiesta dell'app porta `Accept-Language` (`it` o `en`): il core tiene l'ultima lingua ricevuta (`UiLanguage.Current`, scelta 2a) per i testi che scrive da solo; le lingue che non conosce sono ignorate.
+- Gli errori sono `ProblemDetails` con, oltre a `title` e `detail` in italiano: `kind` (tipo: `invalidRequest`, `notFound`, `offline`, `server`, `conflict`, `notSupported`, `certificate`, `oauth`, `auth`, `config`, `internal`) e, quando c'è, `code` con `args` (valori come testi). L'app traduce il tipo (titolo) e il codice (dettaglio); un codice che non conosce lascia `detail`. I 400 per campo hanno anche `fieldCodes: {campo: {code, args}}`.
+- Con lo stesso scopo `errorCode`/`errorArgs` accanto a `error` in: esito di `POST /account/test` (`imap`, `smtp`), stato di un accesso OAuth (`GET /oauth/flows/{id}`), stato della sincronizzazione (`…/contacts/sync`, `…/calendars/sync`); `problemCodes` accanto a `problems` nei certificati.
+- Codici dati finora (L6a): errori generici (`timeout`, `authCheckCredentials`, `internalUnexpected`, `certificateChanged`), «Verifica connessione» (`test…`, `pop3NoUidl`), OAuth (`oauth…`), senza rete (`serverUnreachable`, `pop3…`, `smtp…`, `contactsServer…`, `calendarServer…`, `notConnected`), permessi di Google (`davSignInRejected…`, `davScopeMissing…`, `accountScopeMissing…`). Dal 0.0.257 (L6c) tutti gli errori del core con un testo hanno un codice (159, ricavati dal testo italiano). Elenco completo e testi: `app/lib/l10n/core_errors.dart` e `app/lib/l10n/core_error_codes.dart`. Ricerca (L6d): anche `from:`, `to:`, `subject:`, `attachment:`, `hasattachments:yes/no`.
+
 ## Endpoint attuali
 
 **Multi-account (dal 7a):** tutti gli endpoint di cartelle, messaggi e invio esistono anche con il prefisso `/accounts/{accountId}` (es. `GET /accounts/secondo/folders`, `POST /accounts/secondo/send`); senza prefisso agiscono sul **primo** account (compatibilità con l'app a un account). Id sconosciuto -> 404.

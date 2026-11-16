@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 
+import '../l10n/formats.dart';
+
 /// File scelto dal disco per essere allegato.
 class PickedFile {
   const PickedFile(this.name, this.bytes);
@@ -37,7 +39,7 @@ class SystemFilePicker implements FilePickerService {
 
 /// Dimensione leggibile (1,2 MB / 340 KB).
 String formatSize(int bytes) {
-  if (bytes >= 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1).replaceAll('.', ',')} MB';
+  if (bytes >= 1024 * 1024) return formatMegabytes(bytes);
   if (bytes >= 1024) return '${(bytes / 1024).round()} KB';
-  return '$bytes byte';
+  return formatL10n.sizeBytes(bytes);
 }

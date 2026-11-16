@@ -1,39 +1,56 @@
+import '../l10n/app_localizations.dart';
+
 /// Livello del filtro della posta indesiderata, come in Outlook classico (Opzioni posta indesiderata). I livelli si
 /// basano sul giudizio che il server scrive nella mail (SpamAssassin e simili), scelta 2a della J1.
 enum JunkLevel {
-  none('None', 'Nessun filtro automatico',
-      'La posta dei mittenti bloccati viene comunque spostata nella cartella della posta indesiderata.'),
-  low('Low', 'Bassa', 'Sposta la posta indesiderata più evidente: quella che il server ha segnato come spam.'),
-  high('High', 'Alta',
-      'Sposta anche le mail con un punteggio vicino alla soglia del server: può capitare anche a posta normale, '
-          'controlla spesso la cartella della posta indesiderata.'),
-  safeListsOnly('SafeListsOnly', 'Solo elenchi attendibili',
-      'Solo la posta di mittenti attendibili, o inviata a destinatari attendibili, resta in Posta in arrivo.');
+  none('None'),
+  low('Low'),
+  high('High'),
+  safeListsOnly('SafeListsOnly');
 
-  const JunkLevel(this.coreName, this.label, this.description);
+  const JunkLevel(this.coreName);
 
   final String coreName;
-  final String label;
-  final String description;
+
+  String label(AppLocalizations l) => switch (this) {
+    none => l.junkLevelNone,
+    low => l.junkLevelLow,
+    high => l.junkLevelHigh,
+    safeListsOnly => l.junkLevelSafeOnly,
+  };
+
+  String description(AppLocalizations l) => switch (this) {
+    none => l.junkLevelNoneInfo,
+    low => l.junkLevelLowInfo,
+    high => l.junkLevelHighInfo,
+    safeListsOnly => l.junkLevelSafeOnlyInfo,
+  };
 
   static JunkLevel fromCore(String? name) => values.firstWhere((l) => l.coreName == name, orElse: () => none);
 }
 
 /// Elenchi delle Opzioni posta indesiderata.
 enum JunkList {
-  safeSenders('safeSenders', 'Mittenti attendibili',
-      'La posta proveniente da questi indirizzi o domini non verrà mai considerata posta indesiderata.'),
-  safeRecipients('safeRecipients', 'Destinatari attendibili',
-      'La posta inviata a questi indirizzi o domini (per esempio una mailing list) non verrà mai considerata posta indesiderata.'),
-  blockedSenders('blockedSenders', 'Mittenti bloccati',
-      'La posta proveniente da questi indirizzi o domini verrà sempre spostata nella cartella della posta indesiderata.');
+  safeSenders('safeSenders'),
+  safeRecipients('safeRecipients'),
+  blockedSenders('blockedSenders');
 
-  const JunkList(this.field, this.label, this.description);
+  const JunkList(this.field);
 
   /// Nome del campo nel JSON del core (anche negli errori di validazione, in minuscolo).
   final String field;
-  final String label;
-  final String description;
+
+  String label(AppLocalizations l) => switch (this) {
+    safeSenders => l.safeSenders,
+    safeRecipients => l.safeRecipients,
+    blockedSenders => l.blockedSenders,
+  };
+
+  String description(AppLocalizations l) => switch (this) {
+    safeSenders => l.safeSendersInfo,
+    safeRecipients => l.safeRecipientsInfo,
+    blockedSenders => l.blockedSendersInfo,
+  };
 }
 
 /// Opzioni posta indesiderata di un account (GET/PUT …/junk).
@@ -93,14 +110,20 @@ class JunkOptions {
 
 /// «Non bloccare mai…»: cosa diventa attendibile.
 enum NeverBlockKind {
-  sender('Sender', 'Non bloccare mai il mittente'),
-  domain('Domain', 'Non bloccare mai il dominio del mittente'),
-  group('Group', 'Non bloccare mai questo gruppo o mailing list');
+  sender('Sender'),
+  domain('Domain'),
+  group('Group');
 
-  const NeverBlockKind(this.coreName, this.label);
+  const NeverBlockKind(this.coreName);
 
   final String coreName;
-  final String label;
+
+  /// [many]: più mail selezionate (per il gruppo cambia il testo).
+  String label(AppLocalizations l, {bool many = false}) => switch (this) {
+    sender => l.neverBlockSender,
+    domain => l.neverBlockDomain,
+    group => many ? l.neverBlockGroups : l.neverBlockGroup,
+  };
 }
 
 /// Esito di un comando della posta indesiderata: voci aggiunte agli elenchi, mail spostate e destinazione.

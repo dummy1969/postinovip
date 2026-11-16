@@ -61,14 +61,14 @@ public sealed class LocalMailReader(string account, LocalMailStore store, Accoun
     /// </summary>
     public async Task<CachedFolder> SyncAsync(string folder, CancellationToken ct = default)
     {
-        var info = store.FolderExists(folder) ? store.GetFolder(folder) : throw new MailNotFoundException($"Cartella '{folder}' non trovata.");
+        var info = store.FolderExists(folder) ? store.GetFolder(folder) : throw new MailNotFoundException($"Cartella '{folder}' non trovata.").WithCode("cartellaNonTrovata3", ("folder", folder));
         var source = new LocalFolderSource(store, folder, info);
         using var _ = await cache.LockFolderAsync(folder, ct);
         var result = await FolderSynchronizer.SyncAsync(source, cache, ct);
         if (result.Reset)
             log?.Invoke($"[{account}] copia locale {result}");
         var cached = cache.FindFolder(folder)
-            ?? throw new InvalidOperationException($"Cartella '{folder}' assente dall'indice dopo la sincronizzazione.");
+            ?? throw new InvalidOperationException($"Cartella '{folder}' assente dall'indice dopo la sincronizzazione.").WithCode("cartellaAssenteDallIndiceDopo", ("folder", folder));
 
         var indexed = 0;
         foreach (var uid in cache.GetUnindexedBodies(cached.Id))
@@ -124,7 +124,7 @@ public sealed class LocalMailReader(string account, LocalMailStore store, Accoun
 
     public async Task<AttachmentContent> GetAttachmentAsync(string folder, uint uid, int index, CancellationToken ct = default) =>
         Attachments.Extract(await LoadAsync(folder, uid, ct), index)
-            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.");
+            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio", ("index", index), ("uid", uid));
 
     public async Task<IReadOnlyList<AttachmentContent>> GetAttachmentsAsync(string folder, uint uid, IReadOnlyList<int> indexes,
         CancellationToken ct = default)
@@ -132,7 +132,7 @@ public sealed class LocalMailReader(string account, LocalMailStore store, Accoun
         var message = await LoadAsync(folder, uid, ct);
         return indexes
             .Select(i => Attachments.Extract(message, i)
-                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}."))
+                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio2", ("i", i), ("uid", uid)))
             .ToList();
     }
 

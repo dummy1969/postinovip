@@ -1,14 +1,21 @@
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+
 /// Scadenze del contrassegno come nel menu "Completa" di Outlook (3.3).
 enum FollowUpChoice {
-  today('Oggi'),
-  tomorrow('Domani'),
-  thisWeek('Questa settimana'),
-  nextWeek('Settimana prossima'),
-  noDate('Nessuna data');
+  today,
+  tomorrow,
+  thisWeek,
+  nextWeek,
+  noDate;
 
-  const FollowUpChoice(this.label);
-
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    today => l.today,
+    tomorrow => l.followUpTomorrow,
+    thisWeek => l.followUpThisWeek,
+    nextWeek => l.followUpNextWeek,
+    noDate => l.followUpNoDate,
+  };
 
   /// Giorno di scadenza (a mezzanotte, ora locale): "questa settimana" = venerdì (oggi se è già
   /// sabato o domenica), "settimana prossima" = venerdì della settimana dopo; null per [noDate].
@@ -24,8 +31,5 @@ enum FollowUpChoice {
   }
 }
 
-const _days = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
-
-/// "gio 05/11/2026".
-String formatDueDate(DateTime day) =>
-    '${_days[day.weekday - 1]} ${day.day.toString().padLeft(2, '0')}/${day.month.toString().padLeft(2, '0')}/${day.year}';
+/// "gio 05/11/2026" / "Thu 11/5/2026".
+String formatDueDate(DateTime day) => formatWeekdayDate(day);

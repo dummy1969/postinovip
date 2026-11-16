@@ -70,17 +70,17 @@ public sealed class CalendarStore(string directory)
     public CalendarItem SaveLocal(string? id, string text)
     {
         text = CalendarText.Normalize(text);
-        var uid = CalendarText.Check(text) ?? throw new FieldValidationException("event", "Appuntamento non valido.");
+        var uid = CalendarText.Check(text) ?? throw new FieldValidationException("event", "Appuntamento non valido.").WithCode("appuntamentoNonValido");
         CalendarItem saved;
         lock (_lock)
         {
             var items = Loaded();
             if (id is not null && !items.ContainsKey(id))
-                throw new MailNotFoundException("Appuntamento non trovato.");
+                throw new MailNotFoundException("Appuntamento non trovato.").WithCode("appuntamentoNonTrovato");
             if (items.Values.Any(i => i.Uid == uid && i.Id != id))
-                throw new FieldValidationException("event", "Esiste già un appuntamento con lo stesso UID.");
+                throw new FieldValidationException("event", "Esiste già un appuntamento con lo stesso UID.").WithCode("esisteGiaUnAppuntamentoCon");
             if (id is null && items.Count >= MaxItems)
-                throw new FieldValidationException("event", $"Il calendario ha già {MaxItems} appuntamenti.");
+                throw new FieldValidationException("event", $"Il calendario ha già {MaxItems} appuntamenti.").WithCode("ilCalendarioHaGiaAppuntamenti", ("maxItems", MaxItems));
             saved = Save(id ?? NewId(), uid, text, DateTimeOffset.UtcNow);
         }
         LocalChanged?.Invoke();
@@ -93,7 +93,7 @@ public sealed class CalendarStore(string directory)
         lock (_lock)
         {
             if (!Loaded().ContainsKey(id))
-                throw new MailNotFoundException("Appuntamento non trovato.");
+                throw new MailNotFoundException("Appuntamento non trovato.").WithCode("appuntamentoNonTrovato");
             Remove(id);
         }
         LocalChanged?.Invoke();
@@ -223,7 +223,7 @@ public sealed class CalendarStore(string directory)
     }
 
     private string PathOf(string id) =>
-        IsValidId(id) ? Path.Combine(ItemsDirectory, id + ".ics") : throw new MailNotFoundException("Appuntamento non trovato.");
+        IsValidId(id) ? Path.Combine(ItemsDirectory, id + ".ics") : throw new MailNotFoundException("Appuntamento non trovato.").WithCode("appuntamentoNonTrovato");
 
     private static string NewId() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8));
 }

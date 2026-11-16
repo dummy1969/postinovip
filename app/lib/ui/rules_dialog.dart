@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../models/mail_folder.dart';
 import '../models/mail_rule.dart';
 import '../settings/app_settings.dart';
@@ -33,6 +35,7 @@ class RulesUi {
     final model = context.read<MailboxModel>();
     final api = context.read<ApiClient>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final detail = model.detail;
     final account = model.openAccount;
     if (detail == null || account == null) return;
@@ -42,7 +45,7 @@ class RulesUi {
       context: context,
       builder: (_) => RuleEditorDialog(
         initial: MailRule(
-          name: detail.subject.isEmpty ? 'Da $sender' : detail.subject,
+          name: detail.subject.isEmpty ? l.ruleNameFrom(sender) : detail.subject,
           conditions: RuleConditions(from: [sender]),
         ),
         suggestedSubject: detail.subject,
@@ -54,42 +57,42 @@ class RulesUi {
       final client = api.forAccount(account);
       await client.saveRules([...await client.getRules(), rule]);
       messenger.showSnackBar(
-        SnackBar(content: Text('Regola «${rule.name}» creata: vale per le mail che arriveranno.')),
+        SnackBar(content: Text(l.ruleCreated(rule.name))),
       );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Regola non salvata: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.ruleNotSaved('$e'))));
     }
   }
 
   /// Descrizione leggibile della regola, per l'elenco ("Se … → …").
   static String describe(MailRule rule, AppSettings settings) {
-    String words(List<String>? w) => (w ?? const []).map((x) => '«$x»').join(' o ');
+    final l = settings.l10n;
+    String words(List<String>? w) => (w ?? const []).map(l.quoted).join(l.orSeparator);
     List<String> conditions(RuleConditions c) => [
-      if ((c.from ?? const []).isNotEmpty) 'da ${words(c.from)}',
-      if ((c.toOrCc ?? const []).isNotEmpty) 'A o Cc contiene ${words(c.toOrCc)}',
-      if (c.sentOnlyToMe) 'inviata solo a me',
-      if (c.meInTo) 'io in A',
-      if (c.meInCc) 'io in Cc',
-      if ((c.subjectContains ?? const []).isNotEmpty) 'oggetto contiene ${words(c.subjectContains)}',
-      if ((c.subjectOrBodyContains ?? const []).isNotEmpty)
-        'oggetto o testo contiene ${words(c.subjectOrBodyContains)}',
-      if (c.hasAttachments) 'con allegati',
-      if (c.sizeGreaterThanKb != null) 'più grande di ${c.sizeGreaterThanKb} KB',
+      if ((c.from ?? const []).isNotEmpty) l.ruleDescFrom(words(c.from)),
+      if ((c.toOrCc ?? const []).isNotEmpty) l.ruleDescToOrCc(words(c.toOrCc)),
+      if (c.sentOnlyToMe) l.ruleDescSentOnlyToMe,
+      if (c.meInTo) l.ruleDescMeInTo,
+      if (c.meInCc) l.ruleDescMeInCc,
+      if ((c.subjectContains ?? const []).isNotEmpty) l.ruleDescSubject(words(c.subjectContains)),
+      if ((c.subjectOrBodyContains ?? const []).isNotEmpty) l.ruleDescSubjectOrBody(words(c.subjectOrBodyContains)),
+      if (c.hasAttachments) l.ruleDescAttachments,
+      if (c.sizeGreaterThanKb != null) l.ruleDescSize(c.sizeGreaterThanKb!),
     ];
     final a = rule.actions;
     final actions = [
-      if (a.moveTo != null) 'sposta in ${a.moveTo}',
-      if (a.copyTo != null) 'copia in ${a.copyTo}',
-      if (a.delete) 'elimina',
-      if (a.markRead) 'segna come letta',
-      if (a.flag) 'contrassegna',
-      if (a.category != null) 'categoria ${settings.categoryName(a.category!)}',
-      if (a.stopProcessing) 'nessun\'altra regola',
+      if (a.moveTo != null) l.ruleDescMove(a.moveTo!),
+      if (a.copyTo != null) l.ruleDescCopy(a.copyTo!),
+      if (a.delete) l.ruleDescDelete,
+      if (a.markRead) l.ruleDescMarkRead,
+      if (a.flag) l.ruleDescFlag,
+      if (a.category != null) l.ruleDescCategory(settings.categoryName(a.category!)),
+      if (a.stopProcessing) l.ruleDescStop,
     ];
     final when = conditions(rule.conditions);
     final unless = rule.exceptions == null ? const <String>[] : conditions(rule.exceptions!);
-    return '${when.isEmpty ? 'Tutte le mail' : 'Se ${when.join(' e ')}'}'
-        '${unless.isEmpty ? '' : ', tranne se ${unless.join(' o ')}'}'
+    return '${when.isEmpty ? l.ruleDescAllMail : l.ruleDescIf(when.join(l.andSeparator))}'
+        '${unless.isEmpty ? '' : l.ruleDescExcept(unless.join(l.orSeparator))}'
         ' → ${actions.join(', ')}';
   }
 }
@@ -127,7 +130,7 @@ class _RulesDialogState extends State<RulesDialog> {
       final rules = await context.read<ApiClient>().forAccount(account).getRules();
       if (mounted) setState(() => _rules[account] = rules);
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = 'Regole non lette: $e');
+      if (mounted) setState(() => _error = context.l10n.rulesNotRead('$e'));
     }
   }
 
@@ -164,14 +167,15 @@ class _RulesDialogState extends State<RulesDialog> {
 
   Future<void> _delete(int index) async {
     final name = _list![index].name;
+    final l = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminare la regola?'),
-        content: Text('La regola «$name» non verrà più applicata. Le mail già smistate restano dove sono.'),
+        title: Text(l.deleteRuleQuestion),
+        content: Text(l.deleteRuleContent(name)),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.delete)),
         ],
       ),
     );
@@ -192,6 +196,7 @@ class _RulesDialogState extends State<RulesDialog> {
   Future<void> _runNow() async {
     final api = context.read<ApiClient>().forAccount(_account);
     final model = context.read<MailboxModel>();
+    final l = context.l10n;
     if (_dirty.contains(_account)) {
       try {
         final saved = await api.saveRules(_rules[_account]!);
@@ -200,7 +205,7 @@ class _RulesDialogState extends State<RulesDialog> {
           _dirty.remove(_account);
         });
       } on ApiException catch (e) {
-        setState(() => _error = 'Regole non salvate: ${e.fieldErrors['rules']?.first ?? e}');
+        setState(() => _error = l.rulesNotSaved('${e.fieldErrors['rules']?.first ?? e}'));
         return;
       }
     }
@@ -215,6 +220,7 @@ class _RulesDialogState extends State<RulesDialog> {
   }
 
   Future<void> _save() async {
+    final l = context.l10n;
     setState(() {
       _saving = true;
       _error = null;
@@ -230,7 +236,7 @@ class _RulesDialogState extends State<RulesDialog> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Regole non salvate: ${e.fieldErrors['rules']?.first ?? e}';
+          _error = l.rulesNotSaved('${e.fieldErrors['rules']?.first ?? e}');
         });
       }
     }
@@ -243,9 +249,10 @@ class _RulesDialogState extends State<RulesDialog> {
     final theme = Theme.of(context);
     final list = _list;
     final selected = list == null || _selected == null || _selected! >= list.length ? null : _selected;
+    final l = context.l10n;
 
     return AlertDialog(
-      title: const Text('Regole e avvisi'),
+      title: Text(l.rulesAndAlerts),
       content: SizedBox(
         width: 680,
         height: 460,
@@ -256,10 +263,10 @@ class _RulesDialogState extends State<RulesDialog> {
               DropdownButtonFormField<String>(
                 key: const Key('rules-account'),
                 initialValue: _account,
-                decoration: const InputDecoration(labelText: 'Applica le modifiche a questa cartella', isDense: true),
+                decoration: InputDecoration(labelText: l.applyChangesToFolder, isDense: true),
                 items: [
                   for (final a in model.accounts)
-                    DropdownMenuItem(value: a.id, child: Text('Posta in arrivo - ${a.name}')),
+                    DropdownMenuItem(value: a.id, child: Text('${l.folderInbox} - ${a.name}')),
                 ],
                 onChanged: (id) {
                   if (id == null) return;
@@ -278,29 +285,29 @@ class _RulesDialogState extends State<RulesDialog> {
                 FilledButton.tonalIcon(
                   onPressed: list == null ? null : () => _edit(),
                   icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Nuova regola…'),
+                  label: Text(l.newRuleEllipsis),
                 ),
                 OutlinedButton(
                   onPressed: selected == null ? null : () => _edit(index: selected),
-                  child: const Text('Modifica…'),
+                  child: Text(l.editEllipsis),
                 ),
                 OutlinedButton(
                   onPressed: selected == null ? null : () => _delete(selected),
-                  child: const Text('Elimina'),
+                  child: Text(l.delete),
                 ),
                 OutlinedButton.icon(
                   key: const Key('rules-run-now'),
                   onPressed: list == null || list.isEmpty || _saving ? null : _runNow,
                   icon: const Icon(Icons.play_arrow, size: 18),
-                  label: const Text('Esegui regole ora…'),
+                  label: Text(l.runRulesNowEllipsis),
                 ),
                 IconButton(
-                  tooltip: 'Sposta su',
+                  tooltip: l.moveUp,
                   onPressed: selected == null || selected == 0 ? null : () => _moveBy(selected, -1),
                   icon: const Icon(Icons.arrow_upward),
                 ),
                 IconButton(
-                  tooltip: 'Sposta giù',
+                  tooltip: l.moveDown,
                   onPressed: selected == null || selected == list!.length - 1 ? null : () => _moveBy(selected, 1),
                   icon: const Icon(Icons.arrow_downward),
                 ),
@@ -313,9 +320,7 @@ class _RulesDialogState extends State<RulesDialog> {
                 child: list == null
                     ? Center(child: _error == null ? const CircularProgressIndicator() : Text(_error!))
                     : list.isEmpty
-                    ? const Center(
-                        child: Text('Nessuna regola. Con «Nuova regola…» smisti la posta in arrivo da sola.'),
-                      )
+                    ? Center(child: Text(l.noRules))
                     : ListView(
                         children: [
                           for (final (i, rule) in list.indexed)
@@ -341,8 +346,7 @@ class _RulesDialogState extends State<RulesDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Le regole si applicano nell\'ordine dell\'elenco alle mail che arrivano nella Posta in arrivo mentre '
-              'PostinoVip è aperto; quelle arrivate con l\'app chiusa vengono smistate alla riapertura.',
+              l.rulesInfo,
               style: theme.textTheme.bodySmall,
             ),
             if (_error != null && list != null)
@@ -354,7 +358,7 @@ class _RulesDialogState extends State<RulesDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: Text(l.cancel)),
         FilledButton(onPressed: _saving ? null : _save, child: const Text('OK')),
       ],
     );
@@ -459,7 +463,7 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
 
   Future<String?> _chooseFolder(String title) => showDialog<String>(
     context: context,
-    builder: (_) => MoveDialog(folders: widget.folders, count: 1, title: title, message: 'Scegli la cartella:'),
+    builder: (_) => MoveDialog(folders: widget.folders, count: 1, title: title, message: context.l10n.chooseFolderColon),
   );
 
   RuleActions _actions() => RuleActions(
@@ -477,16 +481,17 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
     final actions = _actions();
     final conditions = _when.build();
     final exceptions = _unless.build();
+    final l = context.l10n;
     String? error;
     if (name.isEmpty) {
-      error = 'Scrivi il nome della regola.';
+      error = l.ruleNameRequired;
     } else if ((_moveOn && !_a.delete && _moveTo == null) || (_copyOn && _copyTo == null)) {
-      error = 'Scegli la cartella in cui spostare o copiare.';
+      error = l.ruleFolderRequired;
     } else if (actions.isEmpty) {
-      error = 'Scegli almeno un\'azione nella scheda «Azioni».';
+      error = l.ruleActionRequired;
     } else if (_when.sizeOn && conditions.sizeGreaterThanKb == null ||
         _unless.sizeOn && exceptions.sizeGreaterThanKb == null) {
-      error = 'Scrivi la dimensione in KB.';
+      error = l.ruleSizeRequired;
     }
     setState(() => _error = error);
     if (error != null) return;
@@ -495,11 +500,11 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Regola per tutte le mail'),
-          content: const Text('Senza condizioni la regola si applicherà a tutte le mail che ricevi. È corretto?'),
+          title: Text(l.ruleForAllMail),
+          content: Text(l.ruleForAllMailContent),
           actions: [
-            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Sì')),
+            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.no)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.yes)),
           ],
         ),
       );
@@ -521,10 +526,11 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     return DefaultTabController(
       length: 3,
       child: AlertDialog(
-        title: Text(widget.initial == null || widget.initial!.id.isEmpty ? 'Nuova regola' : 'Modifica regola'),
+        title: Text(widget.initial == null || widget.initial!.id.isEmpty ? l.newRule : l.editRule),
         content: SizedBox(
           width: 620,
           height: 480,
@@ -535,26 +541,22 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
                 key: const Key('rule-name'),
                 controller: _name,
                 autofocus: widget.initial == null,
-                decoration: const InputDecoration(labelText: 'Nome della regola', isDense: true),
+                decoration: InputDecoration(labelText: l.ruleName, isDense: true),
               ),
               const SizedBox(height: 8),
-              const TabBar(
+              TabBar(
                 tabs: [
-                  Tab(text: 'Condizioni'),
-                  Tab(text: 'Azioni'),
-                  Tab(text: 'Eccezioni'),
+                  Tab(text: l.ruleConditions),
+                  Tab(text: l.ruleActions),
+                  Tab(text: l.ruleExceptions),
                 ],
               ),
               Expanded(
                 child: TabBarView(
                   children: [
-                    _conditions(
-                      _when,
-                      'Applica la regola alle mail che soddisfano tutte le condizioni scelte:',
-                      'cond',
-                    ),
+                    _conditions(_when, l.ruleConditionsIntro, 'cond'),
                     _actionsTab(),
-                    _conditions(_unless, 'Tranne se è vera almeno una di queste:', 'exc'),
+                    _conditions(_unless, l.ruleExceptionsIntro, 'exc'),
                   ],
                 ),
               ),
@@ -563,7 +565,7 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
           FilledButton(key: const Key('rule-ok'), onPressed: _ok, child: const Text('OK')),
         ],
       ),
@@ -591,42 +593,45 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
     ),
   );
 
-  Widget _conditions(_ConditionFields f, String intro, String p) => ListView(
-    padding: const EdgeInsets.only(top: 8),
-    children: [
-      Text(intro, style: Theme.of(context).textTheme.bodySmall),
-      _wordsRow(p, 'from', f.from, 'da', 'es. anna@esempio.it; esempio.it'),
-      _wordsRow(p, 'tocc', f.toOrCc, 'A o Cc contiene', 'nomi o indirizzi, separati da ;'),
-      _check(Key('$p-onlyme'), f.sentOnlyToMe, (v) => f.sentOnlyToMe = v, 'inviata solo a me'),
-      _check(Key('$p-meto'), f.meInTo, (v) => f.meInTo = v, 'il mio indirizzo è in A'),
-      _check(Key('$p-mecc'), f.meInCc, (v) => f.meInCc = v, 'il mio indirizzo è in Cc'),
-      _wordsRow(p, 'subject', f.subject, 'l\'oggetto contiene', 'parole separate da ;'),
-      _wordsRow(p, 'body', f.subjectOrBody, 'l\'oggetto o il testo contiene', 'parole separate da ;'),
-      _check(Key('$p-attach'), f.hasAttachments, (v) => f.hasAttachments = v, 'con allegati'),
-      _check(
-        Key('$p-size'),
-        f.sizeOn,
-        (v) => f.sizeOn = v,
-        'più grande di',
-        trailing: Row(
-          children: [
-            SizedBox(
-              width: 100,
-              child: TextField(
-                key: Key('$p-size-text'),
-                controller: f.size,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(isDense: true),
-                onChanged: (_) => setState(() => f.sizeOn = true),
+  Widget _conditions(_ConditionFields f, String intro, String p) {
+    final l = context.l10n;
+    return ListView(
+      padding: const EdgeInsets.only(top: 8),
+      children: [
+        Text(intro, style: Theme.of(context).textTheme.bodySmall),
+        _wordsRow(p, 'from', f.from, l.ruleFrom, l.ruleFromHint),
+        _wordsRow(p, 'tocc', f.toOrCc, l.ruleToOrCc, l.ruleToOrCcHint),
+        _check(Key('$p-onlyme'), f.sentOnlyToMe, (v) => f.sentOnlyToMe = v, l.ruleDescSentOnlyToMe),
+        _check(Key('$p-meto'), f.meInTo, (v) => f.meInTo = v, l.ruleMeInTo),
+        _check(Key('$p-mecc'), f.meInCc, (v) => f.meInCc = v, l.ruleMeInCc),
+        _wordsRow(p, 'subject', f.subject, l.ruleSubjectContains, l.ruleWordsHint),
+        _wordsRow(p, 'body', f.subjectOrBody, l.ruleSubjectOrBodyContains, l.ruleWordsHint),
+        _check(Key('$p-attach'), f.hasAttachments, (v) => f.hasAttachments = v, l.ruleDescAttachments),
+        _check(
+          Key('$p-size'),
+          f.sizeOn,
+          (v) => f.sizeOn = v,
+          l.ruleLargerThan,
+          trailing: Row(
+            children: [
+              SizedBox(
+                width: 100,
+                child: TextField(
+                  key: Key('$p-size-text'),
+                  controller: f.size,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(isDense: true),
+                  onChanged: (_) => setState(() => f.sizeOn = true),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Text('KB'),
-          ],
+              const SizedBox(width: 8),
+              const Text('KB'),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
   Widget _folderButton(String? folder, String title, ValueChanged<String> chosen, Key key) => Align(
     alignment: Alignment.centerLeft,
@@ -636,16 +641,17 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
         final f = await _chooseFolder(title);
         if (f != null) setState(() => chosen(f));
       },
-      child: Text(folder ?? 'Scegli la cartella…', overflow: TextOverflow.ellipsis),
+      child: Text(folder ?? context.l10n.chooseFolderEllipsis, overflow: TextOverflow.ellipsis),
     ),
   );
 
   Widget _actionsTab() {
     final settings = context.read<AppSettings>();
+    final l = context.l10n;
     return ListView(
       padding: const EdgeInsets.only(top: 8),
       children: [
-        Text('Cosa fare con le mail che soddisfano le condizioni:', style: Theme.of(context).textTheme.bodySmall),
+        Text(l.ruleActionsIntro, style: Theme.of(context).textTheme.bodySmall),
         _check(
           const Key('act-move'),
           _moveOn && !_a.delete,
@@ -653,8 +659,8 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
             _moveOn = v;
             if (v) _a = RuleActions(markRead: _a.markRead, flag: _a.flag, stopProcessing: _a.stopProcessing);
           },
-          'sposta nella cartella',
-          trailing: _folderButton(_moveTo, 'Sposta nella cartella', (f) {
+          l.ruleMoveTo,
+          trailing: _folderButton(_moveTo, l.ruleMoveToTitle, (f) {
             _moveTo = f;
             _moveOn = true;
           }, const Key('act-move-folder')),
@@ -663,8 +669,8 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
           const Key('act-copy'),
           _copyOn,
           (v) => _copyOn = v,
-          'copia nella cartella',
-          trailing: _folderButton(_copyTo, 'Copia nella cartella', (f) {
+          l.ruleCopyTo,
+          trailing: _folderButton(_copyTo, l.ruleCopyToTitle, (f) {
             _copyTo = f;
             _copyOn = true;
           }, const Key('act-copy-folder')),
@@ -672,14 +678,14 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
         _check(const Key('act-delete'), _a.delete, (v) {
           _a = RuleActions(delete: v, markRead: _a.markRead, flag: _a.flag, stopProcessing: _a.stopProcessing);
           if (v) _moveOn = false;
-        }, 'elimina (in Posta eliminata)'),
-        _check(const Key('act-read'), _a.markRead, (v) => _a = _with(markRead: v), 'segna come letta'),
-        _check(const Key('act-flag'), _a.flag, (v) => _a = _with(flag: v), 'contrassegna per completamento'),
+        }, l.ruleDeleteAction),
+        _check(const Key('act-read'), _a.markRead, (v) => _a = _with(markRead: v), l.ruleDescMarkRead),
+        _check(const Key('act-flag'), _a.flag, (v) => _a = _with(flag: v), l.ruleFlagAction),
         _check(
           const Key('act-category'),
           _categoryOn,
           (v) => _categoryOn = v,
-          'assegna la categoria',
+          l.ruleCategoryAction,
           trailing: DropdownButton<int>(
             key: const Key('act-category-choice'),
             value: _category,
@@ -708,7 +714,7 @@ class _RuleEditorDialogState extends State<RuleEditorDialog> {
           const Key('act-stop'),
           _a.stopProcessing,
           (v) => _a = _with(stopProcessing: v),
-          'interrompi l\'elaborazione di altre regole',
+          l.ruleStopAction,
         ),
       ],
     );
@@ -762,6 +768,7 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
   bool get _running => _jobId != null && !(_status?.done ?? false);
 
   Future<void> _start() async {
+    final l = context.l10n;
     setState(() => _error = null);
     try {
       final id = await widget.api.startRulesRun(
@@ -776,13 +783,14 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
       setState(() => _jobId = id);
       _timer = Timer.periodic(RunRulesDialog.pollInterval, (_) => _poll());
     } on ApiException catch (e) {
-      setState(() => _error = 'Regole non eseguite: ${e.fieldErrors['ruleIds']?.first ?? e}');
+      setState(() => _error = l.rulesNotRun('${e.fieldErrors['ruleIds']?.first ?? e}'));
     }
   }
 
   Future<void> _poll() async {
     final id = _jobId;
     if (id == null) return;
+    final l = context.l10n;
     try {
       final status = await widget.api.getRulesRun(id);
       if (!mounted) return;
@@ -790,7 +798,7 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
       if (status.done) _timer?.cancel();
     } on ApiException catch (e) {
       _timer?.cancel();
-      if (mounted) setState(() => _error = 'Avanzamento non disponibile: $e');
+      if (mounted) setState(() => _error = l.progressUnavailable('$e'));
     }
   }
 
@@ -809,18 +817,15 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
     final folder = await showDialog<String>(
       context: context,
       builder: (_) =>
-          MoveDialog(folders: widget.folders, count: 1, title: 'Esegui nella cartella', message: 'Scegli la cartella:'),
+          MoveDialog(folders: widget.folders, count: 1, title: context.l10n.runInFolder, message: context.l10n.chooseFolderColon),
     );
     if (folder != null) setState(() => _folder = folder);
   }
 
-  String _outcome(RuleRunStatus s) {
-    if (s.error != null) return 'Interrotta per un errore: ${s.error}';
-    final head = s.cancelled
-        ? 'Interrotta: esaminate ${s.checked} mail su ${s.total}'
-        : 'Fatto: esaminate ${s.checked} mail';
-    return '$head, ${s.applied} spostate o modificate'
-        '${s.failed > 0 ? ', ${s.failed} azioni non riuscite (dettagli nel registro del core)' : ''}.';
+  String _outcome(AppLocalizations l, RuleRunStatus s) {
+    if (s.error != null) return l.runStoppedError(s.error!);
+    final head = s.cancelled ? l.runStoppedChecked(s.checked, s.total) : l.runDoneChecked(s.checked);
+    return '${l.runOutcome(head, s.applied)}${s.failed > 0 ? l.runFailedActions(s.failed) : ''}.';
   }
 
   @override
@@ -829,16 +834,17 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
     final status = _status;
     final started = _jobId != null;
     final done = status?.done ?? false;
+    final l = context.l10n;
 
     return AlertDialog(
-      title: const Text('Esegui regole ora'),
+      title: Text(l.runRulesNow),
       content: SizedBox(
         width: 520,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Regole da eseguire:'),
+            Text(l.rulesToRun),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 200),
               child: ListView(
@@ -853,7 +859,7 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
                       onChanged: started
                           ? null
                           : (v) => setState(() => v == true ? _chosen.add(r.id) : _chosen.remove(r.id)),
-                      title: Text(r.name + (r.enabled ? '' : ' (disattivata)')),
+                      title: Text(r.name + (r.enabled ? '' : l.ruleDisabledSuffix)),
                     ),
                 ],
               ),
@@ -861,12 +867,12 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('Nella cartella: '),
+                Text(l.runInFolderLabel),
                 Flexible(
                   child: TextButton(
                     key: const Key('run-folder'),
                     onPressed: started ? null : _chooseFolder,
-                    child: Text(_folder == 'INBOX' ? 'Posta in arrivo' : _folder, overflow: TextOverflow.ellipsis),
+                    child: Text(_folder == 'INBOX' ? l.folderInbox : _folder, overflow: TextOverflow.ellipsis),
                   ),
                 ),
               ],
@@ -878,13 +884,13 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
               controlAffinity: ListTileControlAffinity.leading,
               value: _subfolders,
               onChanged: started ? null : (v) => setState(() => _subfolders = v ?? false),
-              title: const Text('Includi sottocartelle'),
+              title: Text(l.includeSubfolders),
             ),
             DropdownButtonFormField<RuleRunFilter>(
               key: const Key('run-filter'),
               initialValue: _filter,
-              decoration: const InputDecoration(labelText: 'Applica le regole a', isDense: true),
-              items: [for (final f in RuleRunFilter.values) DropdownMenuItem(value: f, child: Text(f.label))],
+              decoration: InputDecoration(labelText: l.applyRulesTo, isDense: true),
+              items: [for (final f in RuleRunFilter.values) DropdownMenuItem(value: f, child: Text(f.label(l)))],
               onChanged: started ? null : (f) => setState(() => _filter = f ?? RuleRunFilter.all),
             ),
             if (started) ...[
@@ -895,10 +901,10 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
               const SizedBox(height: 4),
               Text(
                 status == null
-                    ? 'Preparazione…'
+                    ? l.preparing
                     : done
-                    ? _outcome(status)
-                    : 'Esaminate ${status.checked} mail su ${status.total}${_stopping ? ' · interruzione…' : ''}',
+                    ? _outcome(l, status)
+                    : '${l.runProgress(status.checked, status.total)}${_stopping ? ' · ${l.stopping}' : ''}',
                 key: const Key('run-status'),
               ),
             ],
@@ -912,14 +918,14 @@ class _RunRulesDialogState extends State<RunRulesDialog> {
       ),
       actions: [
         if (_running)
-          TextButton(onPressed: _stopping ? null : _stop, child: const Text('Interrompi'))
+          TextButton(onPressed: _stopping ? null : _stop, child: Text(l.stop))
         else
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(done ? 'Chiudi' : 'Annulla')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(done ? l.close : l.cancel)),
         if (!started)
           FilledButton(
             key: const Key('run-start'),
             onPressed: _chosen.isEmpty ? null : _start,
-            child: const Text('Esegui ora'),
+            child: Text(l.runNow),
           ),
       ],
     );

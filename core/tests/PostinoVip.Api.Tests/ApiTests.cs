@@ -146,6 +146,20 @@ public class ApiTests : IClassFixture<WebApplicationFactory<Program>>, IDisposab
     }
 
     [Fact]
+    public async Task ErroriConTipoECodicePerLApp()
+    {
+        // Tappa «Lingua», L6: tipo (titolo) e codice con i valori (dettaglio), che l'app traduce; il testo italiano resta.
+        var offline = await (await _client.GetAsync("/folders/SenzaRete/messages")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("offline", offline.GetProperty("kind").GetString());
+        Assert.Equal("serverUnreachable", offline.GetProperty("code").GetString());
+        Assert.Equal("SocketException: Connection refused", offline.GetProperty("args").GetProperty("reason").GetString());
+
+        var timeout = await (await _client.GetAsync("/folders/Muto/messages")).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("offline", timeout.GetProperty("kind").GetString());
+        Assert.Equal("timeout", timeout.GetProperty("code").GetString());
+    }
+
+    [Fact]
     public async Task GetMessagesFiltroDaLeggereEOrdine()
     {
         await _client.GetFromJsonAsync<JsonElement>("/folders/INBOX/messages?unread=true&order=asc");

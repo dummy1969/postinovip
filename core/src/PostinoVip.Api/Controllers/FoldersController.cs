@@ -149,7 +149,7 @@ public sealed class FoldersController(MailAccountRegistry accounts, ILogger<Fold
         var name = FolderName.FromRoute(folder);
         var folders = PostinoVip.Core.Junk.JunkFolders.WithRole(await account.Reader.GetFoldersAsync(ct), account.Junk?.Load().Folder);
         var info = folders.FirstOrDefault(f => string.Equals(f.FullName, name, StringComparison.Ordinal))
-            ?? throw new MailNotFoundException($"Cartella '{name}' non trovata.");
+            ?? throw new MailNotFoundException($"Cartella '{name}' non trovata.").WithCode("cartellaNonTrovata5", ("name", name));
         if (info.SpecialUse is not ("trash" or "junk"))
             throw new InvalidOperationException("Si possono svuotare solo Posta eliminata e Posta indesiderata.");
 

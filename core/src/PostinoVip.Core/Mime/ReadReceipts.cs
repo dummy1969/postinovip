@@ -46,11 +46,11 @@ public static class ReadReceipts
     public static MimeMessage Build(MimeMessage original, MailboxAddress from, bool automatic, string version, DateTimeOffset readAt)
     {
         var to = RequestedBy(original)
-            ?? throw new InvalidOperationException("La mail non chiede una conferma di lettura a questo indirizzo.");
+            ?? throw new InvalidOperationException("La mail non chiede una conferma di lettura a questo indirizzo.").WithCode("laMailNonChiedeUna");
         var receipt = new MimeMessage();
         receipt.From.Add(from);
         receipt.To.Add(to);
-        receipt.Subject = "Letto: " + (original.Subject ?? "");
+        receipt.Subject = Texts.CoreTexts.Get("readReceiptSubject") + (original.Subject ?? "");
         receipt.Date = readAt;
         // Come per le mail scritte: dominio del mittente, non il nome del PC.
         receipt.MessageId = MimeUtils.GenerateMessageId(from.Domain);
@@ -61,11 +61,13 @@ public static class ReadReceipts
         }
 
         var recipients = string.Join("; ", original.To.Mailboxes.Concat(original.Cc.Mailboxes).Select(m => m.ToString()));
-        var text = "Il messaggio\r\n\r\n" +
-                   $"  A: {recipients}\r\n" +
-                   $"  Oggetto: {original.Subject}\r\n" +
-                   (original.Date == DateTimeOffset.MinValue ? "" : $"  Inviato: {DraftBuilder.FormatDate(original.Date)}\r\n") +
-                   $"\r\nè stato letto il {DraftBuilder.FormatDate(readAt)}.\r\n";
+        // Testo nella lingua dell'app (L6b, scelta 2a: anche per le conferme inviate da sole).
+        static string L(string key) => Texts.CoreTexts.Get(key);
+        var text = L("readReceiptIntro") + "\r\n\r\n" +
+                   $"  {L("labelTo")} {recipients}\r\n" +
+                   $"  {L("labelSubject")} {original.Subject}\r\n" +
+                   (original.Date == DateTimeOffset.MinValue ? "" : $"  {L("labelSent")} {DraftBuilder.FormatDate(original.Date)}\r\n") +
+                   "\r\n" + Texts.CoreTexts.Get("readReceiptRead", ("date", DraftBuilder.FormatDate(readAt))) + "\r\n";
 
         var notification = new MessageDispositionNotification();
         notification.Fields.Add("Reporting-UA", $"PostinoVip; PostinoVip {version}");

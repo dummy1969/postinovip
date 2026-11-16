@@ -3,15 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import '../compose/rich_text.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import 'ribbon_parts.dart';
 
 /// Comandi di formato della composizione (3.7b), come in Outlook: gruppo "Testo base" nella scheda
 /// Messaggio e gruppi "Carattere" e "Paragrafo" nella scheda Formato testo. Agiscono sul testo
 /// selezionato (o su quello che si scrive dopo) e si aggiornano con la posizione del cursore.
 class FormatCommands {
-  FormatCommands(this.controller, {required this.enabled, required this.onEdited});
+  FormatCommands(this.controller, {required this.l10n, required this.enabled, required this.onEdited});
 
   final QuillController controller;
+
+  /// Testi nella lingua dell'app (la classe non è un widget).
+  final AppLocalizations l10n;
   final bool enabled;
 
   /// Dopo un comando la tastiera torna al testo.
@@ -43,7 +48,7 @@ class FormatCommands {
 
   /// Gruppo "Testo base" della scheda Messaggio.
   Widget basicText() => RibbonGroup(
-    label: 'Testo base',
+    label: l10n.groupBasicText,
     children: [
       _rows([_fontRow(), _styleRow(withExtras: false)]),
       const SizedBox(width: 4),
@@ -54,13 +59,13 @@ class FormatCommands {
   /// Gruppi della scheda Formato testo.
   List<Widget> formatTab() => [
     RibbonGroup(
-      label: 'Carattere',
+      label: l10n.groupFont,
       children: [
         _rows([_fontRow(), _styleRow(withExtras: true)]),
       ],
     ),
     RibbonGroup(
-      label: 'Paragrafo',
+      label: l10n.groupParagraph,
       children: [
         _rows([_listRow(), _alignRow()]),
       ],
@@ -82,13 +87,13 @@ class FormatCommands {
         _alignRow(),
         _IconToggle(
           icon: FluentIcons.link_20_regular,
-          tooltip: 'Collegamento (Ctrl+K)',
+          tooltip: l10n.linkTooltip,
           onPressed: enabled ? () => insertLink(context, controller) : null,
         ),
         if (onInsertImage != null)
           _IconToggle(
             icon: FluentIcons.image_add_20_regular,
-            tooltip: 'Immagine da file (es. un logo)',
+            tooltip: l10n.imageFromFile,
             onPressed: enabled ? onInsertImage : null,
           ),
       ],
@@ -117,18 +122,18 @@ class FormatCommands {
       mainAxisSize: MainAxisSize.min,
       children: [
         _Picker(
-          tooltip: 'Carattere',
+          tooltip: l10n.groupFont,
           width: 130,
-          label: font ?? 'Calibri (predefinito)',
+          label: font ?? l10n.defaultFont,
           enabled: enabled,
           items: [
-            ('Calibri (predefinito)', () => _set(Attribute.clone(Attribute.font, null))),
+            (l10n.defaultFont, () => _set(Attribute.clone(Attribute.font, null))),
             for (final name in mailFonts.keys) (name, () => _set(FontAttribute(name))),
           ],
         ),
         const SizedBox(width: 4),
         _Picker(
-          tooltip: 'Dimensione carattere',
+          tooltip: l10n.fontSize,
           width: 52,
           label: size ?? '11',
           enabled: enabled,
@@ -144,13 +149,13 @@ class FormatCommands {
   Widget _styleRow({required bool withExtras}) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _toggleButton(FluentIcons.text_bold_20_regular, 'Grassetto (Ctrl+B)', Attribute.bold),
-      _toggleButton(FluentIcons.text_italic_20_regular, 'Corsivo (Ctrl+I)', Attribute.italic),
-      _toggleButton(FluentIcons.text_underline_20_regular, 'Sottolineato (Ctrl+U)', Attribute.underline),
-      if (withExtras) _toggleButton(FluentIcons.text_strikethrough_20_regular, 'Barrato', Attribute.strikeThrough),
+      _toggleButton(FluentIcons.text_bold_20_regular, l10n.bold, Attribute.bold),
+      _toggleButton(FluentIcons.text_italic_20_regular, l10n.italic, Attribute.italic),
+      _toggleButton(FluentIcons.text_underline_20_regular, l10n.underline, Attribute.underline),
+      if (withExtras) _toggleButton(FluentIcons.text_strikethrough_20_regular, l10n.strikethrough, Attribute.strikeThrough),
       _ColorPicker(
         icon: FluentIcons.text_color_20_regular,
-        tooltip: 'Colore carattere',
+        tooltip: l10n.fontColor,
         enabled: enabled,
         current: _style.attributes[Attribute.color.key]?.value as String?,
         onPick: (rgb) => _set(rgb == null ? Attribute.clone(Attribute.color, null) : ColorAttribute(cssColor(rgb))),
@@ -158,16 +163,16 @@ class FormatCommands {
       if (withExtras) ...[
         _ColorPicker(
           icon: FluentIcons.highlight_20_regular,
-          tooltip: 'Colore evidenziazione testo',
+          tooltip: l10n.highlightColor,
           enabled: enabled,
-          noneLabel: 'Nessun colore',
+          noneLabel: l10n.noColor,
           current: _style.attributes[Attribute.background.key]?.value as String?,
           onPick: (rgb) =>
               _set(rgb == null ? Attribute.clone(Attribute.background, null) : BackgroundAttribute(cssColor(rgb))),
         ),
         _IconToggle(
           icon: FluentIcons.text_clear_formatting_20_regular,
-          tooltip: 'Cancella formattazione',
+          tooltip: l10n.clearFormatting,
           onPressed: enabled ? _clearFormatting : null,
         ),
       ],
@@ -177,11 +182,11 @@ class FormatCommands {
   Widget _listRow() => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _toggleButton(FluentIcons.text_bullet_list_ltr_20_regular, 'Elenco puntato', Attribute.ul),
-      _toggleButton(FluentIcons.text_number_list_ltr_20_regular, 'Elenco numerato', Attribute.ol),
+      _toggleButton(FluentIcons.text_bullet_list_ltr_20_regular, l10n.bullets, Attribute.ul),
+      _toggleButton(FluentIcons.text_number_list_ltr_20_regular, l10n.numbering, Attribute.ol),
       _IconToggle(
         icon: FluentIcons.text_indent_decrease_ltr_20_regular,
-        tooltip: 'Riduci rientro',
+        tooltip: l10n.decreaseIndent,
         onPressed: enabled
             ? () {
                 controller.indentSelection(false);
@@ -191,7 +196,7 @@ class FormatCommands {
       ),
       _IconToggle(
         icon: FluentIcons.text_indent_increase_ltr_20_regular,
-        tooltip: 'Aumenta rientro',
+        tooltip: l10n.increaseIndent,
         onPressed: enabled
             ? () {
                 controller.indentSelection(true);
@@ -216,10 +221,10 @@ class FormatCommands {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        button(FluentIcons.text_align_left_20_regular, 'Allinea a sinistra', Attribute.leftAlignment),
-        button(FluentIcons.text_align_center_20_regular, 'Centra', Attribute.centerAlignment),
-        button(FluentIcons.text_align_right_20_regular, 'Allinea a destra', Attribute.rightAlignment),
-        button(FluentIcons.text_align_justify_20_regular, 'Giustifica', Attribute.justifyAlignment),
+        button(FluentIcons.text_align_left_20_regular, l10n.alignLeft, Attribute.leftAlignment),
+        button(FluentIcons.text_align_center_20_regular, l10n.center, Attribute.centerAlignment),
+        button(FluentIcons.text_align_right_20_regular, l10n.alignRight, Attribute.rightAlignment),
+        button(FluentIcons.text_align_justify_20_regular, l10n.justify, Attribute.justifyAlignment),
       ],
     );
   }
@@ -254,8 +259,8 @@ class FormatCommands {
   static RibbonLargeButton linkButton(BuildContext context, QuillController controller, {required bool enabled}) =>
       RibbonLargeButton(
         icon: FluentIcons.link_24_regular,
-        label: 'Collegamento',
-        tooltip: 'Inserisci o modifica un collegamento (Ctrl+K)',
+        label: context.l10n.link,
+        tooltip: context.l10n.linkButtonTooltip,
         onPressed: enabled ? () => insertLink(context, controller) : null,
       );
 }
@@ -295,7 +300,7 @@ class _LinkDialogState extends State<_LinkDialog> {
   void _ok() {
     final url = normalizeLink(_text.text);
     if (url == null) {
-      setState(() => _error = 'Indirizzo non valido: sono ammessi http, https e mailto.');
+      setState(() => _error = context.l10n.linkInvalid);
       return;
     }
     Navigator.pop(context, url);
@@ -303,15 +308,15 @@ class _LinkDialogState extends State<_LinkDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Inserisci collegamento'),
+    title: Text(context.l10n.insertLink),
     content: SizedBox(
       width: 420,
       child: TextField(
         controller: _text,
         autofocus: true,
         decoration: InputDecoration(
-          labelText: 'Indirizzo',
-          hintText: 'https://… o un indirizzo email',
+          labelText: context.l10n.linkAddress,
+          hintText: context.l10n.linkAddressHint,
           errorText: _error,
         ),
         onSubmitted: (_) => _ok(),
@@ -319,8 +324,8 @@ class _LinkDialogState extends State<_LinkDialog> {
     ),
     actions: [
       if (widget.initial.isNotEmpty)
-        TextButton(onPressed: () => Navigator.pop(context, ''), child: const Text('Rimuovi collegamento')),
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context, ''), child: Text(context.l10n.removeLink)),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
       FilledButton(onPressed: _ok, child: const Text('OK')),
     ],
   );
@@ -420,7 +425,7 @@ class _ColorPicker extends StatelessWidget {
     required this.enabled,
     required this.current,
     required this.onPick,
-    this.noneLabel = 'Automatico',
+    this.noneLabel,
   });
 
   final IconData icon;
@@ -428,7 +433,8 @@ class _ColorPicker extends StatelessWidget {
   final bool enabled;
   final String? current;
   final ValueChanged<int?> onPick;
-  final String noneLabel;
+  /// null = «Automatico».
+  final String? noneLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -436,12 +442,12 @@ class _ColorPicker extends StatelessWidget {
     final shown = current == null ? null : int.tryParse(current!.replaceFirst('#', ''), radix: 16);
     return MenuAnchor(
       menuChildren: [
-        MenuItemButton(onPressed: () => onPick(null), child: Text(noneLabel)),
-        for (final (label, rgb) in fontColors.skip(1))
+        MenuItemButton(onPressed: () => onPick(null), child: Text(noneLabel ?? context.l10n.fontColorAutomatic)),
+        for (final (i, rgb) in fontColors.indexed.skip(1))
           MenuItemButton(
             leadingIcon: Container(width: 14, height: 14, color: Color(0xFF000000 | rgb)),
             onPressed: () => onPick(rgb),
-            child: Text(label),
+            child: Text(fontColorNames(context.l10n)[i]),
           ),
       ],
       builder: (context, controller, _) => Tooltip(

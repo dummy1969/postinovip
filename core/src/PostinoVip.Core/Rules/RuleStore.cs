@@ -59,23 +59,23 @@ public sealed class RuleStore(string directory)
     public static List<MailRule> Validate(IReadOnlyList<MailRule> rules)
     {
         if (rules.Count > MaxRules)
-            throw new FieldValidationException("rules", $"Al massimo {MaxRules} regole per account.");
+            throw new FieldValidationException("rules", $"Al massimo {MaxRules} regole per account.").WithCode("alMassimoRegolePerAccount", ("maxRules", MaxRules));
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<MailRule>();
         foreach (var rule in rules)
         {
             var name = (rule.Name ?? "").Trim();
             if (name.Length == 0)
-                throw new FieldValidationException("rules", "Ogni regola deve avere un nome.");
+                throw new FieldValidationException("rules", "Ogni regola deve avere un nome.").WithCode("ogniRegolaDeveAvereUn");
             if (name.Length > MaxNameLength)
-                throw new FieldValidationException("rules", $"«{name[..20]}…»: il nome può avere al massimo {MaxNameLength} caratteri.");
+                throw new FieldValidationException("rules", $"«{name[..20]}…»: il nome può avere al massimo {MaxNameLength} caratteri.").WithCode("ilNomePuoAvereAl2", ("name", name[..20]), ("maxNameLength", MaxNameLength));
             var actions = rule.Actions ?? new RuleActions();
             if (actions.IsEmpty)
                 throw new FieldValidationException("rules", $"«{name}»: scegliere almeno un'azione.");
             if (actions.Delete && actions.MoveTo is not null)
-                throw new FieldValidationException("rules", $"«{name}»: «Elimina» e «Sposta» insieme non hanno senso, sceglierne uno.");
+                throw new FieldValidationException("rules", $"«{name}»: «Elimina» e «Sposta» insieme non hanno senso, sceglierne uno.").WithCode("eliminaSpostaInsiemeNonHanno", ("name", name));
             if (actions.Category is < 1 or > 6)
-                throw new FieldValidationException("rules", $"«{name}»: categoria non valida.");
+                throw new FieldValidationException("rules", $"«{name}»: categoria non valida.").WithCode("categoriaNonValida", ("name", name));
             var id = IsValidId(rule.Id) && ids.Add(rule.Id) ? rule.Id : NewId(ids);
             result.Add(rule with
             {
@@ -92,7 +92,7 @@ public sealed class RuleStore(string directory)
     private static RuleConditions Clean(RuleConditions c, string rule)
     {
         if (c.SizeGreaterThanKb is < 1 or > 10_000_000)
-            throw new FieldValidationException("rules", $"«{rule}»: dimensione non valida.");
+            throw new FieldValidationException("rules", $"«{rule}»: dimensione non valida.").WithCode("dimensioneNonValida", ("rule", rule));
         return c with
         {
             From = Words(c.From, rule), ToOrCc = Words(c.ToOrCc, rule), SubjectContains = Words(c.SubjectContains, rule),
@@ -104,7 +104,7 @@ public sealed class RuleStore(string directory)
     {
         var clean = (words ?? []).Select(w => (w ?? "").Trim()).Where(w => w.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (clean.Count > MaxWords || clean.Any(w => w.Length > MaxWordLength))
-            throw new FieldValidationException("rules", $"«{rule}»: troppe parole o parole troppo lunghe.");
+            throw new FieldValidationException("rules", $"«{rule}»: troppe parole o parole troppo lunghe.").WithCode("troppeParoleParoleTroppoLunghe", ("rule", rule));
         return clean.Count == 0 ? null : clean;
     }
 

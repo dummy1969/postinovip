@@ -1,9 +1,12 @@
 /// Contatti (C2): stesse strutture del core (`Contacts/Contact.cs`), JSON con gli stessi nomi.
 library;
 
+import '../l10n/app_localizations.dart';
+
 /// Etichette degli indirizzi e dei telefoni, come le scrive il core (null = nessuna).
-const emailLabels = {'work': 'Lavoro', 'home': 'Casa', 'other': 'Altro'};
-const phoneLabels = {'mobile': 'Cellulare', 'work': 'Ufficio', 'home': 'Casa', 'other': 'Altro'};
+Map<String, String> emailLabels(AppLocalizations l) => {'work': l.labelWork, 'home': l.labelHome, 'other': l.labelOther};
+Map<String, String> phoneLabels(AppLocalizations l) =>
+    {'mobile': l.labelMobile, 'work': l.labelOffice, 'home': l.labelHome, 'other': l.labelOther};
 
 class ContactEmail {
   const ContactEmail(this.address, [this.label]);

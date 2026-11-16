@@ -152,7 +152,7 @@ internal sealed class ImapFolderSource(IMailFolder folder, StructureGuard? guard
         }
         catch (MessageNotFoundException ex)
         {
-            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folder.FullName}'.", ex);
+            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folder.FullName}'.", ex).WithCode("messaggioNonTrovatoIn2", ("uid", uid), ("fullName", folder.FullName));
         }
     }
 }

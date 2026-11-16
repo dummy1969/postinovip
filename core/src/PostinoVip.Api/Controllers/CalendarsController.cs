@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using PostinoVip.Core.Account;
 using PostinoVip.Core.Calendars;
 using PostinoVip.Core.Dav;
+using PostinoVip.Core;
 
 namespace PostinoVip.Api.Controllers;
 
@@ -30,7 +31,7 @@ public sealed record EventRequest(string? Summary, string? Location, string? Des
 public sealed class CalendarsController(MailAccountRegistry accounts) : MailControllerBase(accounts)
 {
     private CalendarSet Set =>
-        CurrentAccount.Calendars ?? throw new NotSupportedException("I calendari richiedono la copia locale (Cache:Enabled=false).");
+        CurrentAccount.Calendars ?? throw new NotSupportedException("I calendari richiedono la copia locale (Cache:Enabled=false).").WithCode("calendariRichiedonoLaCopiaLocale");
 
     /// <summary>GET …/calendars — i calendari nell'ordine in cui si mostrano (il primo è quello predefinito).</summary>
     [HttpGet]
@@ -149,7 +150,7 @@ public sealed class CalendarsController(MailAccountRegistry accounts) : MailCont
     {
         var info = Set.Get(calendarId);
         if (info.ReadOnly)
-            throw new InvalidOperationException($"Il calendario «{info.Name}» è di sola lettura: non si possono creare, modificare o eliminare appuntamenti.");
+            throw new InvalidOperationException($"Il calendario «{info.Name}» è di sola lettura: non si possono creare, modificare o eliminare appuntamenti.").WithCode("ilCalendarioDiSolaLettura", ("name", info.Name));
         return Set.Store(calendarId);
     }
 
@@ -158,12 +159,12 @@ public sealed class CalendarsController(MailAccountRegistry accounts) : MailCont
             ? throw new PostinoVip.Core.FieldValidationException("recurrenceId", "Occorrenza mancante.") : recurrenceId;
 
     private CalendarItem Item(string calendarId, string eventId) =>
-        Set.Store(calendarId).Find(eventId) ?? throw new PostinoVip.Core.MailNotFoundException("Appuntamento non trovato.");
+        Set.Store(calendarId).Find(eventId) ?? throw new PostinoVip.Core.MailNotFoundException("Appuntamento non trovato.").WithCode("appuntamentoNonTrovato");
 
     private static DateTimeOffset ParseInstant(string? value, string field) =>
         DateTimeOffset.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var t)
             ? t : throw new PostinoVip.Core.FieldValidationException(field, "Istante non valido (ISO 8601, es. 2026-11-10T00:00:00+01:00).");
 
     private DavWorker Worker() =>
-        CurrentAccount.CalDav ?? throw new InvalidOperationException("La sincronizzazione del calendario non è attiva per questo account.");
+        CurrentAccount.CalDav ?? throw new InvalidOperationException("La sincronizzazione del calendario non è attiva per questo account.").WithCode("laSincronizzazioneDelCalendarioNon2");
 }

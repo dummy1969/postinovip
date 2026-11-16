@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using PostinoVip.Core;
 using PostinoVip.Core.OAuth;
 
 namespace PostinoVip.Api;
@@ -10,7 +11,12 @@ namespace PostinoVip.Api;
 /// (null = non chiesto o non si sa).
 /// </summary>
 public sealed record OAuthFlowStatus(string Id, string Provider, string Status, string? Email, string? RefreshToken, string? Error,
-    OAuthServers? Servers, bool? Contacts = null, bool? Calendar = null);
+    OAuthServers? Servers, bool? Contacts = null, bool? Calendar = null)
+{
+    /// <summary>Codice e valori di <see cref="Error"/> per l'app (L6).</summary>
+    public string? ErrorCode { get; init; }
+    public IReadOnlyDictionary<string, string>? ErrorArgs { get; init; }
+}
 
 /// <summary>
 /// Accessi OAuth2 in corso (3a: browser di sistema + ritorno su http://localhost:{porta del core}/oauth/callback, PKCE).
@@ -34,11 +40,11 @@ public sealed class OAuthLogins(IReadOnlyDictionary<string, OAuthProvider> provi
             throw new PostinoVip.Core.FieldValidationException("provider", $"Fornitore sconosciuto: {providerId}.");
         if (!provider.IsConfigured)
             throw new InvalidOperationException(
-                $"Manca il client ID di {provider.DisplayName}: va registrata l'app e scritto in oauth-clients.json (sezione OAuth:{provider.Id}).");
+                $"Manca il client ID di {provider.DisplayName}: va registrata l'app e scritto in oauth-clients.json (sezione OAuth:{provider.Id}).").WithCode("mancaIlClientIdDi", ("displayName", provider.DisplayName), ("id", provider.Id));
         if (contacts && !provider.SupportsCardDav)
-            throw new PostinoVip.Core.FieldValidationException("contacts", $"La sincronizzazione dei contatti non è disponibile con {provider.DisplayName}.");
+            throw new PostinoVip.Core.FieldValidationException("contacts", $"La sincronizzazione dei contatti non è disponibile con {provider.DisplayName}.").WithCode("laSincronizzazioneDeiContattiNon", ("displayName", provider.DisplayName));
         if (calendar && !provider.SupportsCalDav)
-            throw new PostinoVip.Core.FieldValidationException("calendar", $"La sincronizzazione del calendario non è disponibile con {provider.DisplayName}.");
+            throw new PostinoVip.Core.FieldValidationException("calendar", $"La sincronizzazione del calendario non è disponibile con {provider.DisplayName}.").WithCode("laSincronizzazioneDelCalendarioNon", ("displayName", provider.DisplayName));
         var flow = new Flow(Random(), provider, Random(), Pkce.NewVerifier(), redirectUri) { Contacts = contacts, Calendar = calendar };
         _flows[flow.Id] = flow;
         return (flow.Id, OAuthClient.AuthorizationUrl(provider, redirectUri, flow.State, Pkce.Challenge(flow.Verifier), loginHint, contacts, calendar));
@@ -51,19 +57,28 @@ public sealed class OAuthLogins(IReadOnlyDictionary<string, OAuthProvider> provi
         var flow = state is null ? null : _flows.Values.FirstOrDefault(f => CryptographicOperations.FixedTimeEquals(
             System.Text.Encoding.ASCII.GetBytes(f.State), System.Text.Encoding.ASCII.GetBytes(state)));
         if (flow is null || flow.Done || DateTimeOffset.UtcNow - flow.Created > Lifetime)
-            return (false, "Accesso non riconosciuto o scaduto: riprova da PostinoVip.");
+            return (false, PostinoVip.Core.Texts.CoreTexts.Get("oauthUnknownFlow"));
         flow.Done = true;
         if (error is not null || string.IsNullOrEmpty(code))
         {
             flow.Error = error == "access_denied" ? "Accesso annullato." : $"Accesso non riuscito ({error ?? "nessun codice"}).";
+            flow.ErrorCode = error == "access_denied" ? "oauthCancelled" : error is null ? "oauthNoCode" : "oauthFlowFailed";
+            flow.ErrorArgs = new Dictionary<string, string> { ["error"] = error ?? "" };
             logger.LogInformation("Accesso OAuth {Provider} non riuscito: {Error}", flow.Provider.Id, error ?? "senza codice");
-            return (false, flow.Error);
+            // Pagina del browser nella lingua dell'app (L6b).
+            return (false, flow.ErrorCode switch
+            {
+                "oauthCancelled" => PostinoVip.Core.Texts.CoreTexts.Get("oauthCancelled"),
+                "oauthNoCode" => PostinoVip.Core.Texts.CoreTexts.Get("oauthNoCode"),
+                _ => PostinoVip.Core.Texts.CoreTexts.Get("oauthFlowFailed", ("error", error ?? "")),
+            });
         }
         try
         {
             var tokens = await OAuthClient.ExchangeCodeAsync(flow.Provider, code, flow.Verifier, flow.RedirectUri, ct);
             if (string.IsNullOrEmpty(tokens.RefreshToken))
-                throw new OAuthException("no_refresh_token", "Il fornitore non ha dato un token di rinnovo (manca offline_access?).");
+                throw new OAuthException("no_refresh_token", "Il fornitore non ha dato un token di rinnovo (manca offline_access?).")
+                    .WithCode("oauthNoRefreshToken");
             flow.RefreshToken = tokens.RefreshToken;
             flow.Email = tokens.Email;
             flow.Granted = flow.Contacts ? flow.Provider.GrantsContacts(tokens.Scope) : null;
@@ -71,11 +86,13 @@ public sealed class OAuthLogins(IReadOnlyDictionary<string, OAuthProvider> provi
             logger.LogInformation("Accesso OAuth {Provider} riuscito{Contacts}{Calendar}", flow.Provider.Id,
                 flow.Granted switch { true => " (con i contatti)", false => " (senza il permesso dei contatti)", _ => "" },
                 flow.GrantedCalendar switch { true => " (con il calendario)", false => " (senza il permesso del calendario)", _ => "" });
-            return (true, "Accesso riuscito: puoi chiudere questa scheda e tornare a PostinoVip.");
+            return (true, PostinoVip.Core.Texts.CoreTexts.Get("oauthDone"));
         }
         catch (Exception ex) when (ex is OAuthException or PostinoVip.Core.MailOfflineException)
         {
             flow.Error = ex.Message;
+            flow.ErrorCode = CoreError.CodeOf(ex);
+            flow.ErrorArgs = CoreError.ArgsOf(ex);
             logger.LogInformation("Accesso OAuth {Provider} non riuscito: {Type}", flow.Provider.Id, ex.GetType().Name);
             return (false, ex.Message);
         }
@@ -88,7 +105,7 @@ public sealed class OAuthLogins(IReadOnlyDictionary<string, OAuthProvider> provi
             return null;
         var status = f.RefreshToken is not null ? "done" : f.Error is not null ? "error" : "pending";
         var result = new OAuthFlowStatus(f.Id, f.Provider.Id, status, f.Email, f.RefreshToken, f.Error, f.Provider.Servers, f.Granted,
-            f.GrantedCalendar);
+            f.GrantedCalendar) { ErrorCode = f.Error is null ? null : f.ErrorCode, ErrorArgs = f.Error is null ? null : f.ErrorArgs };
         if (status != "pending")
             _flows.TryRemove(id, out _);
         return result;
@@ -114,6 +131,8 @@ public sealed class OAuthLogins(IReadOnlyDictionary<string, OAuthProvider> provi
         public string RedirectUri { get; } = redirectUri;
         public DateTimeOffset Created { get; } = DateTimeOffset.UtcNow;
         public volatile bool Done;
+        public string? ErrorCode;
+        public IReadOnlyDictionary<string, string>? ErrorArgs;
         public string? RefreshToken;
         public string? Email;
         public string? Error;

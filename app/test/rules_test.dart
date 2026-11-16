@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:postinovip/api/api_client.dart';
+import 'package:postinovip/l10n/language.dart';
 import 'package:postinovip/main.dart';
 import 'package:postinovip/models/mail_rule.dart';
 import 'package:postinovip/notify/window_presenter.dart';
@@ -155,6 +156,43 @@ void main() {
       RulesUi.describe(const MailRule(name: 'x', actions: RuleActions(flag: true)), settings),
       'Tutte le mail → contrassegna',
     );
+  });
+
+  test('descrizione della regola in inglese (L4b)', () async {
+    final settings = AppSettings(MemorySettingsStore());
+    await settings.setLanguage(AppLanguage.english);
+    const rule = MailRule(
+      name: 'Invoices',
+      conditions: RuleConditions(from: ['supplier.com', 'other.com'], hasAttachments: true),
+      exceptions: RuleConditions(subjectContains: ['urgent']),
+      actions: RuleActions(moveTo: 'Archive/Invoices', markRead: true),
+    );
+    expect(
+      RulesUi.describe(rule, settings),
+      'If from "supplier.com" or "other.com" and with attachments, except if subject contains "urgent" '
+      '→ move to Archive/Invoices, mark as read',
+    );
+  });
+
+  testWidgets('in inglese (L4b): Regole e avvisi e Nuova regola tradotti', (tester) async {
+    addTearDown(() => tester.platformDispatcher.localesTestValue = const [Locale('it', 'IT')]);
+    tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+    final core = await start(tester);
+    await tester.tap(find.text('File'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Manage Rules & Alerts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rules and Alerts'), findsOneWidget);
+    expect(find.text('Run Rules Now…'), findsOneWidget);
+    await tester.tap(find.text('New Rule…'));
+    await tester.pumpAndSettle();
+    expect(find.text('New Rule'), findsOneWidget);
+    expect(find.widgetWithText(Tab, 'Conditions'), findsOneWidget);
+    expect(find.text('the subject contains'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('rule-ok')));
+    await tester.pump();
+    expect(find.text('Enter the rule name.'), findsOneWidget);
+    await core.sse.close();
   });
 
   testWidgets('nuova regola: condizione, cartella dall\'albero, salvata con OK', (tester) async {

@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill_delta_from_html/flutter_quill_delta_from_html.dart';
 import 'package:vsc_quill_delta_to_html/vsc_quill_delta_to_html.dart';
@@ -28,19 +32,22 @@ const mailFonts = <String, String>{
 /// Dimensioni del menu "Dimensione carattere", in punti come Outlook.
 const mailFontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36];
 
-/// Colori del menu "Colore carattere" ed "Evidenziatore" (palette standard di Office).
-const fontColors = <(String label, int rgb)>[
-  ('Automatico', 0x000000),
-  ('Rosso scuro', 0xC00000),
-  ('Rosso', 0xFF0000),
-  ('Arancione', 0xFFC000),
-  ('Giallo', 0xFFFF00),
-  ('Verde chiaro', 0x92D050),
-  ('Verde', 0x00B050),
-  ('Azzurro', 0x00B0F0),
-  ('Blu', 0x0070C0),
-  ('Blu scuro', 0x002060),
-  ('Viola', 0x7030A0),
+/// Colori del menu "Colore carattere" ed "Evidenziatore" (palette standard di Office); il primo è «Automatico».
+/// I nomi sono in [fontColorNames], nello stesso ordine.
+const fontColors = <int>[0x000000, 0xC00000, 0xFF0000, 0xFFC000, 0xFFFF00, 0x92D050, 0x00B050, 0x00B0F0, 0x0070C0, 0x002060, 0x7030A0];
+
+List<String> fontColorNames(AppLocalizations l) => [
+  l.fontColorAutomatic,
+  l.fontColorDarkRed,
+  l.fontColorRed,
+  l.fontColorOrange,
+  l.fontColorYellow,
+  l.fontColorLightGreen,
+  l.fontColorGreen,
+  l.fontColorLightBlue,
+  l.fontColorBlue,
+  l.fontColorDarkBlue,
+  l.fontColorPurple,
 ];
 
 String cssColor(int rgb) => '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
@@ -94,7 +101,7 @@ Document htmlToDocument(String html) {
   return Document.fromDelta(delta);
 }
 
-/// Testo per la parte text/plain: le immagini incorporate diventano "[immagine]".
+/// Testo per la parte text/plain: le immagini incorporate diventano "[immagine]" (nella lingua dell'app, L6b).
 String documentToPlainText(Document document) {
   final buffer = StringBuffer();
   for (final op in document.toDelta().toList()) {
@@ -102,7 +109,7 @@ String documentToPlainText(Document document) {
     if (data is String) {
       buffer.write(data);
     } else {
-      buffer.write('[immagine]');
+      buffer.write('[${formatL10n.imagePlaceholder}]');
     }
   }
   return buffer.toString().trimRight();
@@ -241,7 +248,7 @@ class MailImageEmbedBuilder extends EmbedBuilder {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(border: Border.all(color: scheme.outlineVariant)),
-      child: Text('[immagine da internet]', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
+      child: Text(context.l10n.remoteImagePlaceholder, style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12)),
     );
   }
 }

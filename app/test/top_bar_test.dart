@@ -68,7 +68,7 @@ void main() {
     await tester.ensureVisible(find.byKey(const ValueKey('module-bar-choice')));
     await tester.tap(find.byKey(const ValueKey('module-bar-choice')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(ModuleBarPosition.bottom.label).last);
+    await tester.tap(find.text('In basso nel riquadro di sinistra').last);
     await tester.pumpAndSettle();
     expect(settings.moduleBar, ModuleBarPosition.bottom);
     await tester.tap(find.text('Chiudi'));

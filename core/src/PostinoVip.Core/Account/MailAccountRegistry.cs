@@ -31,7 +31,7 @@ public sealed partial class MailAccountRegistry : IAsyncDisposable
     public MailAccount Get(string? id) =>
         id is null
             ? _accounts[0]
-            : _accounts.FirstOrDefault(a => a.Id == id) ?? throw new MailNotFoundException($"Account '{id}' non trovato.");
+            : _accounts.FirstOrDefault(a => a.Id == id) ?? throw new MailNotFoundException($"Account '{id}' non trovato.").WithCode("accountNonTrovato", ("id", id));
 
     /// <summary>
     /// Servizi reali: una connessione IMAP persistente per account; SMTP solo al momento dell'invio.
@@ -77,7 +77,7 @@ public sealed partial class MailAccountRegistry : IAsyncDisposable
             if (s.IsPop3)
             {
                 accounts.Add(CreatePop3(s, cacheRoot ?? throw new ArgumentException(
-                    $"Account '{s.Id}': un account POP3 richiede la copia locale (Cache:Enabled=false non è possibile)."), log, onlineChanged,
+                    $"Account '{s.Id}': un account POP3 richiede la copia locale (Cache:Enabled=false non è possibile).").WithCode("accountUnAccountPop3Richiede", ("id", s.Id)), log, onlineChanged,
                     pop3Downloaded, contactsSynced, calendarsSynced));
                 continue;
             }
@@ -122,9 +122,9 @@ public sealed partial class MailAccountRegistry : IAsyncDisposable
         Action<string, string>? changed, Action<string, bool>? needsLoginChanged)
     {
         if (providers is null || !providers.TryGetValue(s.OAuth.Provider, out var provider))
-            throw new ArgumentException($"Account '{s.Id}': fornitore OAuth '{s.OAuth.Provider}' sconosciuto.");
+            throw new ArgumentException($"Account '{s.Id}': fornitore OAuth '{s.OAuth.Provider}' sconosciuto.").WithCode("accountFornitoreOauthSconosciuto", ("id", s.Id), ("provider", s.OAuth.Provider));
         if (!provider.IsConfigured)
-            throw new ArgumentException($"Account '{s.Id}': manca il client ID di {provider.DisplayName} (sezione OAuth:{provider.Id}).");
+            throw new ArgumentException($"Account '{s.Id}': manca il client ID di {provider.DisplayName} (sezione OAuth:{provider.Id}).").WithCode("accountMancaIlClientId", ("id", s.Id), ("displayName", provider.DisplayName), ("id2", provider.Id));
         var id = s.Id;
         var source = new OAuth.OAuthTokenSource(provider, s.OAuth.RefreshToken, rotated => changed?.Invoke(id, rotated),
             needsLoginChanged: value => needsLoginChanged?.Invoke(id, value));
@@ -260,7 +260,8 @@ public sealed partial class MailAccountRegistry : IAsyncDisposable
                 var what = calendar ? "il calendario" : "i contatti";
                 var access = calendar ? "al calendario" : "ai contatti";
                 throw new Dav.DavException($"L'accesso con {provider.DisplayName} non comprende {what}: nella schermata dell'account " +
-                    $"usa «Accedi di nuovo» e permetti l'accesso {access}.", 403);
+                    $"usa «Accedi di nuovo» e permetti l'accesso {access}.", 403)
+                    .WithCode(calendar ? "accountScopeMissingCalendar" : "accountScopeMissingContacts", ("provider", provider.DisplayName));
             }
             return token;
         }, start.Host, provider.DisplayName, tokens.Invalidate, handler, kind ?? Dav.DavKind.CardDav);
@@ -293,35 +294,35 @@ public sealed partial class MailAccountRegistry : IAsyncDisposable
     public static void Validate(IReadOnlyList<MailAccountSettings> settings)
     {
         if (settings.Count == 0)
-            throw new ArgumentException("Nessun account configurato.");
+            throw new ArgumentException("Nessun account configurato.").WithCode("nessunAccountConfigurato");
         foreach (var s in settings)
         {
             if (!IdPattern().IsMatch(s.Id))
-                throw new ArgumentException($"Id account non valido: '{s.Id}' (ammessi lettere, cifre, '-' e '_', massimo 64).");
+                throw new ArgumentException($"Id account non valido: '{s.Id}' (ammessi lettere, cifre, '-' e '_', massimo 64).").WithCode("idAccountNonValidoAmmessi", ("id", s.Id));
         }
         foreach (var s in settings)
         {
             if (s.Cache.BodyMonths is < 0)
-                throw new ArgumentException($"Account '{s.Id}': limite della cache non valido ({s.Cache.BodyMonths} mesi; 0 = tutte).");
+                throw new ArgumentException($"Account '{s.Id}': limite della cache non valido ({s.Cache.BodyMonths} mesi; 0 = tutte).").WithCode("accountLimiteDellaCacheNon", ("id", s.Id), ("bodyMonths", s.Cache.BodyMonths));
             foreach (var (dav, kind, name) in new[] { (s.CardDav, Dav.DavKind.CardDav, "CardDAV"), (s.CalDav, Dav.DavKind.CalDav, "CalDAV") })
             {
                 if (!dav.Enabled || string.IsNullOrWhiteSpace(dav.Url))
                     continue;
                 if (!Uri.TryCreate(dav.Url.Trim(), UriKind.Absolute, out var url))
-                    throw new ArgumentException($"Account '{s.Id}': indirizzo {name} non valido.");
+                    throw new ArgumentException($"Account '{s.Id}': indirizzo {name} non valido.").WithCode("accountIndirizzoNonValido", ("id", s.Id), ("name", name));
                 try
                 {
                     Dav.DavClient.EnsureAllowed(url, kind);
                 }
                 catch (Dav.DavException ex)
                 {
-                    throw new ArgumentException($"Account '{s.Id}': {ex.Message}");
+                    throw new ArgumentException($"Account '{s.Id}': {ex.Message}").WithCode("account", ("id", s.Id), ("message", ex.Message));
                 }
             }
         }
         var duplicate = settings.GroupBy(s => s.Id).FirstOrDefault(g => g.Count() > 1);
         if (duplicate is not null)
-            throw new ArgumentException($"Id account ripetuto: '{duplicate.Key}'.");
+            throw new ArgumentException($"Id account ripetuto: '{duplicate.Key}'.").WithCode("idAccountRipetuto", ("key", duplicate.Key));
     }
 
     public async ValueTask DisposeAsync()

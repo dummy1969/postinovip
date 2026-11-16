@@ -96,7 +96,7 @@ public sealed class BodyDownloader(string account, AccountCache cache, BodyPolic
         HeadersSynced?.Invoke(source.FullName, added, incomplete);
 
         var folder = cache.FindFolder(source.FullName)
-            ?? throw new InvalidOperationException($"Cartella '{source.FullName}' assente dalla cache dopo la sincronizzazione.");
+            ?? throw new InvalidOperationException($"Cartella '{source.FullName}' assente dalla cache dopo la sincronizzazione.").WithCode("cartellaAssenteDallaCacheDopo", ("fullName", source.FullName));
         var now = DateTimeOffset.UtcNow;
         var missing = cache.GetMissingBodies(folder.Id).Where(m => policy.Keeps(folder.Role, m.Arrived, now)).ToList();
         var watch = Stopwatch.StartNew();

@@ -28,7 +28,7 @@ public interface IMailReader
     /// Senza copia locale non serve: NotSupportedException.
     /// </summary>
     Task<MimeKit.MimeMessage> GetMimeMessageAsync(string folder, uint uid, CancellationToken ct = default) =>
-        throw new NotSupportedException("Il messaggio originale è disponibile solo con la copia locale.");
+        throw new NotSupportedException("Il messaggio originale è disponibile solo con la copia locale.").WithCode("ilMessaggioOriginaleDisponibileSolo");
 
     /// <summary>
     /// I byte originali del messaggio (E1, «Salva con nome» .eml): dalla copia locale se c'è, altrimenti con

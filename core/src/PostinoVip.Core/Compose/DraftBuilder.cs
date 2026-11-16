@@ -5,6 +5,7 @@ using MimeKit;
 using PostinoVip.Core.Html;
 using PostinoVip.Core.Mime;
 using PostinoVip.Core.Models;
+using PostinoVip.Core.Texts;
 
 namespace PostinoVip.Core.Compose;
 
@@ -58,27 +59,28 @@ public static partial class DraftBuilder
         return new ComposeDraft(
             toList,
             ccList,
-            Prefix(original.Subject, "Re: ", ReplyPrefix()),
+            Prefix(original.Subject, CoreTexts.Get("replyPrefix"), ReplyPrefix()),
             QuoteText(original, DraftMode.Reply),
             string.IsNullOrEmpty(original.MessageId) ? null : original.MessageId,
             references);
     }
 
     private static ComposeDraft Forward(MimeMessage original) =>
-        new([], [], Prefix(original.Subject, "Fwd: ", ForwardPrefix()), ForwardText(original), null, [],
+        new([], [], Prefix(original.Subject, CoreTexts.Get("forwardPrefix"), ForwardPrefix()), ForwardText(original), null, [],
             Attachments.List(original));
 
     private static string ForwardText(MimeMessage original)
     {
         var sb = new StringBuilder();
-        sb.Append("\n\n---------- Messaggio inoltrato ----------\n");
-        sb.Append($"Da: {original.From}\n");
+        // Testi nella lingua dell'app (L6b, scelta 3a).
+        sb.Append("\n\n").Append(CoreTexts.Get("forwardHeader")).Append('\n');
+        sb.Append($"{CoreTexts.Get("labelFrom")} {original.From}\n");
         if (original.Date != DateTimeOffset.MinValue)
-            sb.Append($"Data: {FormatDate(original.Date)}\n");
-        sb.Append($"Oggetto: {original.Subject}\n");
-        sb.Append($"A: {original.To}\n");
+            sb.Append($"{CoreTexts.Get("labelDate")} {FormatDate(original.Date)}\n");
+        sb.Append($"{CoreTexts.Get("labelSubject")} {original.Subject}\n");
+        sb.Append($"{CoreTexts.Get("labelTo")} {original.To}\n");
         if (original.Cc.Count > 0)
-            sb.Append($"Cc: {original.Cc}\n");
+            sb.Append($"{CoreTexts.Get("labelCc")} {original.Cc}\n");
         sb.Append('\n').Append(BodyText(original));
         return sb.ToString();
     }
@@ -94,14 +96,14 @@ public static partial class DraftBuilder
 
     private static string QuoteHeader(MimeMessage m)
     {
-        var from = m.From.Mailboxes.FirstOrDefault()?.ToString() ?? "(mittente sconosciuto)";
+        var from = m.From.Mailboxes.FirstOrDefault()?.ToString() ?? CoreTexts.Get("unknownSender");
         return m.Date == DateTimeOffset.MinValue
-            ? $"{from} ha scritto:"
-            : $"Il {FormatDate(m.Date)}, {from} ha scritto:";
+            ? CoreTexts.Get("wrote", ("from", from))
+            : CoreTexts.Get("wroteOn", ("date", FormatDate(m.Date)), ("from", from));
     }
 
-    // Formato esplicito: non serve una cultura (il core gira con InvariantGlobalization, senza ICU).
-    internal static string FormatDate(DateTimeOffset d) => d.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+    // Forma della lingua dell'app (Texts/*.json), senza cultura: il core gira con InvariantGlobalization, senza ICU.
+    internal static string FormatDate(DateTimeOffset d) => CoreTexts.Date(d);
 
     /// <summary>Testo dell'originale: text/plain se c'è, altrimenti l'HTML convertito in testo.</summary>
     private static string BodyText(MimeMessage m)
@@ -116,10 +118,11 @@ public static partial class DraftBuilder
     private static string Quote(string text) =>
         string.Join("\n", text.ReplaceLineEndings("\n").Split('\n').Select(l => l.Length == 0 ? ">" : "> " + l));
 
-    // Prefissi già presenti: inglesi e quelli usati da Outlook in italiano (R:, I:).
+    // Prefissi già presenti, in tutte le lingue (scelta 3a): inglesi (RE:, FW:, Fwd:), di Outlook in italiano (R:, I:),
+    // tedeschi (AW:, WG:) e svedesi (SV:): non si raddoppiano.
     [GeneratedRegex(@"^\s*(re|r|aw|sv)\s*:", RegexOptions.IgnoreCase)]
     private static partial Regex ReplyPrefix();
 
-    [GeneratedRegex(@"^\s*(fwd?|i|wg)\s*:", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(fwd?|fw|i|wg)\s*:", RegexOptions.IgnoreCase)]
     private static partial Regex ForwardPrefix();
 }

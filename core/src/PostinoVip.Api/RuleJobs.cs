@@ -51,7 +51,7 @@ public sealed class RuleJobs(ILoggerFactory loggers)
 
     public RuleRunner RunnerFor(MailAccount account) =>
         _runners.GetOrAdd(account.Id, _ => new RuleRunner(account,
-            account.Rules ?? throw new NotSupportedException("Le regole richiedono la copia locale."),
+            account.Rules ?? throw new NotSupportedException("Le regole richiedono la copia locale.").WithCode("leRegoleRichiedonoLaCopia"),
             m => _logger.LogInformation("{Message}", m)));
 
     /// <summary>Avvia l'esecuzione in background; restituisce il suo id.</summary>

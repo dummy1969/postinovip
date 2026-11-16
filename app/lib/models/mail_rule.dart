@@ -1,6 +1,8 @@
 /// Regole (R1/R2): stesse strutture del core (`Rules/MailRule.cs`), JSON con gli stessi nomi.
 library;
 
+import '../l10n/app_localizations.dart';
+
 List<String>? _words(Object? json) => json is List ? [for (final w in json) w as String] : null;
 
 /// Condizioni: tutte quelle indicate devono valere (AND); dentro una condizione basta una parola (OR).
@@ -110,14 +112,19 @@ class RuleActions {
 
 /// "Esegui regole ora" (R3): su quali mail della cartella.
 enum RuleRunFilter {
-  all('All', 'Tutti i messaggi'),
-  read('Read', 'Messaggi letti'),
-  unread('Unread', 'Messaggi da leggere');
+  all('All'),
+  read('Read'),
+  unread('Unread');
 
-  const RuleRunFilter(this.coreName, this.label);
+  const RuleRunFilter(this.coreName);
 
   final String coreName;
-  final String label;
+
+  String label(AppLocalizations l) => switch (this) {
+    all => l.runFilterAll,
+    read => l.runFilterRead,
+    unread => l.runFilterUnread,
+  };
 }
 
 /// Avanzamento di "Esegui regole ora" (GET …/rules/run/{id}).

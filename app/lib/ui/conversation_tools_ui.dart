@@ -2,6 +2,8 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../settings/app_settings.dart';
 import '../state/mailbox_model.dart';
 import 'message_actions.dart';
@@ -16,11 +18,10 @@ class ConversationToolActions {
   static bool canIgnore(MailboxModel model) => MessageActions.canModify(model);
 
   /// Etichetta del comando: in Posta eliminata, su una conversazione ignorata, «Interrompi Ignora conversazione».
-  static String ignoreLabel(MailboxModel model) => model.openIgnoredInTrash ? 'Interrompi Ignora' : 'Ignora';
+  static String ignoreLabel(AppLocalizations l, MailboxModel model) => model.openIgnoredInTrash ? l.stopIgnore : l.ignore;
 
-  static String ignoreTooltip(MailboxModel model) => model.openIgnoredInTrash
-      ? 'La conversazione torna in Posta in arrivo e le mail nuove non vanno più in Posta eliminata'
-      : 'Sposta in Posta eliminata la conversazione e le mail che arriveranno';
+  static String ignoreTooltip(AppLocalizations l, MailboxModel model) =>
+      model.openIgnoredInTrash ? l.stopIgnoreTooltip : l.ignoreTooltip;
 
   /// Pulisci conversazione: mail aperta o selezionate, non in Posta eliminata né nella posta indesiderata.
   static bool canCleanUpConversation(MailboxModel model) =>
@@ -77,22 +78,20 @@ class ConversationToolActions {
     folder ??= model.selectedFolder!;
     final name = model.foldersByAccount[account]?.where((f) => f.fullName == folder).firstOrNull?.name ?? folder;
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         key: const Key('clean-up-folder-dialog'),
         icon: const Icon(FluentIcons.broom_20_regular),
-        title: const Text('Pulisci cartella'),
-        content: Text(
-          'Le mail superflue della cartella «$name» (quelle citate per intero da una risposta) verranno spostate '
-          'in Posta eliminata. Le mail da leggere, contrassegnate, con categorie o firmate restano dove sono.',
-        ),
+        title: Text(l.cleanUpFolder),
+        content: Text(l.cleanUpFolderContent(name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
           FilledButton(
             key: const Key('clean-up-folder-ok'),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Pulisci cartella'),
+            child: Text(l.cleanUpFolder),
           ),
         ],
       ),
@@ -104,18 +103,19 @@ class ConversationToolActions {
   /// Voci del menu «Pulisci».
   static List<Widget> cleanUpItems(BuildContext context) {
     final model = context.watch<MailboxModel>();
+    final l = context.l10n;
     return [
       MenuItemButton(
         key: const Key('clean-up-conversation'),
         leadingIcon: const Icon(FluentIcons.chat_multiple_20_regular, size: 16),
         onPressed: canCleanUpConversation(model) ? () => cleanUpConversation(context) : null,
-        child: const Text('Pulisci conversazione'),
+        child: Text(l.cleanUpConversation),
       ),
       MenuItemButton(
         key: const Key('clean-up-folder'),
         leadingIcon: const Icon(FluentIcons.folder_20_regular, size: 16),
         onPressed: canCleanUpFolder(model) ? () => cleanUpFolder(context) : null,
-        child: const Text('Pulisci cartella'),
+        child: Text(l.cleanUpFolder),
       ),
     ];
   }
@@ -145,7 +145,8 @@ class _IgnoreDialogState extends State<_IgnoreDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.stop ? 'Interrompi Ignora conversazione' : 'Ignora conversazione';
+    final l = context.l10n;
+    final title = widget.stop ? l.stopIgnoringConversation : l.ignoreConversation;
     return AlertDialog(
       key: const Key('ignore-dialog'),
       icon: Icon(widget.stop ? FluentIcons.mail_arrow_up_20_regular : FluentIcons.mail_prohibited_20_regular),
@@ -155,11 +156,7 @@ class _IgnoreDialogState extends State<_IgnoreDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            widget.stop
-                ? 'La conversazione selezionata non verrà più ignorata e le sue mail in Posta eliminata verranno '
-                      'spostate in Posta in arrivo.'
-                : 'Le mail della conversazione selezionata in questa cartella e tutte quelle che arriveranno verranno '
-                      'spostate in Posta eliminata.',
+            widget.stop ? l.stopIgnoreContent : l.ignoreContent,
           ),
           const SizedBox(height: 8),
           CheckboxListTile(
@@ -169,12 +166,12 @@ class _IgnoreDialogState extends State<_IgnoreDialog> {
             controlAffinity: ListTileControlAffinity.leading,
             value: _dontAskAgain,
             onChanged: (v) => setState(() => _dontAskAgain = v ?? false),
-            title: const Text('Non visualizzare più questo messaggio'),
+            title: Text(l.dontShowAgain),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         FilledButton(
           key: const Key('ignore-ok'),
           onPressed: () => Navigator.pop<_Answer>(context, (dontAskAgain: _dontAskAgain)),

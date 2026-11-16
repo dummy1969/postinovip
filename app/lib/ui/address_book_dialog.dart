@@ -2,6 +2,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../l10n/language.dart';
 import '../compose/address_list.dart';
 import '../models/account_info.dart';
 import '../models/contact.dart';
@@ -77,7 +78,7 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
 
   String _bookName(String id) {
     final a = widget.accounts.where((x) => x.id == id).firstOrNull;
-    return widget.accounts.length > 1 && a != null ? 'Contatti - ${a.name}' : 'Contatti';
+    return widget.accounts.length > 1 && a != null ? '${context.l10n.contacts} - ${a.name}' : context.l10n.contacts;
   }
 
   List<_Entry> get _entries {
@@ -130,11 +131,11 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
     final theme = Theme.of(context);
     final entries = _entries;
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(FluentIcons.book_contacts_24_regular),
-          SizedBox(width: 8),
-          Text('Rubrica'),
+          const Icon(FluentIcons.book_contacts_24_regular),
+          const SizedBox(width: 8),
+          Text(context.l10n.addressBook),
         ],
       ),
       content: SizedBox(
@@ -151,11 +152,11 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
                     controller: _search,
                     autofocus: true,
                     onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Cerca per nome, indirizzo o società',
-                      prefixIcon: Icon(FluentIcons.search_20_regular, size: 18),
+                    decoration: InputDecoration(
+                      hintText: context.l10n.addressBookSearch,
+                      prefixIcon: const Icon(FluentIcons.search_20_regular, size: 18),
                       isDense: true,
-                      border: OutlineInputBorder(),
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ),
@@ -167,9 +168,9 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
                       key: const Key('book-choice'),
                       initialValue: _book,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Rubrica', isDense: true, border: OutlineInputBorder()),
+                      decoration: InputDecoration(labelText: context.l10n.addressBook, isDense: true, border: const OutlineInputBorder()),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('Tutte le rubriche')),
+                        DropdownMenuItem(value: null, child: Text(context.l10n.allAddressBooks)),
                         for (final a in widget.accounts) DropdownMenuItem(value: a.id, child: Text(_bookName(a.id))),
                       ],
                       onChanged: (v) => setState(() => _book = v),
@@ -185,11 +186,11 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
-                    ? Center(child: Text('Contatti non disponibili: $_error'))
+                    ? Center(child: Text(context.l10n.contactsNotAvailable('$_error')))
                     : entries.isEmpty
                     ? Center(
                         child: Text(
-                          _books.values.every((l) => l.isEmpty) ? 'Nessun contatto con un indirizzo.' : 'Nessun contatto trovato.',
+                          _books.values.every((l) => l.isEmpty) ? context.l10n.noContactsWithAddress : context.l10n.noContactsFound,
                           style: TextStyle(color: theme.colorScheme.outline),
                         ),
                       )
@@ -218,16 +219,16 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            _targetRow('A ->', 'book-to', _to),
+            _targetRow('${context.l10n.headerTo} ->', 'book-to', _to),
             const SizedBox(height: 6),
-            _targetRow('Cc ->', 'book-cc', _cc),
+            _targetRow('${context.l10n.headerCc} ->', 'book-cc', _cc),
             const SizedBox(height: 6),
-            _targetRow('Ccn ->', 'book-bcc', _bcc),
+            _targetRow('${context.l10n.bcc} ->', 'book-bcc', _bcc),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         FilledButton(
           key: const Key('book-ok'),
           onPressed: () =>
@@ -260,7 +261,7 @@ class _AddressBookDialogState extends State<AddressBookDialog> {
               InputChip(
                 label: Text(m, overflow: TextOverflow.ellipsis),
                 onDeleted: () => setState(() => target.remove(m)),
-                deleteButtonTooltipMessage: 'Togli',
+                deleteButtonTooltipMessage: context.l10n.takeOut,
               ),
           ],
         ),

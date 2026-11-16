@@ -1,3 +1,5 @@
+import '../l10n/formats.dart';
+
 /// Dati locali (mail scaricate, indice di ricerca) di un account non più configurato nell'app.
 class OrphanCache {
   const OrphanCache({
@@ -38,5 +40,5 @@ class OrphanCache {
 /// Dimensione leggibile: "350 KB", "12,4 MB".
 String formatSize(int bytes) {
   if (bytes < 1024 * 1024) return '${(bytes / 1024).ceil()} KB';
-  return '${(bytes / 1024 / 1024).toStringAsFixed(1).replaceAll('.', ',')} MB';
+  return formatMegabytes(bytes);
 }

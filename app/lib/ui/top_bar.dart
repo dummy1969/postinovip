@@ -1,5 +1,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../state/calendar_model.dart';
@@ -32,7 +34,7 @@ class TopBar extends StatelessWidget {
     final module = context.watch<ContactsModel>().module;
     final quick = IconButton(
       key: const Key('top-send-receive'),
-      tooltip: 'Invia/ricevi tutte le cartelle (F9)',
+      tooltip: context.l10n.sendReceiveAllF9,
       iconSize: 20,
       color: chrome.onTitleBar,
       style: IconButton.styleFrom(

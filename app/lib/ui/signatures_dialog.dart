@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../attachments/file_picker.dart';
 import '../compose/rich_text.dart';
+import '../l10n/language.dart';
 import '../models/account_info.dart';
 import '../models/signature.dart';
 import '../settings/app_settings.dart';
@@ -92,7 +93,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
   void _checkSize() {
     final bytes = _editor == null ? 0 : embeddedImageBytes(_editor!.document);
     final error = bytes > maxSignatureBytes
-        ? 'Firma troppo grande: ${formatSize(bytes)} di immagini, massimo ${formatSize(maxSignatureBytes)}.'
+        ? context.l10n.signatureTooLarge(formatSize(bytes), formatSize(maxSignatureBytes))
         : null;
     if (error != _error && mounted) setState(() => _error = error);
   }
@@ -103,7 +104,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
   }
 
   Future<void> _new() async {
-    final name = await _askName(title: 'Nuova firma');
+    final name = await _askName(title: context.l10n.newSignature);
     if (name == null) return;
     final s = Signature(
       id: _newId(),
@@ -121,7 +122,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
   Future<void> _rename() async {
     final current = _signatures.where((s) => s.id == _selected).firstOrNull;
     if (current == null) return;
-    final name = await _askName(title: 'Rinomina firma', initial: current.name, except: current.id);
+    final name = await _askName(title: context.l10n.renameSignature, initial: current.name, except: current.id);
     if (name == null) return;
     setState(() => _signatures = [for (final s in _signatures) s.id == current.id ? s.copyWith(name: name) : s]);
   }
@@ -132,11 +133,11 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Eliminare la firma?'),
-        content: Text('"${current.name}" verrà eliminata da questo computer.'),
+        title: Text(context.l10n.deleteSignatureQuestion),
+        content: Text(context.l10n.deleteSignatureContent(current.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.delete)),
         ],
       ),
     );
@@ -171,7 +172,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
     if (files.isEmpty || !mounted) return;
     final url = pastedImageUrl(files.first.bytes);
     if (url == null) {
-      setState(() => _error = 'Il file scelto non è un\'immagine (PNG, JPEG, GIF, BMP o WebP).');
+      setState(() => _error = context.l10n.notAnImage);
       return;
     }
     final at = editor.selection.start.clamp(0, editor.document.length - 1);
@@ -190,7 +191,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
     final theme = Theme.of(context);
     final editor = _editor;
     return AlertDialog(
-      title: const Text('Firme e elementi decorativi'),
+      title: Text(context.l10n.signaturesAndStationery),
       content: SizedBox(
         width: 960,
         height: 520,
@@ -202,7 +203,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Seleziona la firma da modificare', style: theme.textTheme.titleSmall),
+                  Text(context.l10n.selectSignatureToEdit, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
                   Expanded(
                     child: DecoratedBox(
@@ -228,17 +229,17 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
                       TextButton.icon(
                         onPressed: _new,
                         icon: const Icon(FluentIcons.add_20_regular),
-                        label: const Text('Nuova'),
+                        label: Text(context.l10n.newButton),
                       ),
                       TextButton.icon(
                         onPressed: _selected == null ? null : _delete,
                         icon: const Icon(FluentIcons.delete_20_regular),
-                        label: const Text('Elimina'),
+                        label: Text(context.l10n.delete),
                       ),
                       TextButton.icon(
                         onPressed: _selected == null ? null : _rename,
                         icon: const Icon(FluentIcons.rename_20_regular),
-                        label: const Text('Rinomina'),
+                        label: Text(context.l10n.rename),
                       ),
                     ],
                   ),
@@ -250,13 +251,13 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Modifica firma', style: theme.textTheme.titleSmall),
+                  Text(context.l10n.editSignature, style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
                   if (editor == null)
                     Expanded(
                       child: Center(
                         child: Text(
-                          'Nessuna firma: crea la prima con "Nuova".',
+                          context.l10n.noSignatures,
                           style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
@@ -264,6 +265,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
                   else ...[
                     FormatCommands(
                       editor,
+                      l10n: context.l10n,
                       enabled: true,
                       onEdited: () {},
                     ).toolbar(context, onInsertImage: _insertImage),
@@ -274,10 +276,10 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
                         child: QuillEditor.basic(
                           key: ValueKey('signature-editor:$_selected'),
                           controller: editor,
-                          config: const QuillEditorConfig(
-                            placeholder: 'Testo della firma',
+                          config: QuillEditorConfig(
+                            placeholder: context.l10n.signatureText,
                             expands: true,
-                            padding: EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(8),
                             embedBuilders: [MailImageEmbedBuilder()],
                           ),
                         ),
@@ -298,7 +300,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         FilledButton(onPressed: _error == null ? _ok : null, child: const Text('OK')),
       ],
     );
@@ -308,7 +310,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
   Widget _defaultsPanel(ThemeData theme) {
     final account = _account;
     final d = _defaults[account] ?? SignatureDefaults.none;
-    DropdownMenuItem<String?> none() => const DropdownMenuItem(value: null, child: Text('(nessuna)'));
+    DropdownMenuItem<String?> none() => DropdownMenuItem(value: null, child: Text(context.l10n.noneFeminine));
     List<DropdownMenuItem<String?>> items() => [
       none(),
       for (final s in _signatures)
@@ -321,13 +323,13 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Scegli firma predefinita', style: theme.textTheme.titleSmall),
+        Text(context.l10n.chooseDefaultSignature, style: theme.textTheme.titleSmall),
         const SizedBox(height: 12),
         DropdownButtonFormField<String?>(
           key: const ValueKey('signature-account'),
           initialValue: account,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Account'),
+          decoration: InputDecoration(labelText: context.l10n.account),
           items: [
             for (final a in widget.accounts)
               DropdownMenuItem(
@@ -345,7 +347,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
           key: ValueKey('signature-new:$account'),
           initialValue: _signatures.any((s) => s.id == d.newMessage) ? d.newMessage : null,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Nuovi messaggi'),
+          decoration: InputDecoration(labelText: context.l10n.newMessages),
           items: items(),
           onChanged: account == null ? null : (id) => update(SignatureDefaults(newMessage: id, reply: d.reply)),
         ),
@@ -354,7 +356,7 @@ class _SignaturesDialogState extends State<SignaturesDialog> {
           key: ValueKey('signature-reply:$account'),
           initialValue: _signatures.any((s) => s.id == d.reply) ? d.reply : null,
           isExpanded: true,
-          decoration: const InputDecoration(labelText: 'Risposte/inoltri'),
+          decoration: InputDecoration(labelText: context.l10n.repliesForwards),
           items: items(),
           onChanged: account == null ? null : (id) => update(SignatureDefaults(newMessage: d.newMessage, reply: id)),
         ),
@@ -387,9 +389,9 @@ class _NameDialogState extends State<_NameDialog> {
   void _ok() {
     final name = _text.text.trim();
     final error = name.isEmpty
-        ? 'Scrivi un nome.'
+        ? context.l10n.writeAName
         : widget.taken.contains(name.toLowerCase())
-        ? 'C\'è già una firma con questo nome.'
+        ? context.l10n.signatureNameTaken
         : null;
     if (error != null) {
       setState(() => _error = error);
@@ -406,12 +408,12 @@ class _NameDialogState extends State<_NameDialog> {
       child: TextField(
         controller: _text,
         autofocus: true,
-        decoration: InputDecoration(labelText: 'Nome della firma', errorText: _error),
+        decoration: InputDecoration(labelText: context.l10n.signatureName, errorText: _error),
         onSubmitted: (_) => _ok(),
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
       FilledButton(onPressed: _ok, child: const Text('OK')),
     ],
   );

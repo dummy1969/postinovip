@@ -17,7 +17,7 @@ public sealed class SmtpMailService : IMailSender
     public SmtpMailService(SmtpSettings settings)
     {
         if (string.IsNullOrWhiteSpace(settings.Host))
-            throw new ArgumentException("Host SMTP non configurato.", nameof(settings));
+            throw new ArgumentException("Host SMTP non configurato.", nameof(settings)).WithCode("hostSmtpNonConfigurato");
         if (string.IsNullOrWhiteSpace(settings.Username)
             || settings.RequireAuth && string.IsNullOrEmpty(settings.Password) && settings.AccessToken is null)
             throw new ArgumentException("Credenziali SMTP mancanti.", nameof(settings));
@@ -87,12 +87,14 @@ public sealed class SmtpMailService : IMailSender
         {
             // Qualunque errore dopo lo scadere del tempo (anche SslHandshakeException: vedi ReconnectingSession).
             throw new MailOfflineException(
-                $"Server di invio non raggiungibile (nessuna risposta in {ConnectTimeout.TotalSeconds:0} s): mail non inviata.", ex);
+                $"Server di invio non raggiungibile (nessuna risposta in {ConnectTimeout.TotalSeconds:0} s): mail non inviata.", ex)
+                .WithCode("smtpNoAnswer", ("seconds", $"{ConnectTimeout.TotalSeconds:0}"));
         }
         catch (Exception ex) when (ex is System.Net.Sockets.SocketException or IOException && !ct.IsCancellationRequested
                                    && ex is not MailKit.Security.SslHandshakeException)
         {
-            throw new MailOfflineException($"Server di invio non raggiungibile ({ex.GetType().Name}: {ex.Message}): mail non inviata.", ex);
+            throw new MailOfflineException($"Server di invio non raggiungibile ({ex.GetType().Name}: {ex.Message}): mail non inviata.", ex)
+                .WithCode("smtpUnreachable", ("reason", $"{ex.GetType().Name}: {ex.Message}"));
         }
     }
 }

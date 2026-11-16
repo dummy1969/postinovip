@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../account/accounts_page.dart';
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../notify/system_notifier.dart';
 import '../models/calendar.dart';
 import '../settings/app_settings.dart';
@@ -12,15 +15,21 @@ import 'signatures_dialog.dart';
 
 /// Una pagina delle Opzioni: nome nell'elenco, icona e contenuto.
 enum SettingsPage {
-  general('Generale', Icons.tune),
-  mail('Posta', Icons.mail_outline),
-  notifications('Notifiche', Icons.notifications_none),
-  calendar('Calendario', Icons.calendar_month_outlined);
+  general(Icons.tune),
+  mail(Icons.mail_outline),
+  notifications(Icons.notifications_none),
+  calendar(Icons.calendar_month_outlined);
 
-  const SettingsPage(this.label, this.icon);
+  const SettingsPage(this.icon);
 
-  final String label;
   final IconData icon;
+
+  String label(AppLocalizations l) => switch (this) {
+    SettingsPage.general => l.optionsPageGeneral,
+    SettingsPage.mail => l.optionsPageMail,
+    SettingsPage.notifications => l.optionsPageNotifications,
+    SettingsPage.calendar => l.optionsPageCalendar,
+  };
 }
 
 /// Opzioni dell'app (File → Opzioni), come «Opzioni di Outlook» (scelta 1a del 10/11/2026): le categorie in un
@@ -41,6 +50,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     final screen = MediaQuery.sizeOf(context);
     final width = (screen.width - 48).clamp(280.0, 760.0);
     final height = (screen.height - 48).clamp(300.0, 540.0);
@@ -69,29 +79,37 @@ class _SettingsDialogState extends State<SettingsDialog> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text('Opzioni', style: theme.textTheme.titleLarge),
+              child: Text(l.optionsTitle, style: theme.textTheme.titleLarge),
             ),
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  SizedBox(
-                    width: 170,
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      children: [
-                        for (final p in SettingsPage.values)
-                          ListTile(
-                            key: Key('settings-tab-${p.name}'),
-                            dense: true,
-                            leading: Icon(p.icon, size: 20),
-                            title: Text(p.label),
-                            selected: p == _page,
-                            selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                            onTap: () => setState(() => _page = p),
-                          ),
-                      ],
+                  // Larga quanto la categoria più lunga, almeno 170 px: «Notifications» andava a capo a metà parola
+                  // (tappa «Lingua», L1, segnalato dall'utente il 16/11/2026); le voci non vanno mai a capo.
+                  SingleChildScrollView(
+                    key: const Key('settings-tabs'),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 170 - 16),
+                      child: IntrinsicWidth(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final p in SettingsPage.values)
+                              ListTile(
+                                key: Key('settings-tab-${p.name}'),
+                                dense: true,
+                                leading: Icon(p.icon, size: 20),
+                                title: Text(p.label(l), maxLines: 1, softWrap: false),
+                                selected: p == _page,
+                                selectedTileColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                onTap: () => setState(() => _page = p),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const VerticalDivider(width: 1),
@@ -104,7 +122,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               padding: const EdgeInsets.fromLTRB(8, 8, 16, 12),
               child: Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Chiudi')),
+                child: TextButton(onPressed: () => Navigator.pop(context), child: Text(l.optionsClose)),
               ),
             ),
           ],
@@ -113,12 +131,13 @@ class _SettingsDialogState extends State<SettingsDialog> {
     );
   }
 
-  /// Generale: account, tema di Office e posizione della barra dei moduli.
+  /// Generale: account, tema, posizione della barra dei moduli e lingua.
   List<Widget> _general(BuildContext context) {
     final settings = context.watch<AppSettings>();
+    final l = AppLocalizations.of(context);
     return [
       if (context.read<AccountsEditing?>() case final editing?) ...[
-        Text('Account', style: Theme.of(context).textTheme.titleSmall),
+        Text(l.optionsAccountSection, style: Theme.of(context).textTheme.titleSmall),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.manage_accounts),
@@ -126,18 +145,14 @@ class _SettingsDialogState extends State<SettingsDialog> {
             editing.accounts.isNotEmpty
                 ? editing.accounts.map((a) => a.displayName).join(', ')
                 : editing.coreAddress.isEmpty
-                ? '(non configurato)'
+                ? l.optionsAccountNotConfigured
                 : editing.coreAddress,
           ),
           subtitle: Text(
-            editing.accounts.isEmpty
-                ? 'Dati da user-secrets (sviluppo)'
-                : editing.accounts.length == 1
-                ? '1 account'
-                : '${editing.accounts.length} account',
+            editing.accounts.isEmpty ? l.optionsAccountFromUserSecrets : l.optionsAccountCount(editing.accounts.length),
           ),
           trailing: TextButton(
-            child: const Text('Gestisci…'),
+            child: Text(l.optionsAccountManage),
             // La finestra Account si apre sopra le Opzioni: «Annulla» riporta qui (richieste dell'utente del
             // 10/11/2026). Con «OK» e delle modifiche il core riparte e l'app viene ricreata, finestre comprese.
             onPressed: () => AccountsPage.show(context, api: context.read<ApiClient>(), editing: editing),
@@ -145,19 +160,19 @@ class _SettingsDialogState extends State<SettingsDialog> {
         ),
         const Divider(),
       ],
-      Text('Aspetto', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.optionsLookSection, style: Theme.of(context).textTheme.titleSmall),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: DropdownButtonFormField<AppTheme>(
           key: const ValueKey('theme-choice'),
           isExpanded: true,
           initialValue: settings.theme,
-          decoration: const InputDecoration(
-            labelText: 'Tema',
-            helperText: 'Il testo delle mail resta su fondo bianco anche con i temi scuri',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.optionsTheme,
+            helperText: l.optionsThemeHelper,
+            border: const OutlineInputBorder(),
           ),
-          items: [for (final t in AppTheme.values) DropdownMenuItem(value: t, child: Text(t.label))],
+          items: [for (final t in AppTheme.values) DropdownMenuItem(value: t, child: Text(t.label(l)))],
           onChanged: (t) {
             if (t != null) settings.setTheme(t);
           },
@@ -169,13 +184,31 @@ class _SettingsDialogState extends State<SettingsDialog> {
           key: const ValueKey('module-bar-choice'),
           isExpanded: true,
           initialValue: settings.moduleBar,
-          decoration: const InputDecoration(
-            labelText: 'Barra dei moduli (Posta, Calendario, Persone)',
-            border: OutlineInputBorder(),
-          ),
-          items: [for (final p in ModuleBarPosition.values) DropdownMenuItem(value: p, child: Text(p.label))],
+          decoration: InputDecoration(labelText: l.optionsModuleBar, border: const OutlineInputBorder()),
+          items: [for (final p in ModuleBarPosition.values) DropdownMenuItem(value: p, child: Text(p.label(l)))],
           onChanged: (p) {
             if (p != null) settings.setModuleBar(p);
+          },
+        ),
+      ),
+      // Lingua (tappa «Lingua», L1, scelta 1a): come il sistema o fissata qui; vale subito, senza riavviare.
+      const Divider(),
+      Text(l.optionsLanguageSection, style: Theme.of(context).textTheme.titleSmall),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: DropdownButtonFormField<AppLanguage>(
+          key: const ValueKey('language-choice'),
+          isExpanded: true,
+          initialValue: settings.language,
+          decoration: InputDecoration(
+            labelText: l.optionsLanguage,
+            helperText: l.optionsLanguageHelper,
+            helperMaxLines: 2,
+            border: const OutlineInputBorder(),
+          ),
+          items: [for (final a in AppLanguage.values) DropdownMenuItem(value: a, child: Text(a.label(l)))],
+          onChanged: (a) {
+            if (a != null) settings.setLanguage(a);
           },
         ),
       ),
@@ -185,23 +218,24 @@ class _SettingsDialogState extends State<SettingsDialog> {
   /// Posta: formato dei messaggi, firme, Segna come letto, conferme di lettura, conferme di Ignora conversazione.
   List<Widget> _mail(BuildContext context) {
     final settings = context.watch<AppSettings>();
+    final l = context.l10n;
     return [
       // Come Outlook: File → Opzioni → Posta → Composizione messaggi (13/11/2026, scelta 2a).
-      Text('Composizione messaggi', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.composeMessages, style: Theme.of(context).textTheme.titleSmall),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: DropdownButtonFormField<bool>(
           key: const ValueKey('settings-compose-format'),
           isExpanded: true,
           initialValue: settings.composePlainText,
-          decoration: const InputDecoration(
-            labelText: 'Componi messaggi in questo formato',
-            helperText: 'Per i messaggi nuovi; risposte e inoltri hanno il formato del messaggio originale',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l.composeInFormat,
+            helperText: l.composeInFormatHelp,
+            border: const OutlineInputBorder(),
           ),
-          items: const [
-            DropdownMenuItem(value: false, child: Text('HTML')),
-            DropdownMenuItem(value: true, child: Text('Testo normale')),
+          items: [
+            const DropdownMenuItem(value: false, child: Text('HTML')),
+            DropdownMenuItem(value: true, child: Text(l.plainText)),
           ],
           onChanged: (v) {
             if (v != null) settings.setComposePlainText(v);
@@ -209,23 +243,19 @@ class _SettingsDialogState extends State<SettingsDialog> {
         ),
       ),
       const Divider(height: 32),
-      Text('Firme', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.signaturesSection, style: Theme.of(context).textTheme.titleSmall),
       ListTile(
         contentPadding: EdgeInsets.zero,
         leading: const Icon(Icons.draw_outlined),
-        title: Text(switch (settings.signatures.length) {
-          0 => 'Nessuna firma',
-          1 => '1 firma',
-          final n => '$n firme',
-        }),
-        subtitle: const Text('Aggiunte da sole ai nuovi messaggi e alle risposte, per account'),
+        title: Text(l.signatureCount(settings.signatures.length)),
+        subtitle: Text(l.signaturesInfo),
         trailing: TextButton(
-          child: const Text('Firme…'),
+          child: Text(l.signaturesEllipsis),
           onPressed: () => showSignaturesDialog(context, accounts: context.read<MailboxModel>().accounts),
         ),
       ),
       const Divider(height: 32),
-      Text('Segna come letto', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.markAsReadSection, style: Theme.of(context).textTheme.titleSmall),
       RadioGroup<ReadMode>(
         groupValue: settings.readMode,
         onChanged: (mode) {
@@ -235,7 +265,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final mode in ReadMode.values)
-              RadioListTile<ReadMode>(value: mode, title: Text(mode.label), contentPadding: EdgeInsets.zero),
+              RadioListTile<ReadMode>(value: mode, title: Text(mode.label(l)), contentPadding: EdgeInsets.zero),
           ],
         ),
       ),
@@ -259,16 +289,16 @@ class _SettingsDialogState extends State<SettingsDialog> {
         ),
       const Divider(height: 32),
       // Conferme di lettura (R2), come Outlook: File → Opzioni → Posta → Rilevamento.
-      Text('Conferme di lettura', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.readReceiptsSection, style: Theme.of(context).textTheme.titleSmall),
       CheckboxListTile(
         key: const Key('settings-request-receipt'),
         value: settings.requestReadReceipt,
         onChanged: (v) => settings.setRequestReadReceipt(v ?? false),
-        title: const Text('Chiedi sempre la conferma di lettura nei nuovi messaggi'),
+        title: Text(l.alwaysRequestReceipt),
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
       ),
-      Text('Per i messaggi ricevuti che chiedono una conferma:', style: Theme.of(context).textTheme.bodyMedium),
+      Text(l.receiptForReceived, style: Theme.of(context).textTheme.bodyMedium),
       RadioGroup<ReceiptMode>(
         groupValue: settings.receiptMode,
         onChanged: (mode) {
@@ -281,7 +311,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               RadioListTile<ReceiptMode>(
                 key: Key('settings-receipt-${mode.name}'),
                 value: mode,
-                title: Text(mode.label),
+                title: Text(mode.label(l)),
                 contentPadding: EdgeInsets.zero,
               ),
           ],
@@ -289,12 +319,12 @@ class _SettingsDialogState extends State<SettingsDialog> {
       ),
       const Divider(height: 32),
       // Ignora conversazione (C2, 3a del 10/11/2026): riattivare le domande tolte con «Non visualizzare più».
-      Text('Ignora conversazione', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.ignoreConversation, style: Theme.of(context).textTheme.titleSmall),
       CheckboxListTile(
         key: const Key('settings-confirm-ignore'),
         value: settings.confirmIgnore,
         onChanged: (v) => settings.setConfirmIgnore(v ?? true),
-        title: const Text('Chiedi conferma prima di Ignora conversazione'),
+        title: Text(l.confirmBeforeIgnore),
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
       ),
@@ -302,7 +332,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
         key: const Key('settings-confirm-stop-ignoring'),
         value: settings.confirmStopIgnoring,
         onChanged: (v) => settings.setConfirmStopIgnoring(v ?? true),
-        title: const Text('Chiedi conferma prima di Interrompi Ignora conversazione'),
+        title: Text(l.confirmBeforeStopIgnoring),
         controlAffinity: ListTileControlAffinity.leading,
         contentPadding: EdgeInsets.zero,
       ),
@@ -312,8 +342,9 @@ class _SettingsDialogState extends State<SettingsDialog> {
   /// Notifiche di nuova posta.
   List<Widget> _notifications(BuildContext context) {
     final settings = context.watch<AppSettings>();
+    final l = context.l10n;
     return [
-      Text('Notifiche di nuova posta', style: Theme.of(context).textTheme.titleSmall),
+      Text(l.newMailNotifications, style: Theme.of(context).textTheme.titleSmall),
       RadioGroup<NotifyMode>(
         groupValue: settings.notifyMode,
         onChanged: (mode) {
@@ -323,7 +354,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final mode in NotifyMode.values)
-              RadioListTile<NotifyMode>(value: mode, title: Text(mode.label), contentPadding: EdgeInsets.zero),
+              RadioListTile<NotifyMode>(value: mode, title: Text(mode.label(l)), contentPadding: EdgeInsets.zero),
           ],
         ),
       ),
@@ -333,15 +364,15 @@ class _SettingsDialogState extends State<SettingsDialog> {
           final notifier = context.read<MailNotifier?>();
           if (notifier == null) {
             return Text(
-              'Notifiche di sistema non disponibili: il motivo è nel terminale ("[notifiche]").',
+              l.notificationsUnavailable,
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             );
           }
           return OutlinedButton.icon(
             icon: const Icon(Icons.notifications_active),
-            label: const Text('Prova notifica'),
+            label: Text(l.testNotification),
             onPressed: () => notifier
-                .show('PostinoVip', 'Notifica di prova: se la vedi, le notifiche funzionano.')
+                .show('PostinoVip', l.testNotificationText)
                 .catchError((Object _) {}), // l'errore è già nel terminale
           );
         },
@@ -354,8 +385,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
 class CalendarOptions extends StatelessWidget {
   const CalendarOptions({super.key});
 
-  static String _time(int minutes) =>
-      '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
+  static String _time(int minutes) => formatMinutes(minutes);
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +393,7 @@ class CalendarOptions extends StatelessWidget {
     final prefs = settings.calendar;
     final theme = Theme.of(context);
     final halfHours = [for (var m = 0; m <= 24 * 60; m += 30) m];
+    final l = context.l10n;
     Future<void> save(CalendarPrefs p) async {
       await settings.setCalendar(p);
       if (context.mounted) await context.read<CalendarModel>().reloadEvents();
@@ -371,28 +402,28 @@ class CalendarOptions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Calendario', style: theme.textTheme.titleSmall),
+        Text(l.calendarSection, style: theme.textTheme.titleSmall),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: DropdownButtonFormField<int>(
             key: const ValueKey('calendar-first-day'),
             isExpanded: true,
             initialValue: prefs.firstDay,
-            decoration: const InputDecoration(labelText: 'Primo giorno della settimana', border: OutlineInputBorder()),
+            decoration: InputDecoration(labelText: l.firstDayOfWeek, border: const OutlineInputBorder()),
             items: [for (var d = 1; d <= 7; d++) DropdownMenuItem(value: d, child: Text(CalendarModel.weekdayName(d)))],
             onChanged: (d) {
               if (d != null) save(prefs.copyWith(firstDay: d));
             },
           ),
         ),
-        Text('Giorni lavorativi (Settimana lavorativa)', style: theme.textTheme.bodyMedium),
+        Text(l.workDays, style: theme.textTheme.bodyMedium),
         Wrap(
           spacing: 6,
           children: [
             for (var d = 1; d <= 7; d++)
               FilterChip(
                 key: ValueKey('calendar-work-day-$d'),
-                label: Text(CalendarModel.weekdaysShort[d - 1]),
+                label: Text(CalendarModel.weekdayShort(d)),
                 selected: prefs.workDays.contains(d),
                 onSelected: (on) {
                   final days = {...prefs.workDays};
@@ -411,10 +442,7 @@ class CalendarOptions extends StatelessWidget {
                   key: const ValueKey('calendar-work-start'),
                   isExpanded: true,
                   initialValue: prefs.workStart,
-                  decoration: const InputDecoration(
-                    labelText: 'Inizio orario lavorativo',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: InputDecoration(labelText: l.workStart, border: const OutlineInputBorder()),
                   items: [
                     for (final m in halfHours)
                       if (m < prefs.workEnd) DropdownMenuItem(value: m, child: Text(_time(m))),
@@ -430,7 +458,7 @@ class CalendarOptions extends StatelessWidget {
                   key: const ValueKey('calendar-work-end'),
                   isExpanded: true,
                   initialValue: prefs.workEnd,
-                  decoration: const InputDecoration(labelText: 'Fine orario lavorativo', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.workEnd, border: const OutlineInputBorder()),
                   items: [
                     for (final m in halfHours)
                       if (m > prefs.workStart) DropdownMenuItem(value: m, child: Text(_time(m))),

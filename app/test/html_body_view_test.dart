@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postinovip/ui/html_body_view.dart';
+import 'package:postinovip/main.dart' show appLocalizationsDelegates;
+import 'package:postinovip/l10n/app_localizations.dart';
 
 void main() {
   test('immagini remote bloccate finché non consentite', () {
@@ -44,6 +46,8 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       const MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
             child: Column(

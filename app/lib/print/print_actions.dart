@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../attachments/file_saver.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../state/mailbox_model.dart';
 import 'message_pdf.dart';
 
@@ -25,6 +27,7 @@ class PrintActions {
   /// File → Stampa, Ctrl+P.
   static Future<void> printMessage(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final name = _fileName(context);
     final bytes = await _build(context);
     if (bytes == null) return;
@@ -37,14 +40,12 @@ class PrintActions {
       messenger.showSnackBar(
         SnackBar(
           content: Text(
-            opened
-                ? 'Aperta l\'anteprima nel visualizzatore PDF: stampa da lì.'
-                : 'Nessun programma per aprire i PDF. File in ${file.path}',
+            opened ? l.printPreviewOpened : l.printNoPdfViewer(file.path),
           ),
         ),
       );
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Stampa non preparata: ${e.message} (${e.path})')));
+      messenger.showSnackBar(SnackBar(content: Text(l.printNotPrepared(e.message, '${e.path}'))));
     }
   }
 
@@ -52,21 +53,22 @@ class PrintActions {
   static Future<void> saveAsPdf(BuildContext context) async {
     final saver = context.read<FileSaver>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final path = await saver.pickSaveLocation(_fileName(context));
     if (path == null || !context.mounted) return; // annullato
     final bytes = await _build(context);
     if (bytes == null) return;
     try {
       await saver.write(path, bytes);
-      messenger.showSnackBar(SnackBar(content: Text('Salvato in $path')));
+      messenger.showSnackBar(SnackBar(content: Text(l.savedTo(path))));
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('File non scritto: ${e.message} (${e.path})')));
+      messenger.showSnackBar(SnackBar(content: Text(l.fileNotWritten(e.message, '${e.path}'))));
     }
   }
 
   static String _fileName(BuildContext context) {
     final subject = context.read<MailboxModel>().detail?.subject.trim() ?? '';
-    return '${safeFileName(subject.isEmpty ? 'messaggio' : subject)}.pdf';
+    return '${safeFileName(subject.isEmpty ? formatL10n.defaultMessageFileName : subject)}.pdf';
   }
 
   /// PDF della mail aperta; null (con l'errore mostrato) se non si può.
@@ -77,7 +79,8 @@ class PrintActions {
     if (!canPrint(model) || detail == null) return null;
     final account = model.openAccountInfo;
     final view = View.of(context);
-    messenger.showSnackBar(const SnackBar(content: Text('Preparazione del PDF…'), duration: Duration(seconds: 30)));
+    final l = context.l10n;
+    messenger.showSnackBar(SnackBar(content: Text(l.preparingPdf), duration: const Duration(seconds: 30)));
     try {
       final pdf = await MessagePdf.build(
         message: detail,
@@ -91,7 +94,7 @@ class PrintActions {
       // Solo il tipo dell'errore: il messaggio potrebbe contenere testo della mail.
       debugPrint('[stampa] PDF non creato: ${e.runtimeType}');
       messenger.hideCurrentSnackBar();
-      messenger.showSnackBar(SnackBar(content: Text('PDF non creato: ${e.runtimeType}')));
+      messenger.showSnackBar(SnackBar(content: Text(l.pdfNotCreated('${e.runtimeType}'))));
       return null;
     }
   }

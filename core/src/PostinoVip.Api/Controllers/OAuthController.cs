@@ -55,9 +55,9 @@ public sealed class OAuthController(OAuthLogins logins) : ControllerBase
     {
         var (ok, message) = await logins.CompleteAsync(state, code, error, errorDescription, ct);
         var html = $"""
-            <!doctype html><html lang="it"><head><meta charset="utf-8"><title>PostinoVip</title>
+            <!doctype html><html lang="{PostinoVip.Core.Texts.CoreTexts.Language}"><head><meta charset="utf-8"><title>PostinoVip</title>
             <style>body{"{"}font-family:system-ui,sans-serif;margin:3rem;color:#1b1e2e{"}"}h1{"{"}font-size:1.4rem{"}"}</style></head>
-            <body><h1>{(ok ? "Accesso riuscito" : "Accesso non riuscito")}</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>
+            <body><h1>{PostinoVip.Core.Texts.CoreTexts.Get(ok ? "oauthPageOk" : "oauthPageFailed")}</h1><p>{WebUtility.HtmlEncode(message)}</p></body></html>
             """;
         return new ContentResult { Content = html, ContentType = "text/html; charset=utf-8", StatusCode = ok ? 200 : 400 };
     }

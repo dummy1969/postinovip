@@ -13,7 +13,12 @@ public sealed record CertificateInfo(
     DateTimeOffset? NotBefore,
     DateTimeOffset? NotAfter,
     string Sha256,
-    IReadOnlyList<string> Problems);
+    IReadOnlyList<string> Problems)
+{
+    /// <summary>Gli stessi problemi come codici per l'app (L6): nameMismatch, untrustedRoot, notTimeValid, revoked,
+    /// chainInvalid, noCertificate.</summary>
+    public IReadOnlyList<string> ProblemCodes { get; init; } = [];
+}
 
 /// <summary>
 /// Il server ha presentato un certificato non valido (autofirmato, nome diverso, scaduto…) e diverso da
@@ -68,28 +73,36 @@ public sealed class TrustedCertificate(string host, int port, string? pinnedSha2
     private CertificateInfo Describe(X509Certificate certificate, string sha256, X509Chain? chain, SslPolicyErrors errors)
     {
         var problems = new List<string>();
+        var codes = new List<string>();
+        void Add(string code, string text)
+        {
+            if (codes.Contains(code))
+                return;
+            codes.Add(code);
+            problems.Add(text);
+        }
         if (errors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch))
-            problems.Add($"intestato a un nome diverso da {host}");
+            Add("nameMismatch", $"intestato a un nome diverso da {host}");
         if (errors.HasFlag(SslPolicyErrors.RemoteCertificateChainErrors))
         {
             var before = problems.Count;
             var status = chain?.ChainStatus.Select(s => s.Status).ToHashSet() ?? [];
             if (status.Contains(X509ChainStatusFlags.UntrustedRoot) || status.Contains(X509ChainStatusFlags.PartialChain))
-                problems.Add("non firmato da un'autorità riconosciuta (es. autofirmato)");
+                Add("untrustedRoot", "non firmato da un'autorità riconosciuta (es. autofirmato)");
             if (status.Contains(X509ChainStatusFlags.NotTimeValid))
-                problems.Add("scaduto o non ancora valido");
+                Add("notTimeValid", "scaduto o non ancora valido");
             if (status.Contains(X509ChainStatusFlags.Revoked))
-                problems.Add("revocato");
+                Add("revoked", "revocato");
             if (problems.Count == before)
-                problems.Add("catena di certificazione non valida");
+                Add("chainInvalid", "catena di certificazione non valida");
         }
         if (errors.HasFlag(SslPolicyErrors.RemoteCertificateNotAvailable))
-            problems.Add("nessun certificato");
+            Add("noCertificate", "nessun certificato");
 
         var c2 = certificate as X509Certificate2;
         return new CertificateInfo(host, port, certificate.Subject, certificate.Issuer,
             c2 is null ? null : new DateTimeOffset(c2.NotBefore.ToUniversalTime(), TimeSpan.Zero),
             c2 is null ? null : new DateTimeOffset(c2.NotAfter.ToUniversalTime(), TimeSpan.Zero),
-            sha256, problems.Distinct().ToList());
+            sha256, problems) { ProblemCodes = codes };
     }
 }

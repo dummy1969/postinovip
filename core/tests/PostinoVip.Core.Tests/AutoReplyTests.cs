@@ -65,6 +65,8 @@ public sealed class AutoReplyTests : IDisposable
         var reply = AutoReplyPolicy.Build(original, Me, "anna@cliente.it", settings);
 
         Assert.Equal("Risposta automatica: Preventivo", reply.Subject);
+        using (PostinoVip.Core.Texts.CoreTexts.Use("en")) // L6b: nella lingua dell'app
+            Assert.Equal("Automatic reply: Preventivo", AutoReplyPolicy.Build(original, Me, "anna@cliente.it", settings).Subject);
         Assert.Equal("auto-replied", reply.Headers[HeaderId.AutoSubmitted]);
         Assert.Equal("All", reply.Headers["X-Auto-Response-Suppress"]);
         Assert.Equal(original.MessageId, reply.InReplyTo);

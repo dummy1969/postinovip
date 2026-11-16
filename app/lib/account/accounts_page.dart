@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../models/orphan_cache.dart';
 import 'account_config.dart';
 import 'account_setup_page.dart';
@@ -118,6 +120,7 @@ class _AccountsPageState extends State<AccountsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final screen = MediaQuery.sizeOf(context);
     final list = ListView(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
@@ -127,10 +130,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Nessun account salvato nell\'app. In sviluppo il core usa gli user-secrets'
-                      '${widget.editing.coreAddress.isEmpty ? '' : ' (${widget.editing.coreAddress})'}.\n'
-                      'Aggiungendo un account qui verranno usati solo gli account salvati qui: '
-                      'per continuare a vedere quello attuale, aggiungi anche lui.',
+                      l.noAccountsSaved(widget.editing.coreAddress.isEmpty ? '' : ' (${widget.editing.coreAddress})'),
                     ),
                   ),
                 ),
@@ -141,29 +141,29 @@ class _AccountsPageState extends State<AccountsPage> {
                     title: Text(a.displayName),
                     subtitle: Text(
                       '${a.name.trim().isEmpty ? '' : '${a.email} · '}${a.type.label} ${a.imapHost}'
-                      '${a.usesOAuth ? ' · accesso con ${a.oauthProvider == 'microsoft' ? 'Microsoft' : a.oauthProvider}' : ''}\n'
-                      '${a.isPop3 ? _pop3Summary(a) : 'Mail scaricate: ${AccountConfig.bodyMonthsLabel(a.bodyMonths).toLowerCase()}'}'
-                      '${a.cardDavEnabled ? ' · contatti sincronizzati (CardDAV)' : ''}'
-                      '${a.calDavEnabled ? ' · calendario sincronizzato (CalDAV)' : ''}',
+                      '${a.usesOAuth ? ' · ${l.accountSignedInWith(a.oauthProvider == 'microsoft' ? 'Microsoft' : a.oauthProvider!)}' : ''}\n'
+                      '${a.isPop3 ? _pop3Summary(l, a) : l.accountDownloadedMail(AccountConfig.bodyMonthsLabel(l, a.bodyMonths).toLowerCase())}'
+                      '${a.cardDavEnabled ? ' · ${l.accountContactsSynced}' : ''}'
+                      '${a.calDavEnabled ? ' · ${l.accountCalendarSynced}' : ''}',
                     ),
                     isThreeLine: true,
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          tooltip: 'Modifica',
+                          tooltip: l.edit,
                           icon: const Icon(Icons.edit),
                           onPressed: () => _edit(context, a),
                         ),
                         // POP3 (5a): non c'è un server da cui ricostruire, le mail sono solo sul computer.
                         if (!a.isPop3 && _saved.contains(a.id))
                           IconButton(
-                            tooltip: 'Ricostruisci cache',
+                            tooltip: l.rebuildCache,
                             icon: const Icon(Icons.cached),
                             onPressed: () => _rebuild(context, a),
                           ),
                         IconButton(
-                          tooltip: 'Rimuovi dall\'app',
+                          tooltip: l.removeFromApp,
                           icon: const Icon(Icons.delete_outline),
                           onPressed: () => _remove(context, a),
                         ),
@@ -176,11 +176,11 @@ class _AccountsPageState extends State<AccountsPage> {
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
                   icon: const Icon(Icons.add),
-                  label: const Text('Aggiungi account'),
+                  label: Text(l.addAccount),
                   onPressed: () => _add(context),
                 ),
               ),
-              ..._orphansSection(theme),
+              ..._orphansSection(theme, l),
             ],
           );
     return Dialog(
@@ -194,7 +194,7 @@ class _AccountsPageState extends State<AccountsPage> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-              child: Text('Account', style: theme.textTheme.titleLarge),
+              child: Text(l.accountsTitle, style: theme.textTheme.titleLarge),
             ),
             Expanded(child: list),
             const Divider(height: 1),
@@ -204,7 +204,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      _saveError ?? (_changed ? 'Modifiche non ancora salvate: valgono con «OK».' : ''),
+                      _saveError ?? (_changed ? l.pendingChangesOk : ''),
                       key: const Key('accounts-pending'),
                       style: theme.textTheme.bodySmall?.copyWith(color: _saveError == null ? null : theme.colorScheme.error),
                     ),
@@ -212,7 +212,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   TextButton(
                     key: const Key('accounts-cancel'),
                     onPressed: _saving ? null : () => Navigator.pop(context),
-                    child: const Text('Annulla'),
+                    child: Text(l.cancel),
                   ),
                   const SizedBox(width: 8),
                   FilledButton(
@@ -235,6 +235,7 @@ class _AccountsPageState extends State<AccountsPage> {
       Navigator.pop(context);
       return;
     }
+    final l = context.l10n;
     setState(() {
       _saving = true;
       _saveError = null;
@@ -247,31 +248,31 @@ class _AccountsPageState extends State<AccountsPage> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _saveError = 'Account non salvati: $e';
+          _saveError = l.accountsNotSaved('$e');
         });
       }
     }
   }
 
-  static String _pop3Summary(AccountConfig a) {
+  static String _pop3Summary(AppLocalizations l, AccountConfig a) {
     final copy = !a.leaveOnServer
-        ? 'tolte dal server dopo lo scaricamento'
+        ? l.pop3RemovedAfterDownload
         : a.removeAfter
-        ? 'copia sul server per ${a.removeAfterDays} giorni'
-        : 'copia lasciata sul server';
-    return 'Mail sul computer, $copy · controllo ogni ${a.checkMinutes} minuti';
+        ? l.pop3CopyForDays(a.removeAfterDays)
+        : l.pop3CopyLeft;
+    return l.pop3Summary(copy, a.checkMinutes);
   }
 
   /// "Dati di account rimossi": visibile solo se ce ne sono (o se non si è riusciti a leggerli).
-  List<Widget> _orphansSection(ThemeData theme) {
+  List<Widget> _orphansSection(ThemeData theme, AppLocalizations l) {
     final orphans = _orphans ?? const <OrphanCache>[];
     if (orphans.isEmpty && _orphansError == null) return const [];
     return [
       const SizedBox(height: 32),
-      Text('Dati di account rimossi', style: theme.textTheme.titleSmall!.copyWith(fontSize: 16)),
+      Text(l.removedAccountsData, style: theme.textTheme.titleSmall!.copyWith(fontSize: 16)),
       const SizedBox(height: 4),
       Text(
-        'Mail scaricate e indice di ricerca di account tolti dall\'app. Restano sul computer finché non li elimini.',
+        l.removedAccountsDataInfo,
         style: theme.textTheme.bodySmall,
       ),
       const SizedBox(height: 8),
@@ -284,15 +285,15 @@ class _AccountsPageState extends State<AccountsPage> {
             subtitle: Text(
               [
                 formatSize(o.sizeBytes),
-                if (o.localOnly) 'mail POP3: l\'unica copia è questa',
+                if (o.localOnly) l.orphanPop3Only,
                 // C2: i contatti sono solo su questo computer, come le mail POP3.
-                if (o.contacts > 0) '${o.contacts == 1 ? '1 contatto' : '${o.contacts} contatti'}, solo su questo computer',
+                if (o.contacts > 0) l.orphanContacts(o.contacts),
               ].join(' · '),
             ),
             trailing: TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
               icon: const Icon(Icons.delete_forever),
-              label: const Text('Elimina dati locali'),
+              label: Text(l.deleteLocalData),
               onPressed: () => _deleteOrphan(o),
             ),
           ),
@@ -329,18 +330,15 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Future<void> _rebuild(BuildContext context, AccountConfig account) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ricostruire la copia locale?'),
-        content: Text(
-          'La copia sul computer di «${account.displayName}» (mail scaricate e indice di ricerca) viene '
-          'cancellata e riscaricata dal server in background: può richiedere qualche minuto e usare la rete.\n\n'
-          'Sul server non viene modificato nulla.',
-        ),
+        title: Text(l.rebuildQuestion),
+        content: Text(l.rebuildContent(account.displayName)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ricostruisci')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.rebuild)),
         ],
       ),
     );
@@ -348,35 +346,35 @@ class _AccountsPageState extends State<AccountsPage> {
     try {
       await widget.api.forAccount(account.id).rebuildCache();
       messenger.showSnackBar(
-        SnackBar(content: Text('Ricostruzione della copia locale di «${account.displayName}» avviata.')),
+        SnackBar(content: Text(l.rebuildStarted(account.displayName))),
       );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Copia locale non ricostruita: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.rebuildFailed('$e'))));
     }
   }
 
   Future<void> _deleteOrphan(OrphanCache orphan) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final confirmed = orphan.localOnly
         ? await _confirmLocalOnly(orphan)
         : await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Eliminare i dati locali?'),
+              title: Text(l.deleteLocalDataQuestion),
               content: Text(
-                'Vengono cancellate dal computer le mail scaricate e l\'indice di ricerca di «${orphan.label}» '
-                '(${formatSize(orphan.sizeBytes)}), un account che non è più nell\'app.\n\n'
-                '${orphan.contacts > 0 ? 'Si perdono anche i suoi ${orphan.contacts} contatti: sono solo su questo computer. '
-                    'Per tenerli, aggiungi di nuovo l\'account ed esportali da Persone.\n\n' : ''}'
-                'Sul server non viene modificato nulla. L\'operazione non si può annullare: se aggiungerai di '
-                'nuovo l\'account, le mail verranno riscaricate.',
+                l.deleteLocalDataContent(
+                  orphan.label,
+                  formatSize(orphan.sizeBytes),
+                  orphan.contacts > 0 ? '${l.deleteLocalDataContacts(orphan.contacts)}\n\n' : '',
+                ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+                TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
                 FilledButton(
                   style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
                   onPressed: () => Navigator.pop(context, true),
-                  child: const Text('Elimina'),
+                  child: Text(l.delete),
                 ),
               ],
             ),
@@ -384,9 +382,9 @@ class _AccountsPageState extends State<AccountsPage> {
     if (confirmed != true) return;
     try {
       await widget.api.deleteCacheOrphan(orphan.id);
-      messenger.showSnackBar(SnackBar(content: Text('Dati locali di «${orphan.label}» eliminati.')));
+      messenger.showSnackBar(SnackBar(content: Text(l.localDataDeleted(orphan.label))));
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Dati locali non eliminati: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.localDataNotDeleted('$e'))));
     }
     await _loadOrphans();
   }
@@ -399,23 +397,21 @@ class _AccountsPageState extends State<AccountsPage> {
 
   /// «Rimuovi dall'app»: dopo la conferma l'account esce dall'elenco; diventa vero con «OK».
   Future<void> _remove(BuildContext context, AccountConfig account) async {
+    final l = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rimuovere l\'account dall\'app?'),
+        title: Text(l.removeAccountQuestion),
         content: Text(
-          '«${account.displayName}» (${account.email}) verrà tolto da PostinoVip, insieme alla password '
-          'salvata nel portachiavi.\n\n'
-          '${account.isPop3 ? 'Sul server non viene modificato nulla. Le mail scaricate con POP3 restano sul computer '
-                    '(per alcune è l\'unica copia): le trovi in "Dati di account rimossi" e tornano visibili se aggiungi '
-                    'di nuovo l\'account.' : 'Sul server non viene modificato nulla: le mail restano dove sono e puoi aggiungere di nuovo '
-                    'l\'account in qualsiasi momento. Le mail già scaricate restano sul computer: puoi eliminarle '
-                    'in seguito da "Dati di account rimossi".'}'
-          ' Anche i suoi contatti (Persone) restano sul computer.\n\nLa rimozione vale quando premi «OK» nella finestra Account.',
+          l.removeAccountContent(
+            account.displayName,
+            account.email,
+            account.isPop3 ? l.removeAccountPop3Note : l.removeAccountImapNote,
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Rimuovi')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.remove)),
         ],
       ),
     );
@@ -451,21 +447,18 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     final orphan = widget.orphan;
+    final l = context.l10n;
     final error = Theme.of(context).colorScheme.error;
     return AlertDialog(
       icon: Icon(Icons.warning_amber_rounded, color: error),
-      title: const Text('Eliminare per sempre le mail?'),
+      title: Text(l.deleteForeverQuestion),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '«${orphan.label}» era un account POP3: le sue mail (${formatSize(orphan.sizeBytes)}) sono state '
-              'scaricate su questo computer e qui c\'è l\'unica copia. Quelle già tolte dal server non si '
-              'potranno più recuperare.\n\nPer confermare scrivi: $_expected',
-            ),
+            Text(l.deleteForeverContent(orphan.label, formatSize(orphan.sizeBytes), _expected)),
             const SizedBox(height: 8),
             TextField(
               key: const Key('confirm-address'),
@@ -477,13 +470,13 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: error),
           onPressed: _typed.text.trim().toLowerCase() == _expected.toLowerCase()
               ? () => Navigator.pop(context, true)
               : null,
-          child: const Text('Elimina per sempre'),
+          child: Text(l.deleteForever),
         ),
       ],
     );

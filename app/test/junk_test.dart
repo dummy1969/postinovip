@@ -134,6 +134,23 @@ void main() {
     expect(const MailFolder(fullName: 'Posta inviata', name: 'Posta inviata').role, 'sent'); // gli altri dal nome, come prima
   });
 
+  testWidgets('in inglese (L4c): menu Posta indesiderata e Opzioni tradotti', (tester) async {
+    addTearDown(() => tester.platformDispatcher.localesTestValue = const [Locale('it', 'IT')]);
+    tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+    await _start(tester);
+    await _tap(tester, find.text('Offerta'));
+    await _tap(tester, find.byKey(const Key('ribbon-junk')));
+    expect(find.text('Block Sender'), findsOneWidget);
+    expect(find.text("Never Block Sender's Domain"), findsOneWidget);
+    await _tap(tester, find.byKey(const Key('junk-options')));
+    expect(find.text('Junk Email Options'), findsOneWidget);
+    expect(find.text('Safe Senders'), findsOneWidget);
+    expect(find.text('Safe Lists Only'), findsOneWidget);
+    expect(find.text('Automatic (no folder found)'), findsOneWidget);
+    await _tap(tester, find.text('Cancel'));
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
   testWidgets('Blocca mittente senza cartella: niente modifiche, poi la si sceglie nelle Opzioni', (tester) async {
     final core = await _start(tester);
     await _tap(tester, find.text('Offerta'));

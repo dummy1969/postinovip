@@ -30,12 +30,12 @@ public sealed class EmlStore(int capacity = 20)
         }
         catch (FormatException ex)
         {
-            throw new InvalidEmlException("Il file non è una mail (.eml) leggibile.", ex);
+            throw new InvalidEmlException("Il file non è una mail (.eml) leggibile.", ex).WithCode("ilFileNonUnaMail");
         }
         // MimeKit è permissivo: un file qualsiasi diventa una «mail» senza intestazioni. Serve almeno una di queste.
         HeaderId[] mail = [HeaderId.From, HeaderId.Date, HeaderId.Subject, HeaderId.To, HeaderId.MessageId];
         if (!mail.Any(message.Headers.Contains))
-            throw new InvalidEmlException("Il file non è una mail (.eml): mancano mittente, data, oggetto e destinatari.");
+            throw new InvalidEmlException("Il file non è una mail (.eml): mancano mittente, data, oggetto e destinatari.").WithCode("ilFileNonUnaMail2");
         return message;
     }
 
@@ -57,7 +57,7 @@ public sealed class EmlStore(int capacity = 20)
         lock (_lock)
         {
             if (!_open.TryGetValue(id, out var entry))
-                throw new MailNotFoundException("Il file .eml non è più aperto: riaprirlo.");
+                throw new MailNotFoundException("Il file .eml non è più aperto: riaprirlo.").WithCode("ilFileEmlNonPiu");
             _open[id] = (entry.Message, ++_clock);
             return entry.Message;
         }

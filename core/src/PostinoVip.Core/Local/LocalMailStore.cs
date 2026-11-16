@@ -90,7 +90,7 @@ public sealed class LocalMailStore : IMailboxSource
     public bool FolderExists(string fullName) => File.Exists(Path.Combine(DirectoryFor(fullName), MetaFile));
 
     public LocalFolderInfo GetFolder(string fullName) =>
-        ReadMeta(DirectoryFor(fullName)) ?? throw new MailNotFoundException($"Cartella '{fullName}' non trovata.");
+        ReadMeta(DirectoryFor(fullName)) ?? throw new MailNotFoundException($"Cartella '{fullName}' non trovata.").WithCode("cartellaNonTrovata", ("fullName", fullName));
 
     /// <summary>Crea la cartella (le cartelle madri devono esistere); già presente -> InvalidOperationException.</summary>
     public void CreateFolder(string fullName, string? role = null)
@@ -98,10 +98,10 @@ public sealed class LocalMailStore : IMailboxSource
         lock (_lock)
         {
             if (FolderExists(fullName))
-                throw new InvalidOperationException($"La cartella '{fullName}' esiste già.");
+                throw new InvalidOperationException($"La cartella '{fullName}' esiste già.").WithCode("laCartellaEsisteGia", ("fullName", fullName));
             var parent = ParentOf(fullName);
             if (parent is not null && !FolderExists(parent))
-                throw new MailNotFoundException($"Cartella '{parent}' non trovata.");
+                throw new MailNotFoundException($"Cartella '{parent}' non trovata.").WithCode("cartellaNonTrovata2", ("parent", parent));
             CreateFolderLocked(fullName, role);
         }
     }
@@ -132,7 +132,7 @@ public sealed class LocalMailStore : IMailboxSource
     {
         var dir = DirectoryFor(folder);
         if (!Directory.Exists(dir))
-            throw new MailNotFoundException($"Cartella '{folder}' non trovata.");
+            throw new MailNotFoundException($"Cartella '{folder}' non trovata.").WithCode("cartellaNonTrovata3", ("folder", folder));
         var uids = new List<uint>();
         foreach (var file in Directory.EnumerateFiles(dir, "*.eml"))
         {
@@ -157,7 +157,7 @@ public sealed class LocalMailStore : IMailboxSource
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
         {
-            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folder}'.");
+            throw new MailNotFoundException($"Messaggio {uid} non trovato in '{folder}'.").WithCode("messaggioNonTrovatoIn", ("uid", uid), ("folder", folder));
         }
     }
 
@@ -172,7 +172,7 @@ public sealed class LocalMailStore : IMailboxSource
         uint uid;
         lock (_lock)
         {
-            var info = ReadMeta(dir) ?? throw new MailNotFoundException($"Cartella '{folder}' non trovata.");
+            var info = ReadMeta(dir) ?? throw new MailNotFoundException($"Cartella '{folder}' non trovata.").WithCode("cartellaNonTrovata3", ("folder", folder));
             uid = info.UidNext;
             WriteMeta(dir, info with { UidNext = uid + 1 });
         }
@@ -256,9 +256,9 @@ public sealed class LocalMailStore : IMailboxSource
             var from = DirectoryFor(fullName);
             var to = DirectoryFor(newFullName);
             if (!File.Exists(Path.Combine(from, MetaFile)))
-                throw new MailNotFoundException($"Cartella '{fullName}' non trovata.");
+                throw new MailNotFoundException($"Cartella '{fullName}' non trovata.").WithCode("cartellaNonTrovata", ("fullName", fullName));
             if (ParentOf(newFullName) is { } parent && !FolderExists(parent))
-                throw new MailNotFoundException($"Cartella '{parent}' non trovata.");
+                throw new MailNotFoundException($"Cartella '{parent}' non trovata.").WithCode("cartellaNonTrovata2", ("parent", parent));
             if (string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
             {
                 // Solo maiuscole/minuscole: in due passi (su Windows e macOS i nomi non le distinguono).
@@ -268,7 +268,7 @@ public sealed class LocalMailStore : IMailboxSource
                 return;
             }
             if (Directory.Exists(to))
-                throw new InvalidOperationException($"La cartella '{newFullName}' esiste già.");
+                throw new InvalidOperationException($"La cartella '{newFullName}' esiste già.").WithCode("laCartellaEsisteGia2", ("newFullName", newFullName));
             Directory.Move(from, to);
         }
     }
@@ -323,12 +323,12 @@ public sealed class LocalMailStore : IMailboxSource
     public string DirectoryFor(string fullName)
     {
         if (string.IsNullOrEmpty(fullName))
-            throw new MailNotFoundException("Cartella non indicata.");
+            throw new MailNotFoundException("Cartella non indicata.").WithCode("cartellaNonIndicata");
         var dir = Root;
         foreach (var segment in fullName.Split(Separator))
         {
             if (segment.Length == 0)
-                throw new MailNotFoundException($"Cartella '{fullName}' non valida.");
+                throw new MailNotFoundException($"Cartella '{fullName}' non valida.").WithCode("cartellaNonValida2", ("fullName", fullName));
             dir = Path.Combine(dir, EncodeSegment(segment));
         }
         return dir;

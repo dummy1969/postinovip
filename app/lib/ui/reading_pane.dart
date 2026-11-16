@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../models/mail_importance.dart';
@@ -57,7 +59,7 @@ class ReadingPane extends StatelessWidget {
             Icon(FluentIcons.mail_multiple_24_regular, size: 40, color: outline),
             const SizedBox(height: 8),
             Text(
-              '${model.selection.length} elementi selezionati',
+              context.l10n.selectedItems(model.selection.length),
               style: Theme.of(context).textTheme.titleSmall!.copyWith(fontSize: 16),
             ),
             if (model.actionInProgress) ...[const SizedBox(height: 12), const CircularProgressIndicator()],
@@ -67,7 +69,7 @@ class ReadingPane extends StatelessWidget {
     }
     if (model.selectedUid == null) {
       return Center(
-        child: Text('Seleziona un messaggio', style: TextStyle(color: outline)),
+        child: Text(context.l10n.selectMessage, style: TextStyle(color: outline)),
       );
     }
     if (model.loadingDetail) {
@@ -79,7 +81,7 @@ class ReadingPane extends StatelessWidget {
     final detail = model.detail;
     if (detail == null) {
       return Center(
-        child: Text('Messaggio non disponibile', style: TextStyle(color: outline)),
+        child: Text(context.l10n.messageUnavailable, style: TextStyle(color: outline)),
       );
     }
     // La chiave azzera le scelte (HTML/testo, immagini) quando cambia messaggio.
@@ -108,34 +110,34 @@ class ReadingPane extends StatelessWidget {
         if (model.actionError != null)
           MaterialBanner(
             content: Text(model.actionError!),
-            actions: [TextButton(onPressed: model.clearActionError, child: const Text('Chiudi'))],
+            actions: [TextButton(onPressed: model.clearActionError, child: Text(context.l10n.close))],
           ),
         if (receipt)
           MaterialBanner(
             key: const Key('receipt-banner'),
             leading: const Icon(FluentIcons.mail_read_20_regular),
-            content: Text('${detail.from} ha chiesto una conferma di lettura.'),
+            content: Text(context.l10n.receiptRequested(detail.from)),
             actions: [
               TextButton(
                 key: const Key('receipt-decline'),
                 onPressed: () => model.answerReceipt(send: false),
-                child: const Text('Non inviare'),
+                child: Text(context.l10n.receiptDecline),
               ),
               FilledButton.tonal(
                 key: const Key('receipt-send'),
                 onPressed: () => model.answerReceipt(send: true),
-                child: const Text('Invia'),
+                child: Text(context.l10n.receiptSend),
               ),
             ],
           ),
         if (draft)
           MaterialBanner(
             leading: const Icon(FluentIcons.drafts_20_regular),
-            content: const Text('Bozza: non ancora inviata.'),
+            content: Text(context.l10n.draftBanner),
             actions: [
               FilledButton.tonal(
                 onPressed: () => MessageActions.editDraft(context),
-                child: const Text('Modifica bozza'),
+                child: Text(context.l10n.editDraft),
               ),
             ],
           ),
@@ -240,8 +242,8 @@ class _MessageViewState extends State<MessageView> {
                             final recipients = Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                if (_m.to.isNotEmpty) _headerLine('A', _m.to.join(', ')),
-                                if (_m.cc.isNotEmpty) _headerLine('Cc', _m.cc.join(', ')),
+                                if (_m.to.isNotEmpty) _headerLine(context.l10n.headerTo, _m.to.join(', ')),
+                                if (_m.cc.isNotEmpty) _headerLine(context.l10n.headerCc, _m.cc.join(', ')),
                               ],
                             );
                             final person = Row(
@@ -341,13 +343,13 @@ class _MessageViewState extends State<MessageView> {
                                     ? AttachmentCard(
                                         key: Key('attachment-open-${a.index}'),
                                         attachment: a,
-                                        tooltip: 'Apri "${a.fileName}"',
+                                        tooltip: context.l10n.openAttachment(a.fileName),
                                         onPressed: () => _openAttachedMail(a),
                                       )
                                     : AttachmentCard(
                                         key: Key('attachment-save-${a.index}'),
                                         attachment: a,
-                                        tooltip: 'Salva "${a.fileName}"…',
+                                        tooltip: context.l10n.saveAttachment(a.fileName),
                                         onPressed: () => _saveAttachment(a),
                                       ),
                             ],
@@ -367,35 +369,34 @@ class _MessageViewState extends State<MessageView> {
                   if (_m.importance != MailImportance.normal)
                     _Banner(
                       key: const Key('importance-banner'),
-                      text:
-                          'Il messaggio è stato inviato con priorità ${_m.importance == MailImportance.high ? 'alta' : 'bassa'}.',
+                      text: _m.importance == MailImportance.high
+                          ? context.l10n.importanceHighBanner
+                          : context.l10n.importanceLowBanner,
                       leading: ImportanceIcon(_m.importance),
                     ),
                   if (widget.junk)
                     _Banner(
                       key: const Key('junk-banner'),
                       leading: const Icon(FluentIcons.folder_prohibited_20_regular, size: 16),
-                      text:
-                          'Questa mail è nella posta indesiderata: per sicurezza i collegamenti sono disattivati e le '
-                          'immagini remote bloccate. Se è una mail attendibile, riportala in Posta in arrivo.',
+                      text: context.l10n.junkBanner,
                       action: widget.onNotJunk == null
                           ? null
                           : TextButton(
                               key: const Key('junk-banner-not-junk'),
                               onPressed: widget.onNotJunk,
-                              child: const Text('Non è posta indesiderata'),
+                              child: Text(context.l10n.notJunk),
                             ),
                     ),
                   if (!widget.junk && _mode == _BodyMode.html && _m.hasRemoteImages && !_showRemoteImages)
                     _Banner(
-                      text: 'Immagini remote bloccate per proteggere la privacy.',
+                      text: context.l10n.remoteImagesBlocked,
                       action: TextButton(
                         onPressed: () => setState(() => _showRemoteImages = true),
-                        child: const Text('Mostra immagini'),
+                        child: Text(context.l10n.showImages),
                       ),
                     ),
                   if (_mode == _BodyMode.text && hasHtml && !hasText)
-                    const _Banner(text: 'Messaggio solo HTML: mostrato come testo semplificato.'),
+                    _Banner(text: context.l10n.htmlOnlyAsText),
                 ],
               ),
             ),
@@ -437,7 +438,7 @@ class _MessageViewState extends State<MessageView> {
         icon: _loadingDraft == mode
             ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
             : Icon(icon, size: 16),
-        label: Text(mode.label),
+        label: Text(mode.label(context.l10n)),
       ),
   ];
 
@@ -446,9 +447,9 @@ class _MessageViewState extends State<MessageView> {
     key: const Key('body-mode'),
     style: _compact,
     showSelectedIcon: false,
-    segments: const [
-      ButtonSegment(value: _BodyMode.html, label: Text('HTML'), icon: Icon(Icons.web, size: 16)),
-      ButtonSegment(value: _BodyMode.text, label: Text('Testo'), icon: Icon(Icons.notes, size: 16)),
+    segments: [
+      const ButtonSegment(value: _BodyMode.html, label: Text('HTML'), icon: Icon(Icons.web, size: 16)),
+      ButtonSegment(value: _BodyMode.text, label: Text(context.l10n.bodyText), icon: const Icon(Icons.notes, size: 16)),
     ],
     selected: {_mode},
     onSelectionChanged: (s) => setState(() => _mode = s.first),
@@ -478,28 +479,30 @@ class _MessageViewState extends State<MessageView> {
   Future<void> _saveAttachment(AttachmentInfo a) async {
     final saver = context.read<FileSaver>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
 
     final path = await saver.pickSaveLocation(safeFileName(a.fileName));
     if (path == null) return; // annullato
     try {
       final bytes = await widget.attachmentBytes(a.index);
       await saver.write(path, bytes);
-      messenger.showSnackBar(SnackBar(content: Text('Salvato in $path')));
+      messenger.showSnackBar(SnackBar(content: Text(l.savedTo(path))));
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Allegato non scaricato: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.attachmentNotDownloaded('$e'))));
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('File non scritto: ${e.message} (${e.path})')));
+      messenger.showSnackBar(SnackBar(content: Text(l.fileNotWritten(e.message, '${e.path}'))));
     }
   }
 
   /// Mail allegata (message/rfc822): si apre nella finestra dei file .eml (E2).
   Future<void> _openAttachedMail(AttachmentInfo a) async {
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     try {
       final bytes = await widget.attachmentBytes(a.index);
       if (mounted) await EmlActions.open(context, bytes, name: a.fileName);
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Mail allegata non aperta: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.attachedMailNotOpened('$e'))));
     }
   }
 
@@ -516,7 +519,7 @@ class _MessageViewState extends State<MessageView> {
   String _plainText(bool hasText) {
     if (hasText) return _m.textBody!;
     if (_m.htmlBody != null) return htmlToText(_m.htmlBody!);
-    return '(messaggio senza testo)';
+    return context.l10n.messageWithoutText;
   }
 
   static Widget _headerLine(String label, String value) => Padding(
@@ -569,13 +572,13 @@ class _FollowUpLine extends StatelessWidget {
     final due = tags.due;
     final overdue = tags.flagged && due != null && due.isBefore(DateTime(now.year, now.month, now.day));
     final (icon, color, text) = tags.completed
-        ? (FluentIcons.checkmark_16_regular, scheme.onSurfaceVariant, 'Completato')
+        ? (FluentIcons.checkmark_16_regular, scheme.onSurfaceVariant, context.l10n.completed)
         : (
             FluentIcons.flag_16_filled,
             scheme.error,
             due == null
-                ? 'Contrassegnato per completamento'
-                : 'Completare entro ${formatDueDate(due)}${overdue ? ' (scaduto)' : ''}',
+                ? context.l10n.flaggedForFollowUp
+                : context.l10n.dueBy(formatDueDate(due)) + (overdue ? context.l10n.overdueSuffix : ''),
           );
     return Row(
       children: [

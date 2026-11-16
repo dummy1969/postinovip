@@ -6,6 +6,8 @@ import 'package:flutter_quill/quill_delta.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../compose/rich_text.dart';
 import '../models/auto_reply.dart';
 import '../state/mailbox_model.dart';
@@ -61,7 +63,7 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
     try {
       settings = await context.read<ApiClient>().forAccount(_account).getAutoReply();
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = 'Impostazioni non lette: $e');
+      if (mounted) setState(() => _error = context.l10n.settingsNotRead('$e'));
       return;
     }
     if (!mounted) return;
@@ -105,19 +107,18 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
   }
 
-  static String _format(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} '
-      '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  static String _format(DateTime d) => '${formatDate(d)} ${formatTime(d)}';
 
   Future<void> _ok() async {
     final editor = _editor;
     if (editor == null) return;
     final text = documentToPlainText(editor.document).trim();
+    final l = context.l10n;
     String? error;
     if (_enabled && text.isEmpty) {
-      error = 'Scrivi il messaggio della risposta automatica.';
+      error = l.autoReplyTextRequired;
     } else if (_enabled && _period && !_end.isAfter(_start)) {
-      error = 'L\'ora di fine deve venire dopo l\'ora di inizio.';
+      error = l.endAfterStart;
     }
     setState(() => _error = error);
     if (error != null) return;
@@ -127,14 +128,11 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Attivare le risposte automatiche?'),
-          content: const Text(
-            'Da ora PostinoVip risponderà da solo, una volta per mittente, alle mail che arrivano nella Posta in '
-            'arrivo e in cui sei in A o Cc, finché resta aperto. Le risposte partono senza chiederti conferma.',
-          ),
+          title: Text(l.turnOnAutoRepliesQuestion),
+          content: Text(l.turnOnAutoRepliesContent),
           actions: [
-            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Attiva')),
+            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(l.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l.turnOn)),
           ],
         ),
       );
@@ -160,7 +158,7 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = 'Non salvate: ${e.fieldErrors.values.firstOrNull?.first ?? e}';
+          _error = l.notSavedPlural('${e.fieldErrors.values.firstOrNull?.first ?? e}');
         });
       }
     }
@@ -171,8 +169,9 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
     final model = context.watch<MailboxModel>();
     final theme = Theme.of(context);
     final editor = _editor;
+    final l = context.l10n;
     return AlertDialog(
-      title: const Text('Risposte automatiche'),
+      title: Text(l.automaticReplies),
       content: SizedBox(
         width: 640,
         height: 520,
@@ -185,7 +184,7 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                     DropdownButtonFormField<String>(
                       key: const Key('autoreply-account'),
                       initialValue: _account,
-                      decoration: const InputDecoration(labelText: 'Account', isDense: true),
+                      decoration: InputDecoration(labelText: l.account, isDense: true),
                       items: [for (final a in model.accounts) DropdownMenuItem(value: a.id, child: Text(a.name))],
                       onChanged: _saving
                           ? null
@@ -201,19 +200,19 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                   RadioGroup<bool>(
                     groupValue: _enabled,
                     onChanged: (v) => setState(() => _enabled = v ?? false),
-                    child: const Column(
+                    child: Column(
                       children: [
                         RadioListTile(
-                          key: Key('autoreply-off'),
+                          key: const Key('autoreply-off'),
                           dense: true,
                           value: false,
-                          title: Text('Non inviare risposte automatiche'),
+                          title: Text(l.dontSendAutoReplies),
                         ),
                         RadioListTile(
-                          key: Key('autoreply-on'),
+                          key: const Key('autoreply-on'),
                           dense: true,
                           value: true,
-                          title: Text('Invia risposte automatiche'),
+                          title: Text(l.sendAutoReplies),
                         ),
                       ],
                     ),
@@ -230,13 +229,13 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                           controlAffinity: ListTileControlAffinity.leading,
                           value: _period,
                           onChanged: _enabled ? (v) => setState(() => _period = v ?? false) : null,
-                          title: const Text('Invia solo durante questo intervallo di tempo'),
+                          title: Text(l.onlyDuringRange),
                         ),
                         Wrap(
                           spacing: 16,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            const Text('Inizio:'),
+                            Text(l.startTimeColon),
                             TextButton(
                               key: const Key('autoreply-start'),
                               onPressed: _enabled && _period
@@ -247,7 +246,7 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                                   : null,
                               child: Text(_format(_start)),
                             ),
-                            const Text('Fine:'),
+                            Text(l.endTimeColon),
                             TextButton(
                               key: const Key('autoreply-end'),
                               onPressed: _enabled && _period
@@ -265,13 +264,11 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Le risposte partono da questo computer mentre PostinoVip è aperto (le mail arrivate ad app chiusa '
-                    'ricevono la risposta alla riapertura): una sola per mittente, solo se sei in A o Cc, mai a mailing '
-                    'list, ad altre risposte automatiche o a mittenti come «noreply». Non vengono salvate in Posta inviata.',
+                    l.autoRepliesInfo,
                     style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 8),
-                  FormatCommands(editor, enabled: true, onEdited: () {}).toolbar(context),
+                  FormatCommands(editor, l10n: context.l10n, enabled: true, onEdited: () {}).toolbar(context),
                   const SizedBox(height: 6),
                   Expanded(
                     child: DecoratedBox(
@@ -279,11 +276,11 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
                       child: QuillEditor.basic(
                         key: ValueKey('autoreply-editor:$_account'),
                         controller: editor,
-                        config: const QuillEditorConfig(
-                          placeholder: 'es. Sono fuori sede fino a lunedì 16 novembre e risponderò al mio rientro.',
+                        config: QuillEditorConfig(
+                          placeholder: l.autoReplyPlaceholder,
                           expands: true,
-                          padding: EdgeInsets.all(8),
-                          embedBuilders: [MailImageEmbedBuilder()],
+                          padding: const EdgeInsets.all(8),
+                          embedBuilders: const [MailImageEmbedBuilder()],
                         ),
                       ),
                     ),
@@ -297,7 +294,7 @@ class _AutoReplyDialogState extends State<AutoReplyDialog> {
               ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: const Text('Annulla')),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context), child: Text(l.cancel)),
         FilledButton(
           key: const Key('autoreply-ok'),
           onPressed: _saving || editor == null ? null : _ok,

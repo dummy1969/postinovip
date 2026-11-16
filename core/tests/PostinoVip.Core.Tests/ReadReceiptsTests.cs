@@ -28,6 +28,19 @@ public sealed class ReadReceiptsTests
         Assert.Equal(expected, ReadReceipts.RequestedBy(Mail(header))?.Address);
 
     [Fact]
+    public void ConfermaNellaLinguaDellApp()
+    {
+        using var english = PostinoVip.Core.Texts.CoreTexts.Use("en");
+        var receipt = ReadReceipts.Build(Mail("Disposition-Notification-To: anna@example.com\r\n"),
+            new MailboxAddress("", "io@example.com"), automatic: true, "0.0.1", new DateTimeOffset(2026, 11, 9, 11, 0, 0, TimeSpan.Zero));
+        Assert.Equal("Read: Riunione", receipt.Subject);
+        var text = ((MultipartReport)receipt.Body).OfType<TextPart>().First().Text;
+        Assert.StartsWith("Your message", text);
+        Assert.Contains("  Subject: Riunione", text);
+        Assert.Contains("was read on ", text);
+    }
+
+    [Fact]
     public void ConfermaComeRfc8098EMaiUnaConfermaDiUnaConferma()
     {
         var original = Mail("Disposition-Notification-To: anna@example.com\r\nOriginal-Recipient: rfc822;io@example.com\r\n");

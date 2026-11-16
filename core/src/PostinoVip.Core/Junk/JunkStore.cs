@@ -82,10 +82,10 @@ public sealed class JunkStore(string directory)
     public static JunkSettings Validate(JunkSettings s)
     {
         if (!Enum.IsDefined(s.Level))
-            throw new FieldValidationException("level", "Livello del filtro non valido.");
+            throw new FieldValidationException("level", "Livello del filtro non valido.").WithCode("livelloDelFiltroNonValido");
         var folder = string.IsNullOrWhiteSpace(s.Folder) ? null : s.Folder;
         if (folder is { Length: > 1000 } || folder?.Any(char.IsControl) == true)
-            throw new FieldValidationException("folder", "Cartella non valida.");
+            throw new FieldValidationException("folder", "Cartella non valida.").WithCode("cartellaNonValida");
         return s with
         {
             Folder = folder,

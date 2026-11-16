@@ -53,29 +53,30 @@ class NewMailNotifications {
     final mode = settings.notifyMode;
     if (mode == NotifyMode.never || (mode == NotifyMode.unfocused && focused)) {
       notifyLog(
-        '$account: ${newMail.length} nuove, notifica saltata (opzione "${mode.label}", finestra in primo piano: $focused)',
+        '$account: ${newMail.length} nuove, notifica saltata (opzione "${mode.name}", finestra in primo piano: $focused)',
       );
       return;
     }
     final suffix = accountLabel == null ? '' : ' · $accountLabel';
     notifyLog(
-      '$account: ${newMail.length} nuove, notifica (opzione "${mode.label}", finestra in primo piano: $focused, '
+      '$account: ${newMail.length} nuove, notifica (opzione "${mode.name}", finestra in primo piano: $focused, '
       'stato: ${WidgetsBinding.instance.lifecycleState?.name})',
     );
 
+    final l = settings.l10n;
     try {
       if (newMail.length == 1) {
         final m = newMail.single;
         await notifier.show(
-          'Nuova mail da ${m.from}$suffix',
+          l.newMailFrom(m.from, suffix),
           m.subject,
           payload: NotificationTarget(account, folder, m.uid).encode(),
         );
       } else {
         final preview = newMail.take(3).map((m) => '${m.from}: ${m.subject}').join('\n');
-        final more = newMail.length > 3 ? '\n…e altre ${newMail.length - 3}' : '';
+        final more = newMail.length > 3 ? l.newMailMore(newMail.length - 3) : '';
         await notifier.show(
-          '${newMail.length} nuove mail$suffix',
+          l.newMailCount(newMail.length, suffix),
           '$preview$more',
           payload: NotificationTarget(account, folder).encode(),
         );

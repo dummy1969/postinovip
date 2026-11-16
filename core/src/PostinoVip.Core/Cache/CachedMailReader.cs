@@ -72,7 +72,7 @@ public sealed class CachedMailReader(string account, ImapConnection connection, 
             log?.Invoke($"[{account}] cache {result}");
 
         var cached = cache.FindFolder(fullName)
-            ?? throw new InvalidOperationException($"Cartella '{fullName}' assente dalla cache dopo la sincronizzazione.");
+            ?? throw new InvalidOperationException($"Cartella '{fullName}' assente dalla cache dopo la sincronizzazione.").WithCode("cartellaAssenteDallaCacheDopo", ("fullName", fullName));
         var (total, items) = cache.GetPage(cached.Id, offset, limit, unreadOnly, oldestFirst, sort);
         return new MessagePage(total, offset, limit, items.Select(MessageHeaderMapper.FromRecord).ToList());
     }
@@ -88,7 +88,7 @@ public sealed class CachedMailReader(string account, ImapConnection connection, 
             if (result.Changed || result.FirstSync)
                 log?.Invoke($"[{account}] cache {result}");
             cached = cache.FindFolder(fullName)
-                ?? throw new InvalidOperationException($"Cartella '{fullName}' assente dalla cache dopo la sincronizzazione.");
+                ?? throw new InvalidOperationException($"Cartella '{fullName}' assente dalla cache dopo la sincronizzazione.").WithCode("cartellaAssenteDallaCacheDopo", ("fullName", fullName));
         }
         catch (MailOfflineException) when (cache.FindFolder(folder) is { SyncedAt: not null } offline)
         {
@@ -203,7 +203,7 @@ public sealed class CachedMailReader(string account, ImapConnection connection, 
 
     public async Task<AttachmentContent> GetAttachmentAsync(string folder, uint uid, int index, CancellationToken ct = default) =>
         Attachments.Extract(await LoadAsync(folder, uid, ct), index)
-            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.");
+            ?? throw new MailNotFoundException($"Allegato {index} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio", ("index", index), ("uid", uid));
 
     public async Task<IReadOnlyList<AttachmentContent>> GetAttachmentsAsync(string folder, uint uid, IReadOnlyList<int> indexes,
         CancellationToken ct = default)
@@ -211,7 +211,7 @@ public sealed class CachedMailReader(string account, ImapConnection connection, 
         var message = await LoadAsync(folder, uid, ct);
         return indexes
             .Select(i => Attachments.Extract(message, i)
-                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}."))
+                ?? throw new MailNotFoundException($"Allegato {i} non trovato nel messaggio {uid}.").WithCode("allegatoNonTrovatoNelMessaggio2", ("i", i), ("uid", uid)))
             .ToList();
     }
 

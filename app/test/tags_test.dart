@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:postinovip/api/api_client.dart';
+import 'package:postinovip/l10n/language.dart';
 import 'package:postinovip/main.dart';
 import 'package:postinovip/models/message_tags.dart';
 import 'package:postinovip/notify/window_presenter.dart';
@@ -104,6 +105,19 @@ Future<(TagsCore, MemorySettingsStore)> start(WidgetTester tester) async {
 String today() => MessageTags.formatDay(FollowUpChoice.today.dueFrom(DateTime.now())!);
 
 void main() {
+  test('nomi delle categorie (L4d): i predefiniti seguono la lingua, quelli rinominati restano', () async {
+    final store = MemorySettingsStore();
+    final settings = AppSettings(store);
+    expect(settings.categoryName(1), 'Categoria rossa');
+    await settings.setCategoryNames(['Categoria rossa', 'Orange category', 'Categoria gialla', 'Categoria verde', 'Clienti', 'Categoria viola']);
+    await settings.setLanguage(AppLanguage.english);
+    expect([for (var n = 1; n <= 6; n++) settings.categoryName(n)],
+        ['Red category', 'Orange category', 'Yellow category', 'Green category', 'Clienti', 'Purple category']);
+    await settings.setLanguage(AppLanguage.italian);
+    expect(settings.categoryName(2), 'Categoria arancione');
+    expect(settings.categoryName(5), 'Clienti');
+  });
+
   test('scadenze del menu "Completa"', () {
     final wednesday = DateTime(2026, 11, 4, 15, 30);
     final saturday = DateTime(2026, 11, 7, 9);

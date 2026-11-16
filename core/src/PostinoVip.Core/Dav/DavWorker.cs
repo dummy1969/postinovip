@@ -3,7 +3,12 @@ namespace PostinoVip.Core.Dav;
 /// <summary>Stato della sincronizzazione per l'app (GET …/contacts/sync, …/calendars/sync); AddressBook = nome della raccolta.</summary>
 /// <param name="State">"waiting" (non ancora partita), "syncing", "ok", "offline", "error", "unavailable" (non possibile per questo account).</param>
 public sealed record DavStatus(bool Enabled, string State, DateTimeOffset? LastSync, string? Error, bool NeedsConfirmation,
-    int PendingUpload, string? AddressBook);
+    int PendingUpload, string? AddressBook)
+{
+    /// <summary>Codice e valori di <see cref="Error"/> per l'app (L6): la striscia «nuovo accesso» lo riconosce dal codice.</summary>
+    public string? ErrorCode { get; init; }
+    public IReadOnlyDictionary<string, string>? ErrorArgs { get; init; }
+}
 
 /// <summary>
 /// Sincronizzazione DAV di un account (rubrica: C4b; calendari: K2a; scelta 4a): all'avvio, ogni <see cref="Interval"/>, subito dopo una
@@ -115,7 +120,7 @@ public sealed class DavWorker
             {
                 if (Status.State != "offline")
                     _log?.Invoke($"[{_account}] {_label}: {ex.Message}");
-                Status = Status with { State = "offline", Error = ex.Message };
+                Status = Status with { State = "offline", Error = ex.Message, ErrorCode = CoreError.CodeOf(ex), ErrorArgs = CoreError.ArgsOf(ex) };
                 wait = OfflineRetry;
             }
             catch (Exception ex)
@@ -124,7 +129,7 @@ public sealed class DavWorker
                 if (message != _lastError)
                     _log?.Invoke($"[{_account}] {_label}: sincronizzazione non riuscita ({message})");
                 _lastError = message;
-                Status = Status with { State = "error", Error = message };
+                Status = Status with { State = "error", Error = message, ErrorCode = CoreError.CodeOf(ex), ErrorArgs = CoreError.ArgsOf(ex) };
             }
 
             try

@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Testi delle mail per lingua (tappa «Lingua», L6b): PostinoVip.Core.Texts.<lingua>.json -->
+    <EmbeddedResource Include="Texts\*.json" LogicalName="PostinoVip.Core.Texts.%(Filename).json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Test del FETCH IMAP vero (ImportanceTests) con ImapFolderSource, che è interna. -->
     <InternalsVisibleTo Include="PostinoVip.Core.Tests" />
   </ItemGroup>

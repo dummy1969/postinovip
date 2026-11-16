@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
 import '../models/account_info.dart';
 import '../models/calendar.dart';
 import '../notify/system_notifier.dart';
@@ -120,9 +121,10 @@ class ReminderModel extends ChangeNotifier {
       final n = notifier;
       if (n != null) {
         final first = fresh.first.occurrence;
+        final l = settings.l10n;
         unawaited(n.show(
-          fresh.length == 1 ? 'Promemoria: ${first.title}' : '${fresh.length} promemoria',
-          fresh.length == 1 ? describe(first, now) : fresh.map((r) => r.occurrence.title).join(', '),
+          fresh.length == 1 ? l.reminderNotification(first.title) : l.remindersCount(fresh.length),
+          fresh.length == 1 ? describe(l, first, now) : fresh.map((r) => r.occurrence.title).join(', '),
           payload: payload,
         ));
       }
@@ -139,24 +141,29 @@ class ReminderModel extends ChangeNotifier {
   void shown() => showRequested = false;
 
   /// «Tra 15 minuti», «Adesso», «Iniziato da 5 minuti», «Giornata intera, oggi».
-  static String describe(CalendarOccurrence o, DateTime now) {
+  static String describe(AppLocalizations l, CalendarOccurrence o, DateTime now) {
     String span(Duration d) {
       final m = d.inMinutes.abs();
-      if (m < 60) return '$m minut${m == 1 ? 'o' : 'i'}';
+      if (m < 60) return l.durationMinutes(m);
       final h = d.inHours.abs();
-      if (h < 24) return '$h or${h == 1 ? 'a' : 'e'}';
-      final g = d.inDays.abs();
-      return '$g giorn${g == 1 ? 'o' : 'i'}';
+      if (h < 24) return l.durationHours(h);
+      return l.durationDays(d.inDays.abs());
     }
 
     if (o.allDay) {
       final today = DateTime(now.year, now.month, now.day);
       final days = o.start.difference(today).inDays;
-      return days == 0 ? 'Giornata intera, oggi' : days == 1 ? 'Giornata intera, domani' : days > 1 ? 'Giornata intera, tra $days giorni' : 'Giornata intera, iniziata da ${-days} giorn${days == -1 ? 'o' : 'i'}';
+      return days == 0
+          ? l.reminderAllDayToday
+          : days == 1
+          ? l.reminderAllDayTomorrow
+          : days > 1
+          ? l.reminderAllDayIn(days)
+          : l.reminderAllDayStarted(-days);
     }
     final diff = o.start.difference(now);
-    if (diff.inMinutes.abs() < 1) return 'Adesso';
-    return diff.isNegative ? 'Iniziato da ${span(diff)}' : 'Tra ${span(diff)}';
+    if (diff.inMinutes.abs() < 1) return l.reminderNow;
+    return diff.isNegative ? l.reminderStartedAgo(span(diff)) : l.reminderIn(span(diff));
   }
 
   Future<void> dismiss(Iterable<Reminder> items) async {

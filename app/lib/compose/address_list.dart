@@ -1,3 +1,5 @@
+import '../l10n/app_localizations.dart';
+
 /// Divide un campo destinatari in indirizzi: separatori "," e ";", spazi e voci vuote ignorati.
 /// I separatori tra virgolette o tra parentesi angolari non dividono, quindi
 /// `"Rossi, Mario" <m@x.it>` resta un solo indirizzo.
@@ -29,11 +31,11 @@ List<String> splitAddresses(String text) {
 }
 
 /// Controllo rapido lato app; la validazione vera (RFC rigorosa) la fa il core.
-String? validateAddressField(String text, {required bool required}) {
+String? validateAddressField(AppLocalizations l, String text, {required bool required}) {
   final list = splitAddresses(text);
-  if (list.isEmpty) return required ? 'Indicare almeno un destinatario' : null;
+  if (list.isEmpty) return required ? l.recipientRequired : null;
   final bad = list.where((a) => !a.contains('@')).toList();
-  return bad.isEmpty ? null : 'Indirizzo non valido: ${bad.join(', ')}';
+  return bad.isEmpty ? null : l.invalidAddress(bad.join(', '));
 }
 
 /// `Nome <indirizzo>` per un destinatario; il nome va tra virgolette se contiene caratteri speciali.

@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+import '../l10n/language.dart';
 import '../models/calendar.dart';
 import '../settings/app_settings.dart';
 import '../state/calendar_model.dart';
@@ -30,7 +33,8 @@ class CalendarColors {
     Color(0xFFC19C00), // oro
     Color(0xFF69797E), // grigio
   ];
-  static const names = ['Blu', 'Verde', 'Arancione', 'Viola', 'Verde acqua', 'Rosa', 'Oro', 'Grigio'];
+  static List<String> names(AppLocalizations l) =>
+      [l.colorBlue, l.colorGreen, l.colorOrange, l.colorPurple, l.colorTeal, l.colorPink, l.colorGold, l.colorGray];
 
   static Color of(int index) => colors[index % colors.length];
 }
@@ -44,26 +48,17 @@ class CalendarActions {
     return info?.name ?? account;
   }
 
-  static String _two(int n) => n.toString().padLeft(2, '0');
-  static String time(DateTime t) => '${_two(t.hour)}:${_two(t.minute)}';
-  static String date(DateTime d) =>
-      '${CalendarModel.weekdaysShort[d.weekday - 1]} ${_two(d.day)}/${_two(d.month)}/${d.year}';
+  static String time(DateTime t) => formatTime(t);
+  static String date(DateTime d) => formatWeekdayDate(d);
 
   /// «lun 09/11/2026 09:00 – 10:00», «da lun 09/11 a mer 11/11 (giornata intera)».
   static String when(CalendarOccurrence o) {
+    final l = formatL10n;
     if (o.allDay) {
-      return o.start == o.end ? '${date(o.start)} (giornata intera)' : 'Da ${date(o.start)} a ${date(o.end)} (giornata intera)';
+      return o.start == o.end ? l.whenAllDay(date(o.start)) : l.whenAllDayRange(date(o.start), date(o.end));
     }
     final sameDay = o.start.year == o.end.year && o.start.month == o.end.month && o.start.day == o.end.day;
     return sameDay ? '${date(o.start)} ${time(o.start)} – ${time(o.end)}' : '${date(o.start)} ${time(o.start)} – ${date(o.end)} ${time(o.end)}';
-  }
-
-  static String reminder(int? minutes) {
-    if (minutes == null) return 'Nessun promemoria';
-    if (minutes == 0) return "All'inizio";
-    if (minutes % (24 * 60) == 0) return '${minutes ~/ (24 * 60)} giorn${minutes == 24 * 60 ? 'o' : 'i'} prima';
-    if (minutes % 60 == 0) return '${minutes ~/ 60} or${minutes == 60 ? 'a' : 'e'} prima';
-    return '$minutes minuti prima';
   }
 
   /// Calendari in cui creare un appuntamento (menu «Calendario» della finestra), il predefinito del primo account per primo;
@@ -92,14 +87,12 @@ class CalendarActions {
   static Future<bool?> askOccurrence(BuildContext context, {required bool delete}) => showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(delete ? 'Eliminare un appuntamento ricorrente' : 'Aprire un appuntamento ricorrente'),
-      content: Text(delete
-          ? 'Eliminare solo questa occorrenza o tutta la serie?'
-          : 'È un appuntamento ricorrente. Aprire solo questa occorrenza o tutta la serie?'),
+      title: Text(delete ? context.l10n.deleteRecurringTitle : context.l10n.openRecurringTitle),
+      content: Text(delete ? context.l10n.deleteRecurringQuestion : context.l10n.openRecurringQuestion),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annulla')),
-        TextButton(key: const Key('choose-series'), onPressed: () => Navigator.pop(context, false), child: const Text('Tutta la serie')),
-        FilledButton(key: const Key('choose-occurrence'), autofocus: true, onPressed: () => Navigator.pop(context, true), child: const Text('Solo questa')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(context.l10n.cancel)),
+        TextButton(key: const Key('choose-series'), onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.entireSeries)),
+        FilledButton(key: const Key('choose-occurrence'), autofocus: true, onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.justThisOne)),
       ],
     ),
   );
@@ -121,7 +114,7 @@ class CalendarActions {
           ? await client.getCalendarOccurrence(o.calendarId, o.eventId, o.recurrenceId!)
           : await client.getCalendarEvent(o.calendarId, o.eventId);
     } on ApiException catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Appuntamento non disponibile: ${e.message}')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.appointmentNotAvailable(e.message))));
       return;
     }
     if (!context.mounted) return;
@@ -149,14 +142,14 @@ class CalendarActions {
       final ok = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text("Eliminare l'appuntamento?"),
-          content: Text('«${o.title}» viene eliminato; con la sincronizzazione anche dal server. Non si può recuperare.'),
+          title: Text(context.l10n.deleteAppointmentQuestion),
+          content: Text(context.l10n.deleteAppointmentContent(o.title)),
           actions: [
-            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+            TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Elimina'),
+              child: Text(context.l10n.delete),
             ),
           ],
         ),
@@ -169,7 +162,7 @@ class CalendarActions {
           ? await client.deleteCalendarOccurrence(o.calendarId, o.eventId, o.recurrenceId!)
           : await client.deleteCalendarEvent(o.calendarId, o.eventId);
     } on ApiException catch (e) {
-      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Appuntamento non eliminato: ${e.message}')));
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.appointmentNotDeleted(e.message))));
       return;
     }
     model.select(null);
@@ -183,17 +176,14 @@ class CalendarActions {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Caricare gli appuntamenti sul server?'),
+        title: Text(context.l10n.uploadAppointmentsQuestion),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: Text(
-            '${n == 1 ? 'Un appuntamento è' : '$n appuntamenti sono'} solo su questo computer. Verranno aggiunti al calendario '
-            'del server e da allora sincronizzati.\n\nGli appuntamenti già presenti sul server non vengono modificati.',
-          ),
+          child: Text(context.l10n.uploadAppointmentsContent(n)),
         ),
         actions: [
-          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Carica sul server')),
+          TextButton(autofocus: true, onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(context.l10n.uploadToServer)),
         ],
       ),
     );
@@ -202,7 +192,7 @@ class CalendarActions {
       await model.confirmUpload(account);
     } on ApiException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Appuntamenti non caricati: ${e.message}')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(context.l10n.appointmentsNotUploaded(e.message))));
       }
     }
   }
@@ -214,32 +204,32 @@ class CalendarActions {
     RibbonLargeButton view(CalendarViewKind kind, IconData icon, String shortcut) => RibbonLargeButton(
       key: Key('calendar-view-${kind.name}'),
       icon: icon,
-      label: kind.label,
-      tooltip: '${kind.label} ($shortcut)',
+      label: kind.label(context.l10n),
+      tooltip: '${kind.label(context.l10n)} ($shortcut)',
       selected: model.view == kind && !(kind == CalendarViewKind.week && model.sevenDays),
       onPressed: () => model.setView(kind),
     );
     return [
       RibbonGroup(
-        label: 'Nuovo',
+        label: context.l10n.groupNew,
         children: [
           RibbonLargeButton(
             key: const Key('calendar-new'),
             icon: FluentIcons.calendar_add_24_regular,
-            label: 'Nuovo appuntamento',
-            tooltip: 'Nuovo appuntamento (Ctrl+N)',
+            label: context.l10n.newAppointment,
+            tooltip: context.l10n.newAppointmentTooltip,
             onPressed: model.calendars.values.any((l) => l.any((c) => !c.readOnly)) ? () => newAppointment(context) : null,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Elimina',
+        label: context.l10n.delete,
         children: [
           RibbonLargeButton(
             key: const Key('calendar-delete'),
             icon: FluentIcons.delete_24_regular,
-            label: 'Elimina',
-            tooltip: "Elimina l'appuntamento selezionato (Canc)",
+            label: context.l10n.delete,
+            tooltip: context.l10n.deleteSelectedAppointmentTooltip,
             onPressed: model.selected != null && !model.isReadOnly(model.selected!.account, model.selected!.calendarId)
                 ? () => deleteSelected(context)
                 : null,
@@ -247,25 +237,25 @@ class CalendarActions {
         ],
       ),
       RibbonGroup(
-        label: 'Vai a',
+        label: context.l10n.groupGoTo,
         children: [
           RibbonLargeButton(
             icon: FluentIcons.calendar_today_24_regular,
-            label: 'Oggi',
-            tooltip: 'Torna a oggi',
+            label: context.l10n.today,
+            tooltip: context.l10n.todayTooltip,
             onPressed: model.goToday,
           ),
           RibbonLargeButton(
             icon: FluentIcons.calendar_week_numbers_24_regular,
-            label: 'Prossimi 7 giorni',
-            tooltip: 'Sette giorni a partire da oggi',
+            label: context.l10n.next7Days,
+            tooltip: context.l10n.next7DaysTooltip,
             selected: model.sevenDays,
             onPressed: model.showNextSevenDays,
           ),
         ],
       ),
       RibbonGroup(
-        label: 'Disponi',
+        label: context.l10n.groupArrange,
         children: [
           view(CalendarViewKind.day, FluentIcons.calendar_day_24_regular, 'Ctrl+Alt+1'),
           view(CalendarViewKind.workWeek, FluentIcons.calendar_work_week_24_regular, 'Ctrl+Alt+2'),
@@ -275,12 +265,12 @@ class CalendarActions {
       ),
       if (mail.accounts.any((a) => a.calDav))
         RibbonGroup(
-          label: 'Sincronizzazione',
+          label: context.l10n.groupSync,
           children: [
             RibbonLargeButton(
               icon: FluentIcons.arrow_sync_24_regular,
-              label: 'Sincronizza',
-              tooltip: 'Sincronizza subito i calendari con il server (F9)',
+              label: context.l10n.sync,
+              tooltip: context.l10n.syncCalendarsTooltip,
               onPressed: model.syncNow,
             ),
           ],
@@ -320,7 +310,7 @@ class CalendarView extends StatelessWidget {
               if (model.error != null)
                 Padding(
                   padding: const EdgeInsets.all(8),
-                  child: Text('Appuntamenti non disponibili: ${model.error}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  child: Text(context.l10n.appointmentsNotAvailable('${model.error}'), style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ),
               Expanded(
                 child: model.view == CalendarViewKind.month ? const MonthGrid() : const TimeGrid(),
@@ -353,11 +343,11 @@ class _UploadStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$name: ${n == 1 ? 'un appuntamento è' : '$n appuntamenti sono'} solo su questo computer, non ancora sul server.',
+              context.l10n.uploadStrip(name, n),
               style: const TextStyle(color: Colors.black87),
             ),
           ),
-          TextButton(onPressed: () => CalendarActions.confirmUpload(context, account), child: const Text('Carica sul server…')),
+          TextButton(onPressed: () => CalendarActions.confirmUpload(context, account), child: Text(context.l10n.uploadToServerEllipsis)),
         ],
       ),
     );
@@ -387,10 +377,7 @@ class _EmptyHint extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Nessun appuntamento in questo periodo. '
-              '${synced ? '' : 'Per vedere quelli del server attiva «Sincronizza il calendario con il server (CalDAV)» in '
-                  'File → Opzioni → Account → Modifica. '}'
-              'Per crearne uno: «Nuovo appuntamento» (Ctrl+N) o doppio clic su uno spazio vuoto.',
+              context.l10n.calendarEmpty + (synced ? '' : context.l10n.calendarEmptySyncHint) + context.l10n.calendarEmptyCreate,
               style: theme.textTheme.bodySmall,
             ),
           ),
@@ -413,13 +400,13 @@ class _Header extends StatelessWidget {
         children: [
           IconButton(
             key: const Key('calendar-prev'),
-            tooltip: 'Precedente',
+            tooltip: context.l10n.previous,
             icon: const Icon(FluentIcons.chevron_left_20_regular),
             onPressed: () => model.move(-1),
           ),
           IconButton(
             key: const Key('calendar-next'),
-            tooltip: 'Successivo',
+            tooltip: context.l10n.next,
             icon: const Icon(FluentIcons.chevron_right_20_regular),
             onPressed: () => model.move(1),
           ),
@@ -452,7 +439,7 @@ class _CalendarsPane extends StatelessWidget {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('I miei calendari', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            child: Text(context.l10n.myCalendars, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
           ),
           Expanded(
             child: ListView(
@@ -466,16 +453,15 @@ class _CalendarsPane extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
                       child: Tooltip(
-                        message: 'Per vedere gli appuntamenti del server: File → Opzioni → Account → Modifica → '
-                            '«Sincronizza il calendario con il server (CalDAV)»',
+                        message: context.l10n.localOnlyTooltip,
                         child: Text(
-                          'Solo su questo computer',
+                          context.l10n.localOnly,
                           key: Key('calendar-local-only:${a.id}'),
                           style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                         ),
                       ),
                     ),
-                  if (PeopleActions.syncLabel(model.statusOf(a.id)) case final sync?)
+                  if (PeopleActions.syncLabel(context.l10n, model.statusOf(a.id)) case final sync?)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 2),
                       child: Text(
@@ -513,8 +499,8 @@ class _CalendarRow extends StatelessWidget {
       context: context,
       position: RelativeRect.fromRect(position & const Size(1, 1), Offset.zero & overlay.size),
       items: [
-        const PopupMenuItem<int>(enabled: false, child: Text('Colore')),
-        for (final (i, name) in CalendarColors.names.indexed)
+        PopupMenuItem<int>(enabled: false, child: Text(context.l10n.color)),
+        for (final (i, name) in CalendarColors.names(context.l10n).indexed)
           PopupMenuItem(
             key: Key('calendar-color-$i'),
             value: i,
@@ -552,12 +538,12 @@ class _CalendarRow extends StatelessWidget {
         onChanged: (v) => model.setVisible(account, calendar.id, v ?? true),
         title: Text(calendar.name, overflow: TextOverflow.ellipsis),
         secondary: calendar.readOnly
-            ? const Tooltip(
-                message: 'Sola lettura: gli appuntamenti si vedono ma non si modificano',
-                child: Icon(FluentIcons.lock_closed_16_regular, key: Key('calendar-readonly'), size: 16),
+            ? Tooltip(
+                message: context.l10n.calendarReadOnlyTooltip,
+                child: const Icon(FluentIcons.lock_closed_16_regular, key: Key('calendar-readonly'), size: 16),
               )
             : calendar.synced
-            ? const Tooltip(message: 'Sincronizzato con il server', child: Icon(FluentIcons.cloud_16_regular, size: 16))
+            ? Tooltip(message: context.l10n.syncedWithServer, child: const Icon(FluentIcons.cloud_16_regular, size: 16))
             : null,
       ),
     );
@@ -593,17 +579,17 @@ class _MiniMonthState extends State<MiniMonth> {
             children: [
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Mese precedente',
+                tooltip: context.l10n.previousMonth,
                 icon: const Icon(FluentIcons.chevron_left_16_regular, size: 16),
                 onPressed: () => setState(() => _month = DateTime(shown.year, shown.month - 1)),
               ),
               Expanded(
-                child: Text('${CalendarModel.monthName(shown.month)} ${shown.year}', textAlign: TextAlign.center,
+                child: Text(formatMonthYear(shown), textAlign: TextAlign.center,
                     key: const Key('mini-month-title'), style: theme.textTheme.titleSmall),
               ),
               IconButton(
                 visualDensity: VisualDensity.compact,
-                tooltip: 'Mese successivo',
+                tooltip: context.l10n.nextMonth,
                 icon: const Icon(FluentIcons.chevron_right_16_regular, size: 16),
                 onPressed: () => setState(() => _month = DateTime(shown.year, shown.month + 1)),
               ),
@@ -613,7 +599,7 @@ class _MiniMonthState extends State<MiniMonth> {
             children: [
               for (var i = 0; i < 7; i++)
                 Expanded(
-                  child: Text(CalendarModel.weekdaysShort[(first - 1 + i) % 7].substring(0, 2), textAlign: TextAlign.center,
+                  child: Text(CalendarModel.weekdayShort((first - 1 + i) % 7 + 1).substring(0, 2), textAlign: TextAlign.center,
                       style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ),
             ],
@@ -754,7 +740,7 @@ class _TimeGridState extends State<TimeGrid> {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: BoxDecoration(border: Border(left: BorderSide(color: theme.colorScheme.outlineVariant))),
                   child: Text(
-                    '${CalendarModel.weekdaysShort[d.weekday - 1]} ${d.day}',
+                    '${CalendarModel.weekdayShort(d.weekday)} ${d.day}',
                     key: Key('day-header:${d.year}-${d.month}-${d.day}'),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -799,7 +785,7 @@ class _TimeGridState extends State<TimeGrid> {
                           Positioned(
                             top: h * TimeGrid.hourHeight - 7,
                             right: 6,
-                            child: Text('${h.toString().padLeft(2, '0')}:00', style: theme.textTheme.labelSmall),
+                            child: Text(formatHour(h), style: theme.textTheme.labelSmall),
                           ),
                       ],
                     ),
@@ -892,7 +878,7 @@ class _DayColumn extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Tooltip(
-                  message: 'Adesso (${CalendarActions.time(now)})',
+                  message: context.l10n.nowAt(CalendarActions.time(now)),
                   child: Container(key: const Key('now-line'), height: 2, color: theme.colorScheme.error),
                 ),
               ),
@@ -1037,7 +1023,7 @@ class MonthGrid extends StatelessWidget {
                               ),
                               for (final o in list.take(maxPerDay)) EventTile(occurrence: o, compact: true),
                               if (list.length > maxPerDay)
-                                Text('+${list.length - maxPerDay} altri', style: theme.textTheme.labelSmall),
+                                Text(context.l10n.moreItems(list.length - maxPerDay), style: theme.textTheme.labelSmall),
                             ],
                           ),
                         ),

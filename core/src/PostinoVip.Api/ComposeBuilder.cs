@@ -31,13 +31,13 @@ public static class ComposeBuilder
                 // Inoltro di un file .eml aperto (E1).
                 var file = OpenEml(eml, emlId, "forwardAttachments");
                 original = fwd.Indexes
-                    .Select(i => Attachments.Extract(file, i) ?? throw new MailNotFoundException($"Allegato {i} non trovato."))
+                    .Select(i => Attachments.Extract(file, i) ?? throw new MailNotFoundException($"Allegato {i} non trovato.").WithCode("allegatoNonTrovato", ("i", i)))
                     .ToList();
             }
             else
             {
                 if (string.IsNullOrEmpty(fwd.Folder))
-                    throw new FieldValidationException("forwardAttachments", "Indicare la cartella del messaggio originale.");
+                    throw new FieldValidationException("forwardAttachments", "Indicare la cartella del messaggio originale.").WithCode("indicareLaCartellaDelMessaggio");
                 var source = fwd.Account is null ? account : accountById(fwd.Account);
                 original = await source.Reader.GetAttachmentsAsync(fwd.Folder, fwd.Uid, fwd.Indexes, ct); // JSON: nessuna decodifica %2F
             }
@@ -54,9 +54,9 @@ public static class ComposeBuilder
             else
             {
                 if (string.IsNullOrEmpty(q.Folder) && q.Eml is null)
-                    throw new FieldValidationException("quote", "Indicare la cartella del messaggio originale.");
+                    throw new FieldValidationException("quote", "Indicare la cartella del messaggio originale.").WithCode("indicareLaCartellaDelMessaggio");
                 if (!Enum.TryParse<DraftMode>(q.Mode, ignoreCase: true, out var mode) || !Enum.IsDefined(mode))
-                    throw new FieldValidationException("quote", $"Modalità non valida: {q.Mode} (reply, replyAll, forward).");
+                    throw new FieldValidationException("quote", $"Modalità non valida: {q.Mode} (reply, replyAll, forward).").WithCode("modalitaNonValidaReplyReplyall", ("mode", q.Mode));
                 if (q.Eml is { } emlId)
                 {
                     quote = QuoteBuilder.ForSending(OpenEml(eml, emlId, "quote"), mode);

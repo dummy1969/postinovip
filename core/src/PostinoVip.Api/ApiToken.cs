@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using PostinoVip.Core;
 
 namespace PostinoVip.Api;
 
@@ -17,7 +18,7 @@ public sealed class ApiToken
     public ApiToken(string token)
     {
         if (string.IsNullOrEmpty(token) || token.Length < MinLength)
-            throw new ArgumentException($"{ConfigKey} mancante o più corto di {MinLength} caratteri.");
+            throw new ArgumentException($"{ConfigKey} mancante o più corto di {MinLength} caratteri.").WithCode("mancantePiuCortoDiCaratteri", ("configKey", ConfigKey), ("minLength", MinLength));
         _expected = Encoding.UTF8.GetBytes(token);
     }
 

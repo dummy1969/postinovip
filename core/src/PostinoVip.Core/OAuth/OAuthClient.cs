@@ -95,7 +95,8 @@ public static class OAuthClient
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
-            throw new MailOfflineException($"Server di accesso di {p.DisplayName} non raggiungibile.", ex);
+            throw new MailOfflineException($"Server di accesso di {p.DisplayName} non raggiungibile.", ex)
+                .WithCode("oauthServerUnreachable", ("provider", p.DisplayName));
         }
         using (response)
         {
@@ -107,7 +108,8 @@ public static class OAuthClient
             }
             catch (JsonException)
             {
-                throw new OAuthException("invalid_response", $"Risposta non valida dal server di accesso di {p.DisplayName} (HTTP {(int)response.StatusCode}).");
+                throw new OAuthException("invalid_response", $"Risposta non valida dal server di accesso di {p.DisplayName} (HTTP {(int)response.StatusCode}).")
+                    .WithCode("oauthInvalidResponse", ("provider", p.DisplayName), ("status", (int)response.StatusCode));
             }
             if (!response.IsSuccessStatusCode || !root.TryGetProperty("access_token", out var access))
             {
@@ -117,7 +119,12 @@ public static class OAuthClient
                     "invalid_grant" => $"Accesso a {p.DisplayName} scaduto o revocato: rifai «Accedi con {p.DisplayName}».",
                     "invalid_client" or "unauthorized_client" => $"PostinoVip non è registrato correttamente presso {p.DisplayName} (client ID).",
                     _ => $"Accesso a {p.DisplayName} non riuscito ({error}).",
-                });
+                }).WithCode(error switch
+                {
+                    "invalid_grant" => "oauthExpired",
+                    "invalid_client" or "unauthorized_client" => "oauthClientInvalid",
+                    _ => "oauthFailed",
+                }, ("provider", p.DisplayName), ("error", error));
             }
             var expires = root.TryGetProperty("expires_in", out var exp) && exp.TryGetInt32(out var seconds) ? seconds : 3600;
             return new OAuthTokens(

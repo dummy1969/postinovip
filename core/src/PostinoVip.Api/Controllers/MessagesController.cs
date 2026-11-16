@@ -126,7 +126,7 @@ public sealed class MessagesController(MailAccountRegistry accounts, ILogger<Mes
         var added = CategoryFlags(request.AddCategories ?? [], "addCategories");
         var removed = CategoryFlags(request.RemoveCategories ?? [], "removeCategories");
         if ((added & removed) != 0)
-            throw new FieldValidationException("removeCategories", "Una categoria non può essere aggiunta e tolta insieme.");
+            throw new FieldValidationException("removeCategories", "Una categoria non può essere aggiunta e tolta insieme.").WithCode("unaCategoriaNonPuoEssere");
         (add, remove) = (add | added, remove | removed);
         if (add == MailFlags.None && remove == MailFlags.None)
             throw new FieldValidationException("followUp", "Indicare followUp, addCategories o removeCategories.");
@@ -156,7 +156,7 @@ public sealed class MessagesController(MailAccountRegistry accounts, ILogger<Mes
     {
         var uids = RequireUids(request.Uids);
         if (string.IsNullOrEmpty(request.Destination))
-            throw new FieldValidationException("destination", "Indicare la cartella di destinazione.");
+            throw new FieldValidationException("destination", "Indicare la cartella di destinazione.").WithCode("indicareLaCartellaDiDestinazione");
         var account = CurrentAccount;
         var name = FolderName.FromRoute(folder);
         var result = await account.Writer.MoveAsync(name, uids, request.Destination, ct);
@@ -173,7 +173,7 @@ public sealed class MessagesController(MailAccountRegistry accounts, ILogger<Mes
     {
         var uids = RequireUids(request.Uids);
         if (string.IsNullOrEmpty(request.Destination))
-            throw new FieldValidationException("destination", "Indicare la cartella di destinazione.");
+            throw new FieldValidationException("destination", "Indicare la cartella di destinazione.").WithCode("indicareLaCartellaDiDestinazione");
         var account = CurrentAccount;
         var name = FolderName.FromRoute(folder);
         var result = await account.Writer.CopyAsync(name, uids, request.Destination, ct);
@@ -205,9 +205,9 @@ public sealed class MessagesController(MailAccountRegistry accounts, ILogger<Mes
     private static IReadOnlyCollection<uint> RequireUids(uint[]? uids)
     {
         if (uids is null || uids.Length == 0)
-            throw new FieldValidationException("uids", "Indicare almeno una mail.");
+            throw new FieldValidationException("uids", "Indicare almeno una mail.").WithCode("indicareAlmenoUnaMail");
         if (uids.Length > MaxBatch)
-            throw new FieldValidationException("uids", $"Al massimo {MaxBatch} mail per volta.");
+            throw new FieldValidationException("uids", $"Al massimo {MaxBatch} mail per volta.").WithCode("alMassimoMailPerVolta", ("maxBatch", MaxBatch));
         return uids.Distinct().ToList();
     }
 
@@ -215,7 +215,7 @@ public sealed class MessagesController(MailAccountRegistry accounts, ILogger<Mes
     private static (MailFlags Add, MailFlags Remove) FollowUpFlags(string? followUp, DateOnly? due)
     {
         if (due is not null && followUp != "flagged")
-            throw new FieldValidationException("due", "La scadenza vale solo con followUp \"flagged\".");
+            throw new FieldValidationException("due", "La scadenza vale solo con followUp \"flagged\".").WithCode("laScadenzaValeSoloCon");
         return followUp switch
         {
             null => (MailFlags.None, MailFlags.None),

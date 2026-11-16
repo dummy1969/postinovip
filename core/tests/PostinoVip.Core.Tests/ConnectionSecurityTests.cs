@@ -186,6 +186,11 @@ public class ConnectionSecurityTests
         Assert.False(imapCheck.Ok);
         Assert.Equal(TrustedCertificate.Fingerprint(imap.Certificate), imapCheck.Certificate?.Sha256);
         Assert.Contains("certificato", imapCheck.Error);
+        // L6: codice e valori per l'app, con i problemi del certificato come codici.
+        Assert.Equal("testCertificateInvalid", imapCheck.ErrorCode);
+        Assert.Equal($"127.0.0.1:{imap.Port}", imapCheck.ErrorArgs?["address"]);
+        Assert.Equal(imapCheck.Certificate!.Problems.Count, imapCheck.Certificate.ProblemCodes.Count);
+        Assert.Contains("untrustedRoot", imapCheck.ErrorArgs?["problems"]);
         Assert.False(smtpCheck.Ok);
         Assert.Equal(TrustedCertificate.Fingerprint(smtp.Certificate), smtpCheck.Certificate?.Sha256);
         Assert.False(PasswordSent(imap) || PasswordSent(smtp));

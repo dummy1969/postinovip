@@ -10,6 +10,7 @@ import 'package:postinovip/main.dart';
 import 'package:postinovip/api/api_client.dart';
 import 'package:postinovip/core/core_gate.dart';
 import 'package:postinovip/core/core_launcher.dart';
+import 'package:postinovip/l10n/app_localizations.dart';
 
 const account = AccountConfig(
     id: 'a1', email: 'io@example.com', password: 'segreta', imapHost: 'imap.example.com', smtpHost: 'smtp.example.com');
@@ -298,6 +299,34 @@ void main() {
   });
 
   group('pagina Account', () {
+    testWidgets('in inglese (L4a): finestra Account e Nuovo account tradotti', (tester) async {
+      addTearDown(() => tester.platformDispatcher.localesTestValue = const [Locale('it', 'IT')]);
+      tester.platformDispatcher.localesTestValue = const [Locale('en', 'US')];
+      final cores = FakeCores();
+      await pumpGate(tester, cores, MemoryAccountStore([account]));
+      await tester.tap(find.text('File'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Options'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Manage…'));
+      await tester.pumpAndSettle();
+      expect(find.descendant(of: find.byKey(const Key('accounts-dialog')), matching: find.text('Accounts')), findsOneWidget);
+      expect(find.byTooltip('Remove from the app'), findsOneWidget);
+      expect(find.textContaining('Downloaded mail: last 12 months'), findsOneWidget);
+      await tester.tap(find.text('Add account'));
+      await tester.pumpAndSettle();
+      expect(find.text('New Account'), findsOneWidget);
+      expect(find.text('Account type'), findsOneWidget);
+      expect(find.text('IMAP (incoming mail)'), findsOneWidget);
+      expect(find.text('SMTP (outgoing mail)'), findsOneWidget);
+      expect(find.text('Encryption'), findsNWidgets(2));
+      expect(find.text('Test Account Settings'), findsOneWidget);
+      expect(find.text('"Save" becomes available after a successful test.'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('account-setup-cancel')));
+      await tester.pumpAndSettle();
+      expect(find.text('New Account'), findsNothing);
+    });
+
     testWidgets('aggiungi: verifica, salvataggio in coda all\'elenco, riavvio con due account', (tester) async {
       final cores = FakeCores();
       final store = MemoryAccountStore([account]);
@@ -845,6 +874,8 @@ void main() {
       // Il CoreGate costruisce la pagina senza openUrl: la si sostituisce ricostruendo la stessa pagina nei test.
       final api = cores.api(const CoreConnection(baseUrl: 'http://127.0.0.1:40001', token: 't'));
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AccountSetupPage(api: api, onSave: (a) async => store.accounts = [a], openUrl: (u) async {
           opened.add(u);
           return true;
@@ -904,6 +935,8 @@ void main() {
       final api = cores.api(const CoreConnection(baseUrl: 'http://127.0.0.1:40001', token: 't'));
       final opened = <Uri>[];
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AccountSetupPage(key: const Key('again'), api: api, initial: ms, signInAgain: true, onSave: (_) async {}, openUrl: (u) async {
           opened.add(u);
           return true;
@@ -935,6 +968,8 @@ void main() {
       final opened = <Uri>[];
       final saved = <AccountConfig>[];
       await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: appLocalizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: AccountSetupPage(key: Key('gm-${initial.id}'), api: api, initial: initial, onSave: (a) async => saved.add(a), openUrl: (u) async {
           opened.add(u);
           return true;

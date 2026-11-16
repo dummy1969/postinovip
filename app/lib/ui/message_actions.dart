@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/language.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
@@ -57,6 +59,7 @@ class MessageActions {
   static Future<void> reply(BuildContext context, DraftMode mode) async {
     final model = context.read<MailboxModel>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final folder = model.openFolder;
     final uid = model.selectedUid;
     if (folder == null || uid == null) return;
@@ -69,9 +72,9 @@ class MessageActions {
         mode: mode,
       );
       if (!context.mounted) return;
-      await openCompose(context, draft: draft, title: mode.label, account: account, accounts: model.accounts);
+      await openCompose(context, draft: draft, title: mode.label(context.l10n), account: account, accounts: model.accounts);
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Bozza non disponibile: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.draftNotAvailable('$e'))));
     }
   }
 
@@ -80,6 +83,7 @@ class MessageActions {
   static Future<void> editDraft(BuildContext context) async {
     final model = context.read<MailboxModel>();
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     final folder = model.openFolder;
     final uid = model.selectedUid;
     if (folder == null || uid == null) return;
@@ -92,7 +96,7 @@ class MessageActions {
       if (!context.mounted) return;
       await openCompose(
         context,
-        title: 'Bozza',
+        title: context.l10n.draftTitle,
         account: model.openAccountInfo,
         accounts: model.accounts,
         files: files,
@@ -114,7 +118,7 @@ class MessageActions {
         ),
       );
     } on ApiException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Bozza non disponibile: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l.draftNotAvailable('$e'))));
     }
   }
 
@@ -177,17 +181,14 @@ class MessageActions {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.delete_forever),
-        title: const Text('Eliminare definitivamente?'),
-        content: Text(
-          '${count == 1 ? '1 mail selezionata in Posta eliminata verrà cancellata' : '$count mail selezionate in Posta eliminata verranno cancellate'} '
-          'dal server.\nL\'operazione non è reversibile.',
-        ),
+        title: Text(context.l10n.deletePermanentlyQuestion),
+        content: Text(context.l10n.deletePermanentlyMany(count)),
         actions: [
-          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Elimina definitivamente'),
+            child: Text(context.l10n.deletePermanently),
           ),
         ],
       ),
@@ -228,14 +229,14 @@ class MessageActions {
       context: context,
       builder: (context) => AlertDialog(
         icon: const Icon(Icons.delete_forever),
-        title: const Text('Eliminare definitivamente?'),
-        content: Text('"$subject" verrà cancellato dal server.\nL\'operazione non è reversibile.'),
+        title: Text(context.l10n.deletePermanentlyQuestion),
+        content: Text(context.l10n.deletePermanentlyOne(subject)),
         actions: [
-          FilledButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
+          FilledButton(onPressed: () => Navigator.pop(context, false), child: Text(context.l10n.cancel)),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-            child: const Text('Elimina definitivamente'),
+            child: Text(context.l10n.deletePermanently),
           ),
         ],
       ),

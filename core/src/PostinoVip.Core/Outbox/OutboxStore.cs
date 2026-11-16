@@ -53,7 +53,7 @@ public sealed class OutboxStore(string directory)
     public void Save(OutboxItem item, MimeMessage message)
     {
         if (!IsValidId(item.Id))
-            throw new ArgumentException("Id non valido.", nameof(item));
+            throw new ArgumentException("Id non valido.", nameof(item)).WithCode("idNonValido");
         lock (_lock)
         {
             CachePermissions.CreatePrivateDirectory(Directory);

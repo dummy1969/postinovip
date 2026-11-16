@@ -34,7 +34,7 @@ public sealed class ConversationTools(MailAccount account, IgnoreStore store, Ac
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private AccountCache Cache =>
-        account.Bodies?.Cache ?? throw new NotSupportedException("Ignora e Pulisci richiedono la copia locale (Cache:Enabled=false).");
+        account.Bodies?.Cache ?? throw new NotSupportedException("Ignora e Pulisci richiedono la copia locale (Cache:Enabled=false).").WithCode("ignoraPulisciRichiedonoLaCopia");
 
     /// <summary>La cartella Posta eliminata dell'account; null se non c'è.</summary>
     public async Task<string?> TrashFolderAsync(CancellationToken ct = default) =>
@@ -54,12 +54,12 @@ public sealed class ConversationTools(MailAccount account, IgnoreStore store, Ac
     /// </summary>
     public async Task<ConversationCommandResult> IgnoreAsync(string folder, IReadOnlyCollection<uint> uids, CancellationToken ct = default)
     {
-        var trash = await TrashFolderAsync(ct) ?? throw new InvalidOperationException("Nessuna cartella Posta eliminata in questo account.");
+        var trash = await TrashFolderAsync(ct) ?? throw new InvalidOperationException("Nessuna cartella Posta eliminata in questo account.").WithCode("nessunaCartellaPostaEliminataIn");
         var members = await MembersAsync(folder, uids, ct);
         var threads = members.Where(m => m.Folder == folder && uids.Contains(m.Uid)).Select(m => m.Thread).ToHashSet();
         var conversation = members.Where(m => threads.Contains(m.Thread)).ToList();
         if (conversation.Count == 0)
-            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.");
+            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.").WithCode("nessunaDelleMailIndicateIn", ("folder", folder));
         var added = store.Add(conversation.SelectMany(Keys).Distinct(StringComparer.Ordinal));
         var here = conversation.Where(m => m.Folder == folder).Select(m => m.Uid).Distinct().ToList();
         if (folder == trash)
@@ -80,12 +80,12 @@ public sealed class ConversationTools(MailAccount account, IgnoreStore store, Ac
         var threads = members.Where(m => m.Folder == folder && uids.Contains(m.Uid)).Select(m => m.Thread).ToHashSet();
         var conversation = members.Where(m => threads.Contains(m.Thread)).ToList();
         if (conversation.Count == 0)
-            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.");
+            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.").WithCode("nessunaDelleMailIndicateIn", ("folder", folder));
         var removed = store.Remove(conversation.SelectMany(Keys));
         if (folder != trash)
         {
             if (removed == 0)
-                throw new InvalidOperationException("La conversazione non è ignorata.");
+                throw new InvalidOperationException("La conversazione non è ignorata.").WithCode("laConversazioneNonIgnorata");
             log?.Invoke($"[{account.Id}] INTERROMPI IGNORA conversazione: {removed} riferimenti tolti");
             return new ConversationCommandResult([], null);
         }
@@ -103,16 +103,16 @@ public sealed class ConversationTools(MailAccount account, IgnoreStore store, Ac
     {
         var folders = await account.Reader.GetFoldersAsync(ct);
         var trash = folders.FirstOrDefault(f => f.SpecialUse == "trash")?.FullName
-                    ?? throw new InvalidOperationException("Nessuna cartella Posta eliminata in questo account.");
+                    ?? throw new InvalidOperationException("Nessuna cartella Posta eliminata in questo account.").WithCode("nessunaCartellaPostaEliminataIn");
         var role = folders.FirstOrDefault(f => f.FullName == folder)?.SpecialUse;
         if (folder == trash || role == "junk" || folder == JunkFolder(folders))
-            throw new InvalidOperationException("Pulisci non vale per Posta eliminata e per la posta indesiderata.");
+            throw new InvalidOperationException("Pulisci non vale per Posta eliminata e per la posta indesiderata.").WithCode("pulisciNonValePerPosta");
 
         var members = await MembersAsync(folder, uids, ct);
         var threads = members.Where(m => m.Folder == folder && (uids is null || uids.Contains(m.Uid))).Select(m => m.Thread).ToHashSet();
         var conversation = members.Where(m => threads.Contains(m.Thread)).ToList();
         if (uids is not null && conversation.Count == 0)
-            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.");
+            throw new MailNotFoundException($"Nessuna delle mail indicate è in '{folder}'.").WithCode("nessunaDelleMailIndicateIn", ("folder", folder));
 
         // Le risposte possono stare in qualunque cartella (es. Posta inviata), tranne Posta eliminata e posta indesiderata.
         var junk = JunkFolder(folders);
@@ -221,7 +221,7 @@ public sealed class ConversationTools(MailAccount account, IgnoreStore store, Ac
         var cache = Cache;
         await account.Reader.GetHeadersAsync(folder, 0, 1, ct: ct); // sincronizza la cartella
         if (cache.FindFolder(folder) is not { } cached)
-            throw new MailNotFoundException($"Cartella '{folder}' non trovata.");
+            throw new MailNotFoundException($"Cartella '{folder}' non trovata.").WithCode("cartellaNonTrovata3", ("folder", folder));
         return cache.GetThreadMembers(cached.Id, uids);
     }
 

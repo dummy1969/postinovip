@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api_client.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/language.dart';
 import '../models/mail_folder.dart';
 import '../state/mailbox_model.dart';
 import 'message_actions.dart';
@@ -17,9 +19,8 @@ class ArchiveActions {
   static bool canArchive(MailboxModel model) => MessageActions.canModify(model) && !model.selectionInArchive;
 
   /// Testo del suggerimento del comando.
-  static String tooltip(MailboxModel model) => model.selectionInArchive
-      ? 'La mail è già nella cartella di archiviazione'
-      : 'Sposta nella cartella di archiviazione (Backspace)';
+  static String tooltip(AppLocalizations l, MailboxModel model) =>
+      model.selectionInArchive ? l.alreadyInArchive : l.archiveTooltip;
 
   /// «Archivia». Per gli account senza cartella di archiviazione prima la finestra di scelta: annullata, non si
   /// sposta niente. [openNext]: nella finestra della mail dopo lo spostamento si apre la successiva.
@@ -27,6 +28,7 @@ class ArchiveActions {
     final model = context.read<MailboxModel>();
     if (!canArchive(model)) return;
     final messenger = ScaffoldMessenger.of(context);
+    final l = context.l10n;
     for (final account in model.selectionAccountsWithoutArchive) {
       if (!context.mounted) return;
       final chosen = await ArchiveFolderDialog.show(context, account: account, beforeArchive: true);
@@ -34,7 +36,7 @@ class ArchiveActions {
     }
     // Dopo la scelta la cartella potrebbe contenere le mail selezionate (es. archivio = cartella aperta).
     if (!canArchive(model)) {
-      _show(messenger, 'Le mail sono già nella cartella di archiviazione');
+      _show(messenger, l.mailsAlreadyInArchive);
       return;
     }
     Future<void> run() async => _show(messenger, (await model.archiveSelected()).message);
@@ -74,7 +76,8 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
   /// Ruoli che non possono essere l'archivio (il core li rifiuta comunque).
   static const _excludedRoles = {'inbox', 'sent', 'drafts', 'trash', 'junk', 'outbox'};
 
-  final _name = TextEditingController(text: 'Archivio');
+  final _name = TextEditingController();
+  bool _nameSet = false;
   bool _loading = true;
   bool _saving = false;
   bool _create = false;
@@ -85,6 +88,16 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Nome proposto per la cartella nuova, nella lingua dell'app.
+    if (!_nameSet) {
+      _nameSet = true;
+      _name.text = context.l10n.archiveFolderName;
+    }
   }
 
   @override
@@ -114,7 +127,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.statusCode == 503 ? MailboxModel.offlineMessage : '$e';
+        _error = e.statusCode == 503 ? context.l10n.offlineUnavailable : '$e';
         _loading = false;
       });
     }
@@ -123,6 +136,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
   Future<void> _save() async {
     final model = context.read<MailboxModel>();
     final navigator = Navigator.of(context);
+    final l = context.l10n;
     setState(() {
       _saving = true;
       _error = null;
@@ -141,7 +155,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
       setState(() {
         _saving = false;
         _error = e.statusCode == 503
-            ? MailboxModel.offlineMessage
+            ? l.offlineUnavailable
             : (e.fieldErrors['name'] ?? e.fieldErrors['folder'])?.join(' ') ?? '$e';
       });
     }
@@ -154,10 +168,11 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
     final folders = _folders(model);
     final accountName = model.accounts.where((a) => a.id == widget.account).firstOrNull?.name ?? widget.account;
     final canSave = !_loading && !_saving && (_create ? _name.text.trim().isNotEmpty : _folder != null);
+    final l = context.l10n;
     return AlertDialog(
       key: const Key('archive-dialog'),
       icon: const Icon(FluentIcons.archive_24_regular),
-      title: const Text('Imposta cartella di archiviazione'),
+      title: Text(l.setArchiveFolder),
       content: SizedBox(
         width: 440,
         child: _loading
@@ -168,10 +183,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.beforeArchive
-                          ? 'L\'account «$accountName» non ha ancora una cartella di archiviazione. Sceglila: Archivia '
-                                'sposterà lì le mail, senza eliminarle.'
-                          : 'Archivia sposta le mail di «$accountName» in questa cartella, senza eliminarle.',
+                      widget.beforeArchive ? l.archiveFirstTime(accountName) : l.archiveInfo(accountName),
                     ),
                     const SizedBox(height: 8),
                     RadioGroup<bool>(
@@ -185,7 +197,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
                             contentPadding: EdgeInsets.zero,
                             value: false,
                             enabled: folders.isNotEmpty,
-                            title: const Text('Usa una cartella esistente'),
+                            title: Text(l.useExistingFolder),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(left: 40),
@@ -193,7 +205,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
                               key: ValueKey('archive-folder:${widget.account}'),
                               initialValue: _folder,
                               isExpanded: true,
-                              decoration: const InputDecoration(isDense: true, hintText: 'Scegli una cartella'),
+                              decoration: InputDecoration(isDense: true, hintText: l.chooseAFolder),
                               items: [
                                 for (final f in folders)
                                   DropdownMenuItem(
@@ -215,7 +227,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             value: true,
-                            title: const Text('Crea una cartella nuova in cima all\'account'),
+                            title: Text(l.createTopFolder),
                           ),
                           Padding(
                             padding: const EdgeInsets.only(left: 40),
@@ -223,7 +235,7 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
                               key: const Key('archive-new-name'),
                               controller: _name,
                               enabled: !_saving,
-                              decoration: const InputDecoration(isDense: true, hintText: 'Nome della cartella'),
+                              decoration: InputDecoration(isDense: true, hintText: l.folderNameHint),
                               onTap: () => setState(() => _create = true),
                               onChanged: (_) => setState(() => _create = true),
                             ),
@@ -245,11 +257,11 @@ class _ArchiveFolderDialogState extends State<ArchiveFolderDialog> {
               ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: const Text('Annulla')),
+        TextButton(onPressed: _saving ? null : () => Navigator.pop(context, false), child: Text(l.cancel)),
         FilledButton(
           key: const Key('archive-ok'),
           onPressed: canSave ? _save : null,
-          child: Text(widget.beforeArchive ? 'OK e archivia' : 'OK'),
+          child: Text(widget.beforeArchive ? l.okAndArchive : 'OK'),
         ),
       ],
     );

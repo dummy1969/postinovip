@@ -1,6 +1,9 @@
 /// Calendari e appuntamenti come li dà il core (K2): GET …/calendars, …/calendars/events, …/calendars/{cal}/events/{id}.
 library;
 
+import '../l10n/app_localizations.dart';
+import '../l10n/formats.dart';
+
 /// Un calendario di un account: il primo è quello predefinito; [synced] = collegato a un calendario del server (CalDAV).
 class CalendarInfo {
   const CalendarInfo({required this.id, required this.name, this.synced = false, this.count = 0, this.readOnly = false});
@@ -15,7 +18,7 @@ class CalendarInfo {
 
   factory CalendarInfo.fromJson(Map<String, dynamic> json) => CalendarInfo(
     id: json['id'] as String,
-    name: json['name'] as String? ?? 'Calendario',
+    name: json['name'] as String? ?? formatL10n.calendarSection,
     synced: json['synced'] as bool? ?? false,
     count: json['count'] as int? ?? 0,
     readOnly: json['readOnly'] as bool? ?? false,
@@ -137,43 +140,50 @@ class CalendarRecurrence {
     'until': ?until,
   };
 
-  static const _dayNames = {
-    'MO': 'lunedì',
-    'TU': 'martedì',
-    'WE': 'mercoledì',
-    'TH': 'giovedì',
-    'FR': 'venerdì',
-    'SA': 'sabato',
-    'SU': 'domenica',
-  };
-  static const _months = [
-    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre',
-  ];
-  static const _weeks = {1: 'il primo', 2: 'il secondo', 3: 'il terzo', 4: 'il quarto', -1: "l'ultimo"};
+  static const _dayCodes = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
-  /// Descrizione come quella di Outlook: «Ogni settimana il lunedì, 3 volte».
+  static String _dayName(String code) {
+    final i = _dayCodes.indexOf(code);
+    return i < 0 ? code : weekdayName(i + 1);
+  }
+
+  static String _ordinal(AppLocalizations l, int? week) => switch (week) {
+    1 => l.recurOrdinalFirst,
+    2 => l.recurOrdinalSecond,
+    3 => l.recurOrdinalThird,
+    4 => l.recurOrdinalFourth,
+    -1 => l.recurOrdinalLast,
+    _ => '',
+  };
+
+  /// Descrizione come quella di Outlook, nella lingua dell'app: «Ogni settimana il lunedì, 3 volte».
   String describe() {
-    String every(String one, String many) => interval == 1 ? one : 'Ogni $interval $many';
-    final dayList = days.map((d) => _dayNames[d] ?? d).join(', ');
-    final which = week != null && days.isNotEmpty ? '${_weeks[week] ?? ''} ${_dayNames[days.first] ?? ''}' : null;
+    final l = formatL10n;
+    final dayList = days.map(_dayName).join(', ');
+    final which = week != null && days.isNotEmpty ? '${_ordinal(l, week)} ${_dayName(days.first)}' : null;
     final text = switch (frequency) {
-      'daily' => every('Ogni giorno', 'giorni'),
-      'weekly' => '${every('Ogni settimana', 'settimane')}${dayList.isEmpty ? '' : ' il $dayList'}',
-      'monthly' => '${every('Ogni mese', 'mesi')} ${which ?? (monthDay == null ? '' : 'il giorno $monthDay')}'.trimRight(),
-      'yearly' =>
-        'Ogni anno ${which != null ? '$which di ${_monthName(month)}' : 'il $monthDay ${_monthName(month)}'}'.trimRight(),
-      _ => 'Ricorrente',
+      'daily' => l.recurDescDaily(interval),
+      'weekly' => dayList.isEmpty ? l.recurDescWeekly(interval) : l.recurDescWeeklyOn(l.recurDescWeekly(interval), dayList),
+      'monthly' =>
+        which != null
+            ? l.recurDescMonthlyWhich(l.recurDescMonthly(interval), which)
+            : monthDay == null
+            ? l.recurDescMonthly(interval)
+            : l.recurDescMonthlyDay(l.recurDescMonthly(interval), monthDay!),
+      'yearly' => which != null
+          ? l.recurDescYearlyWhich(which, _monthName(month))
+          : l.recurDescYearlyDay('${monthDay ?? ''}', _monthName(month)).trim(),
+      _ => l.recurDescRecurring,
     };
-    final end = count != null ? ', $count volte' : until != null ? ', fino al ${_date(until!)}' : '';
+    final end = count != null ? l.recurDescTimes(count!) : until != null ? l.recurDescUntil(_date(until!)) : '';
     return '$text$end';
   }
 
-  static String _monthName(int? m) => m != null && m >= 1 && m <= 12 ? _months[m - 1] : '';
+  static String _monthName(int? m) => m != null && m >= 1 && m <= 12 ? monthName(m) : '';
 
   static String _date(String iso) {
     final d = DateTime.tryParse(iso);
-    return d == null ? iso : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    return d == null ? iso : formatDate(d);
   }
 }
 
@@ -253,13 +263,17 @@ class CalDavTestResult {
 
 /// Vista del calendario (scelta 1a): Giorno, Settimana lavorativa, Settimana, Mese.
 enum CalendarViewKind {
-  day('Giorno'),
-  workWeek('Settimana lavorativa'),
-  week('Settimana'),
-  month('Mese');
+  day,
+  workWeek,
+  week,
+  month;
 
-  const CalendarViewKind(this.label);
-  final String label;
+  String label(AppLocalizations l) => switch (this) {
+    CalendarViewKind.day => l.viewDay,
+    CalendarViewKind.workWeek => l.viewWorkWeek,
+    CalendarViewKind.week => l.viewWeek,
+    CalendarViewKind.month => l.viewMonth,
+  };
 }
 
 /// Preferenze del calendario su questo computer (K3: scelte 1a, 2b, 3a): vista ricordata, primo giorno della settimana

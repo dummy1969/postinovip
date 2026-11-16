@@ -176,9 +176,9 @@ void main() {
     final slider = find.descendant(of: find.byKey(const Key('settings-dialog')), matching: find.byType(Slider));
     expect(slider, findsNothing);
 
-    await tester.ensureVisible(find.text(ReadMode.afterDelay.label));
+    await tester.ensureVisible(find.text('Dopo alcuni secondi di visualizzazione'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(ReadMode.afterDelay.label));
+    await tester.tap(find.text('Dopo alcuni secondi di visualizzazione'));
     await tester.pumpAndSettle();
     expect(settings.readMode, ReadMode.afterDelay);
     expect(slider, findsOneWidget);

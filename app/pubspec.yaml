@@ -1,7 +1,7 @@
 name: postinovip
 description: "PostinoVip: client di posta desktop (Flutter + core C#/MailKit)."
 publish_to: 'none'
-version: 0.0.234+234
+version: 0.0.259+259
 
 environment:
   sdk: ^3.13.4
@@ -12,6 +12,8 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # Traduzioni (tappa «Lingua»): versione decisa da flutter_localizations, come dice la guida di Flutter.
+  intl: any
   flutter_local_notifications: ^23.0.1
   flutter_secure_storage: ^11.2.0
   flutter_widget_from_html_core: ^0.17.4
@@ -32,6 +34,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Codice delle traduzioni da lib/l10n/*.arb (l10n.yaml).
+  generate: true
   assets:
     - assets/icon.png
     - assets/licenses/

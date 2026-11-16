@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../l10n/app_localizations.dart';
 import 'connection_security.dart';
 
 export 'connection_security.dart';
@@ -50,7 +51,7 @@ class AccountConfig {
   static const bodyMonthsChoices = [3, 6, 12, 24, 0];
   static const defaultBodyMonths = 12;
 
-  static String bodyMonthsLabel(int months) => months == 0 ? 'Tutte' : 'Ultimi $months mesi';
+  static String bodyMonthsLabel(AppLocalizations l, int months) => months == 0 ? l.bodyMonthsAll : l.bodyMonthsLast(months);
 
   /// POP3 (scelte 2a e 3a): rimozione dal server dopo 14 giorni, controllo ogni 10 minuti.
   static const defaultRemoveAfterDays = 14;
