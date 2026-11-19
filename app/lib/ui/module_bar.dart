@@ -9,6 +9,7 @@ import '../state/calendar_model.dart';
 import '../state/contacts_model.dart';
 import '../state/mailbox_model.dart';
 import 'theme.dart';
+import 'keys.dart';
 
 /// Barra dei moduli: Posta (Ctrl+1), Calendario (Ctrl+2), Persone (Ctrl+3). Dove sta lo sceglie l'utente in
 /// File → Opzioni → Generale (scelta 1c del 12/11/2026):
@@ -123,9 +124,9 @@ class ModuleBar extends StatelessWidget {
     }
 
     final items = [
-      item(AppModule.mail, context.l10n.moduleMail, FluentIcons.mail_24_regular, FluentIcons.mail_24_filled),
-      item(AppModule.calendar, context.l10n.moduleCalendar, FluentIcons.calendar_ltr_24_regular, FluentIcons.calendar_ltr_24_filled),
-      item(AppModule.people, context.l10n.modulePeople, FluentIcons.people_24_regular, FluentIcons.people_24_filled),
+      item(AppModule.mail, keyLabel(context.l10n.moduleMail), FluentIcons.mail_24_regular, FluentIcons.mail_24_filled),
+      item(AppModule.calendar, keyLabel(context.l10n.moduleCalendar), FluentIcons.calendar_ltr_24_regular, FluentIcons.calendar_ltr_24_filled),
+      item(AppModule.people, keyLabel(context.l10n.modulePeople), FluentIcons.people_24_regular, FluentIcons.people_24_filled),
     ];
 
     if (bottom) {

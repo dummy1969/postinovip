@@ -6,6 +6,7 @@ import '../compose/rich_text.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/language.dart';
 import 'ribbon_parts.dart';
+import 'keys.dart';
 
 /// Comandi di formato della composizione (3.7b), come in Outlook: gruppo "Testo base" nella scheda
 /// Messaggio e gruppi "Carattere" e "Paragrafo" nella scheda Formato testo. Agiscono sul testo
@@ -27,6 +28,11 @@ class FormatCommands {
   bool _has(Attribute attribute) {
     final current = _style.attributes[attribute.key];
     return current != null && (attribute.value == null || current.value == attribute.value);
+  }
+
+  /// Grassetto, corsivo… dal menu Formato del Mac (M2b): come i pulsanti della barra.
+  void toggle(Attribute attribute) {
+    if (enabled) _toggle(attribute);
   }
 
   void _toggle(Attribute attribute) {
@@ -87,7 +93,7 @@ class FormatCommands {
         _alignRow(),
         _IconToggle(
           icon: FluentIcons.link_20_regular,
-          tooltip: l10n.linkTooltip,
+          tooltip: keyLabel(l10n.linkTooltip),
           onPressed: enabled ? () => insertLink(context, controller) : null,
         ),
         if (onInsertImage != null)
@@ -149,9 +155,9 @@ class FormatCommands {
   Widget _styleRow({required bool withExtras}) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      _toggleButton(FluentIcons.text_bold_20_regular, l10n.bold, Attribute.bold),
-      _toggleButton(FluentIcons.text_italic_20_regular, l10n.italic, Attribute.italic),
-      _toggleButton(FluentIcons.text_underline_20_regular, l10n.underline, Attribute.underline),
+      _toggleButton(FluentIcons.text_bold_20_regular, keyLabel(l10n.bold), Attribute.bold),
+      _toggleButton(FluentIcons.text_italic_20_regular, keyLabel(l10n.italic), Attribute.italic),
+      _toggleButton(FluentIcons.text_underline_20_regular, keyLabel(l10n.underline), Attribute.underline),
       if (withExtras) _toggleButton(FluentIcons.text_strikethrough_20_regular, l10n.strikethrough, Attribute.strikeThrough),
       _ColorPicker(
         icon: FluentIcons.text_color_20_regular,
@@ -260,7 +266,7 @@ class FormatCommands {
       RibbonLargeButton(
         icon: FluentIcons.link_24_regular,
         label: context.l10n.link,
-        tooltip: context.l10n.linkButtonTooltip,
+        tooltip: keyLabel(context.l10n.linkButtonTooltip),
         onPressed: enabled ? () => insertLink(context, controller) : null,
       );
 }

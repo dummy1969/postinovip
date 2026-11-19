@@ -78,6 +78,11 @@ public class DraftBuilderTests
     [InlineData("FW: Riunione", DraftMode.Forward, "FW: Riunione")]
     [InlineData("I: Riunione", DraftMode.Forward, "I: Riunione")]
     [InlineData("Fw: Riunione", DraftMode.Forward, "Fw: Riunione")]
+    [InlineData("AW: Riunione", DraftMode.Reply, "AW: Riunione")]     // tedesco, spagnolo e francese (17/11/2026)
+    [InlineData("WG: Riunione", DraftMode.Forward, "WG: Riunione")]
+    [InlineData("RV: Riunione", DraftMode.Forward, "RV: Riunione")]
+    [InlineData("TR : Riunione", DraftMode.Forward, "TR : Riunione")]
+    [InlineData("RE : Riunione", DraftMode.Reply, "RE : Riunione")]
     public void PrefissiNonRaddoppiati(string subject, DraftMode mode, string expected)
     {
         Assert.Equal(expected, DraftBuilder.Build(Original(subject), mode, Me).Subject);
@@ -101,6 +106,25 @@ public class DraftBuilderTests
         Assert.Contains("Subject: Riunione", forward.Body);
         Assert.Matches(@"Date: \d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2} (AM|PM)", forward.Body);
         Assert.Equal("RE: Riunione", DraftBuilder.Build(Original(), DraftMode.ReplyAll, Me).Subject);
+    }
+
+    [Theory]
+    [InlineData("es", "RE: Riunione", "RV: Riunione", "<b>Asunto:</b>", "---------- Mensaje reenviado ----------", @"Fecha: \d{1,2}/\d{1,2}/\d{4} \d{1,2}:\d{2}\n")]
+    [InlineData("fr", "RE\u00a0: Riunione", "TR\u00a0: Riunione", "<b>Objet&#160;:</b>", "---------- Message transféré ----------", @"Date\u00a0: \d{2}/\d{2}/\d{4} \d{2}:\d{2}\n")]
+    [InlineData("de", "AW: Riunione", "WG: Riunione", "<b>Betreff:</b>", "---------- Weitergeleitete Nachricht ----------", @"Datum: \d{2}\.\d{2}\.\d{4} \d{2}:\d{2}\n")]
+    public void RispostaEInoltroInSpagnoloFranceseTedesco(string language, string reply, string forward, string subjectLabel, string header, string date)
+    {
+        // Spagnolo, francese e tedesco (17/11/2026): prefissi di Outlook in quella lingua, intestazioni e data.
+        using var _ = PostinoVip.Core.Texts.CoreTexts.Use(language);
+        var r = DraftBuilder.Build(Original(), DraftMode.Reply, Me);
+        var f = DraftBuilder.Build(Original(), DraftMode.Forward, Me);
+        Assert.Equal(reply, r.Subject);
+        Assert.Contains(subjectLabel, r.QuoteHtml);
+        Assert.Equal(forward, f.Subject);
+        Assert.Contains(header, f.Body);
+        Assert.Matches(date, f.Body);
+        // La risposta a una risposta in un'altra lingua non raddoppia il prefisso.
+        Assert.Equal("R: Riunione", DraftBuilder.Build(Original("R: Riunione"), DraftMode.Reply, Me).Subject);
     }
 
     [Fact]

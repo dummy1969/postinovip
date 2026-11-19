@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/favorite_folder.dart';
 import '../models/mail_folder.dart';
 import '../state/mailbox_model.dart';
+import 'keys.dart';
 
 // Trascinamento (3.5c), come Outlook: mail su una cartella = Sposta (con Ctrl = Copia), cartella su
 // cartella = sposta la cartella, cartella o Preferito sui Preferiti = aggiunge / riordina i Preferiti.
@@ -179,8 +180,9 @@ class _DragFeedbackState extends State<DragFeedback> {
   }
 }
 
-/// Ctrl premuto al rilascio: le mail vengono copiate invece che spostate (scelta 3.5c-2a).
-bool get isCopyDrop => HardwareKeyboard.instance.isControlPressed;
+/// Ctrl premuto al rilascio: le mail vengono copiate invece che spostate (scelta 3.5c-2a). Sul Mac ⌥, come nel Finder.
+bool get isCopyDrop =>
+    usesCommandKey ? HardwareKeyboard.instance.isAltPressed : HardwareKeyboard.instance.isControlPressed;
 
 /// Zona che accetta un rilascio: evidenziata mentre ci passa sopra qualcosa che [accepts] accetta.
 class DropZone extends StatelessWidget {

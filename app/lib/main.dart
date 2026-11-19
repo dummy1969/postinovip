@@ -27,6 +27,7 @@ import 'state/calendar_model.dart';
 import 'state/contacts_model.dart';
 import 'state/mailbox_model.dart';
 import 'ui/home_page.dart';
+import 'ui/mac_menu_bar.dart';
 import 'ui/theme.dart';
 
 Future<void> main() async {
@@ -146,6 +147,9 @@ class _PostinoVipAppState extends State<PostinoVipApp> {
         ChangeNotifierProvider(create: (_) => _contacts = ContactsModel(widget.api)),
         ChangeNotifierProvider(create: (_) => _calendar = CalendarModel(widget.api, _settings)..onEventsChanged = () => unawaited(_reminders.refresh())),
         ChangeNotifierProvider.value(value: _reminders),
+        // Menu delle finestre aperte per la barra dei menu del Mac (M2b); sopra il Navigator perché le finestre
+        // (composizione, mail, appuntamento) sono pagine diverse.
+        ChangeNotifierProvider(create: (_) => MacMenus()),
       ],
       // Ridisegna l'app solo quando cambiano il tema o la lingua, non a ogni altra impostazione.
       child: Selector<AppSettings, (AppTheme, AppLanguage)>(

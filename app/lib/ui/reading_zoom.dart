@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../settings/app_settings.dart';
+import 'keys.dart';
 
 /// Corpo della mail nel riquadro di lettura con lo zoom (P2), come Outlook classico: si ingrandisce tutto
 /// (testo, immagini, tabelle), non solo il carattere. Il contenuto si dispone su una larghezza divisa per lo
@@ -58,20 +59,20 @@ class ZoomedBody extends StatelessWidget {
   }
 
   static void _wheel(AppSettings settings, PointerSignalEvent event) {
-    if (event is! PointerScrollEvent || !HardwareKeyboard.instance.isControlPressed) return;
+    if (event is! PointerScrollEvent || !isCommandPressed) return;
     final dy = event.scrollDelta.dy;
     if (dy == 0) return;
     GestureBinding.instance.pointerSignalResolver.register(event, (_) => settings.zoomBy(dy < 0 ? 1 : -1));
   }
 
-  /// Ctrl++ / Ctrl+- / Ctrl+0 (anche sul tastierino e Ctrl+= della tastiera americana), come nei browser.
+  /// Ctrl++ / Ctrl+- / Ctrl+0 (sul Mac ⌘, keys.dart) (anche sul tastierino e Ctrl+= della tastiera americana), come nei browser.
   static Map<ShortcutActivator, VoidCallback> shortcuts(AppSettings settings) => {
     for (final key in [LogicalKeyboardKey.add, LogicalKeyboardKey.numpadAdd, LogicalKeyboardKey.equal])
-      SingleActivator(key, control: true): () => settings.zoomBy(1),
+      cmd(key): () => settings.zoomBy(1),
     for (final key in [LogicalKeyboardKey.minus, LogicalKeyboardKey.numpadSubtract])
-      SingleActivator(key, control: true): () => settings.zoomBy(-1),
+      cmd(key): () => settings.zoomBy(-1),
     for (final key in [LogicalKeyboardKey.digit0, LogicalKeyboardKey.numpad0])
-      SingleActivator(key, control: true): () => settings.setReadingZoom(100),
+      cmd(key): () => settings.setReadingZoom(100),
   };
 }
 
@@ -99,7 +100,7 @@ class ZoomControl extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        button(const Key('zoom-out'), FluentIcons.subtract_16_regular, context.l10n.zoomOut, -1),
+        button(const Key('zoom-out'), FluentIcons.subtract_16_regular, keyLabel(context.l10n.zoomOut), -1),
         SizedBox(
           width: 110,
           height: 22,
@@ -122,9 +123,9 @@ class ZoomControl extends StatelessWidget {
             ),
           ),
         ),
-        button(const Key('zoom-in'), FluentIcons.add_16_regular, context.l10n.zoomIn, 1),
+        button(const Key('zoom-in'), FluentIcons.add_16_regular, keyLabel(context.l10n.zoomIn), 1),
         Tooltip(
-          message: context.l10n.zoomReset,
+          message: keyLabel(context.l10n.zoomReset),
           child: InkWell(
             key: const Key('zoom-reset'),
             onTap: () => settings.setReadingZoom(100),

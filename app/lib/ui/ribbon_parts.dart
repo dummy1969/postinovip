@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../settings/app_settings.dart';
 import 'theme.dart';
+import 'keys.dart';
 
 // Pezzi della barra multifunzione in stile Office, comuni alla finestra principale (ribbon.dart) e
 // alla composizione (compose_page.dart).
@@ -167,7 +168,7 @@ class _DisplayOptions extends StatelessWidget {
           key: const Key('ribbon-show-always'),
         ),
         item(
-          context.l10n.ribbonTabsOnly,
+          keyLabel(context.l10n.ribbonTabsOnly),
           settings.ribbonCollapsed,
           () => settings.setRibbonCollapsed(true),
           key: const Key('ribbon-tabs-only'),

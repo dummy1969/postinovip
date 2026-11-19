@@ -8,6 +8,7 @@ import '../print/print_actions.dart';
 import '../settings/app_settings.dart';
 import '../state/contacts_model.dart';
 import 'calendar_view.dart';
+import 'keys.dart';
 import '../state/mailbox_model.dart';
 import 'conversation_view.dart';
 import 'eml_view.dart';
@@ -92,7 +93,7 @@ class _RibbonState extends State<Ribbon> {
               RibbonLargeButton(
                 icon: FluentIcons.chevron_up_20_regular,
                 label: context.l10n.ribbonCollapse,
-                tooltip: context.l10n.ribbonCollapseTooltip,
+                tooltip: keyLabel(context.l10n.ribbonCollapseTooltip),
                 onPressed: () => context.read<AppSettings>().setRibbonCollapsed(true),
               ),
             ],
@@ -171,7 +172,7 @@ class _RibbonState extends State<Ribbon> {
             RibbonLargeButton(
               icon: FluentIcons.chevron_up_20_regular,
               label: context.l10n.ribbonCollapse,
-              tooltip: context.l10n.ribbonCollapseTooltip,
+              tooltip: keyLabel(context.l10n.ribbonCollapseTooltip),
               onPressed: () => context.read<AppSettings>().setRibbonCollapsed(true),
             ),
           ],
@@ -380,7 +381,7 @@ class _RibbonState extends State<Ribbon> {
             itemBuilder: (context) => [
               for (final f in moveTargets) PopupMenuItem(value: f.fullName, child: Text(f.fullName)),
               const PopupMenuDivider(),
-              PopupMenuItem(value: _otherFolder, child: Text(context.l10n.moveOtherFolder)),
+              PopupMenuItem(value: _otherFolder, child: Text(keyLabel(context.l10n.moveOtherFolder))),
             ],
             child: RibbonLargeButton(
               icon: FluentIcons.folder_arrow_right_24_regular,
@@ -483,7 +484,7 @@ class _FileMenu extends StatelessWidget {
           for (final (value, icon, text) in [
             ('open-eml', FluentIcons.folder_open_20_regular, context.l10n.openEml),
             ('save-eml', FluentIcons.save_20_regular, context.l10n.saveAs),
-            ('print', FluentIcons.print_20_regular, context.l10n.printMessage),
+            ('print', FluentIcons.print_20_regular, keyLabel(context.l10n.printMessage)),
             ('pdf', FluentIcons.document_pdf_20_regular, context.l10n.saveAsPdf),
           ])
             PopupMenuItem(

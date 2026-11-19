@@ -4,22 +4,32 @@ import 'app_localizations.dart';
 
 /// Lingua dell'interfaccia (tappa «Lingua», scelta 1a del 16/11/2026): come il sistema (predefinita) o scelta in
 /// File → Opzioni → Generale. I nomi delle lingue si scrivono nella lingua stessa, come fanno i sistemi operativi.
+/// Spagnolo, francese e tedesco aggiunti il 17/11/2026 (scelte 1a 2a 3a 4a).
 enum AppLanguage {
   system,
   italian,
-  english;
+  english,
+  spanish,
+  french,
+  german;
 
   /// Lingua fissata dall'utente; null = quella del sistema, risolta da [resolveLocale].
   Locale? get locale => switch (this) {
     AppLanguage.system => null,
     AppLanguage.italian => const Locale('it'),
     AppLanguage.english => const Locale('en'),
+    AppLanguage.spanish => const Locale('es'),
+    AppLanguage.french => const Locale('fr'),
+    AppLanguage.german => const Locale('de'),
   };
 
   String label(AppLocalizations l) => switch (this) {
     AppLanguage.system => l.languageSystem,
     AppLanguage.italian => 'Italiano',
     AppLanguage.english => 'English',
+    AppLanguage.spanish => 'Español',
+    AppLanguage.french => 'Français',
+    AppLanguage.german => 'Deutsch',
   };
 }
 

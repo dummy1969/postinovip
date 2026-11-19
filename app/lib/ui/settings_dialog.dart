@@ -9,6 +9,7 @@ import '../l10n/language.dart';
 import '../notify/system_notifier.dart';
 import '../models/calendar.dart';
 import '../settings/app_settings.dart';
+import 'keys.dart';
 import '../state/calendar_model.dart';
 import '../state/mailbox_model.dart';
 import 'signatures_dialog.dart';
@@ -191,6 +192,18 @@ class _SettingsDialogState extends State<SettingsDialog> {
           },
         ),
       ),
+      // Solo sul Mac (M2b, 19/11/2026): i comandi sono anche nella barra dei menu in alto, la barra multifunzione
+      // della finestra principale si può nascondere.
+      if (usesCommandKey)
+        CheckboxListTile(
+          key: const Key('settings-show-ribbon'),
+          value: settings.showRibbon,
+          onChanged: (v) => settings.setShowRibbon(v ?? true),
+          title: Text(l.optionsShowRibbon),
+          subtitle: Text(l.optionsShowRibbonHelp),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+        ),
       // Lingua (tappa «Lingua», L1, scelta 1a): come il sistema o fissata qui; vale subito, senza riavviare.
       const Divider(),
       Text(l.optionsLanguageSection, style: Theme.of(context).textTheme.titleSmall),

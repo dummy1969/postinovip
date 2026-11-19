@@ -18,6 +18,8 @@ import 'junk_ui.dart';
 import 'message_actions.dart';
 import 'reading_pane.dart';
 import 'reading_zoom.dart';
+import 'keys.dart';
+import 'mac_menu_bar.dart';
 import 'ribbon_parts.dart';
 import 'rules_dialog.dart';
 import 'tag_menus.dart';
@@ -78,53 +80,174 @@ class _MessageWindowState extends State<MessageWindow> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.escape): _close,
-        // Come Outlook: Ctrl+, e Ctrl+. elemento precedente e successivo.
-        const SingleActivator(LogicalKeyboardKey.comma, control: true): () => _step(-1),
-        const SingleActivator(LogicalKeyboardKey.period, control: true): () => _step(1),
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true): () => _reply(DraftMode.reply),
-        const SingleActivator(LogicalKeyboardKey.keyR, control: true, shift: true): () => _reply(DraftMode.replyAll),
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () => _reply(DraftMode.forward),
+        // Come Outlook: Ctrl+, e Ctrl+. elemento precedente e successivo (sul Mac ⌘[ e ⌘], keys.dart).
+        previousItemKey: () => _step(-1),
+        nextItemKey: () => _step(1),
+        cmd(LogicalKeyboardKey.keyR): () => _reply(DraftMode.reply),
+        cmd(LogicalKeyboardKey.keyR, shift: true): () => _reply(DraftMode.replyAll),
+        cmd(LogicalKeyboardKey.keyF): () => _reply(DraftMode.forward),
         const SingleActivator(LogicalKeyboardKey.delete): _delete,
-        const SingleActivator(LogicalKeyboardKey.keyD, control: true): _delete,
-        const SingleActivator(LogicalKeyboardKey.keyQ, control: true): () {
+        ...macBackspaceDeletes(_delete),
+        cmd(LogicalKeyboardKey.keyD): _delete,
+        markReadKey: () {
           if (MessageActions.canModify(model)) MessageActions.setSeen(context, true);
         },
-        const SingleActivator(LogicalKeyboardKey.keyU, control: true): () {
+        markUnreadKey: () {
           if (MessageActions.canModify(model)) MessageActions.setSeen(context, false);
         },
-        const SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true): () => _move(_otherFolder),
-        const SingleActivator(LogicalKeyboardKey.keyP, control: true): () => PrintActions.printMessage(context),
+        cmd(LogicalKeyboardKey.keyV, shift: true): () => _move(_otherFolder),
+        cmd(LogicalKeyboardKey.keyP): () => PrintActions.printMessage(context),
         const SingleActivator(LogicalKeyboardKey.f12): () => EmlActions.saveAs(context),
-        const SingleActivator(LogicalKeyboardKey.f1, control: true): () =>
+        cmd(LogicalKeyboardKey.f1): () =>
             settings.setRibbonCollapsed(!settings.ribbonCollapsed),
         ...ZoomedBody.shortcuts(settings),
       },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          key: const ValueKey('message-window'),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _TitleBar(
-                subject: model.detail?.subject ?? '',
-                onPrevious: model.canMoveCursor(-1) ? () => _step(-1) : null,
-                onNext: model.canMoveCursor(1) ? () => _step(1) : null,
-                onClose: _close,
-              ),
-              RibbonFrame(
-                leading: const _FileMenu(),
-                tabs: [context.l10n.messageTab],
-                selected: 0,
-                onSelect: (_) {},
-                groups: _groups(model),
-              ),
-              const Expanded(child: ReadingPane()),
-            ],
+      // Sul Mac i comandi anche nella barra dei menu in alto (M2b).
+      child: MacMenuScope(
+        menus: _macMenus,
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            key: const ValueKey('message-window'),
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _TitleBar(
+                  subject: model.detail?.subject ?? '',
+                  onPrevious: model.canMoveCursor(-1) ? () => _step(-1) : null,
+                  onNext: model.canMoveCursor(1) ? () => _step(1) : null,
+                  onClose: _close,
+                ),
+                RibbonFrame(
+                  leading: const _FileMenu(),
+                  tabs: [context.l10n.messageTab],
+                  selected: 0,
+                  onSelect: (_) {},
+                  groups: _groups(model),
+                ),
+                const Expanded(child: ReadingPane()),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Menu del Mac (M2b): File, Messaggio e Visualizza della finestra della mail, come la sua barra.
+  List<PlatformMenu> _macMenus(BuildContext context) {
+    final l = context.l10n;
+    final model = context.read<MailboxModel>();
+    final settings = context.read<AppSettings>();
+    final hasMessage = MessageActions.hasMessage(model);
+    final canModify = MessageActions.canModify(model);
+    final seen = MessageActions.seenState(model);
+    final permanent = MessageActions.deletesPermanently(model);
+    return [
+      PlatformMenu(
+        label: l.fileTab,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              macItem(macLabel(l.saveAs), () => EmlActions.saveAs(context), macKey(LogicalKeyboardKey.keyS, shift: true)),
+              macItem(l.saveAsPdf, () => PrintActions.saveAsPdf(context)),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [macItem(macLabel(l.printMessage), () => PrintActions.printMessage(context), macKey(LogicalKeyboardKey.keyP))],
+          ),
+          PlatformMenuItemGroup(members: [macItem(l.macMenuCloseWindow, _close, macKey(LogicalKeyboardKey.keyW))]),
+        ],
+      ),
+      PlatformMenu(
+        label: l.messageTab,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              for (final (mode, key) in [
+                (DraftMode.reply, macKey(LogicalKeyboardKey.keyR)),
+                (DraftMode.replyAll, macKey(LogicalKeyboardKey.keyR, shift: true)),
+                (DraftMode.forward, macKey(LogicalKeyboardKey.keyF)),
+              ])
+                macItem(mode.label(l), hasMessage ? () => _reply(mode) : null, key),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              macItem(
+                l.markRead,
+                canModify && seen != true ? () => MessageActions.setSeen(context, true) : null,
+                macKey(LogicalKeyboardKey.keyT),
+              ),
+              macItem(
+                l.markUnread,
+                canModify && seen != false ? () => MessageActions.setSeen(context, false) : null,
+                macKey(LogicalKeyboardKey.keyT, shift: true),
+              ),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              PlatformMenu(
+                label: l.move,
+                menus: [
+                  PlatformMenuItemGroup(
+                    members: [
+                      for (final f in MessageActions.moveTargets(model))
+                        macItem(f.fullName, canModify ? () => _move(f.fullName) : null),
+                    ],
+                  ),
+                  PlatformMenuItemGroup(
+                    members: [
+                      macItem(
+                        macLabel(l.moveOtherFolder),
+                        canModify ? () => _move(_otherFolder) : null,
+                        macKey(LogicalKeyboardKey.keyV, shift: true),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Senza tasto nel menu: ⌫ serve anche a scrivere (vedi MacMenuBar).
+              macItem(
+                l.archive,
+                ArchiveActions.canArchive(model) ? () => ArchiveActions.archive(context, openNext: true) : null,
+              ),
+              macItem(permanent ? l.deletePermanently : l.delete, canModify ? _delete : null),
+              macItem(
+                ConversationToolActions.ignoreLabel(l, model),
+                ConversationToolActions.canIgnore(model) ? () => ConversationToolActions.ignore(context, openNext: true) : null,
+              ),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              PlatformMenu(label: l.junk, menus: JunkActions.macItems(context, openNext: true)),
+              PlatformMenu(label: l.categorize, menus: TagMenus.categoryMacItems(context, canModify ? TagTarget.open(model) : null)),
+              PlatformMenu(label: l.followUp, menus: TagMenus.followUpMacItems(context, canModify ? TagTarget.open(model) : null)),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              macItem(macLabel(l.previousItem), model.canMoveCursor(-1) ? () => _step(-1) : null, previousItemKey),
+              macItem(macLabel(l.nextItem), model.canMoveCursor(1) ? () => _step(1) : null, nextItemKey),
+            ],
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: l.tabView,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              macItem(macLabel(l.zoomIn), () => settings.zoomBy(1), const CharacterActivator('+', meta: true)),
+              macItem(macLabel(l.zoomOut), () => settings.zoomBy(-1), const CharacterActivator('-', meta: true)),
+              macItem(l.macMenuZoomReset, () => settings.setReadingZoom(100), macKey(LogicalKeyboardKey.digit0)),
+            ],
+          ),
+        ],
+      ),
+    ];
   }
 
   /// Mail precedente o successiva della lista (anche la lista dietro si sposta).
@@ -171,7 +294,7 @@ class _MessageWindowState extends State<MessageWindow> {
                 offlineHint ??
                 (permanent
                     ? context.l10n.windowDeletePermanentlyTooltip
-                    : context.l10n.windowDeleteTooltip),
+                    : keyLabel(context.l10n.windowDeleteTooltip)),
             onPressed: canModify ? _delete : null,
           ),
           RibbonLargeButton(
@@ -234,7 +357,7 @@ class _MessageWindowState extends State<MessageWindow> {
             itemBuilder: (context) => [
               for (final f in moveTargets) PopupMenuItem(value: f.fullName, child: Text(f.fullName)),
               const PopupMenuDivider(),
-              PopupMenuItem(value: _otherFolder, child: Text(context.l10n.moveOtherFolder)),
+              PopupMenuItem(value: _otherFolder, child: Text(keyLabel(context.l10n.moveOtherFolder))),
             ],
             child: RibbonLargeButton(
               icon: FluentIcons.folder_arrow_right_24_regular,
@@ -309,7 +432,7 @@ class _MessageWindowState extends State<MessageWindow> {
               key: const Key('message-window-zoom'),
               icon: FluentIcons.zoom_in_24_regular,
               label: context.l10n.zoomPercent(zoom),
-              tooltip: context.l10n.zoomTooltip,
+              tooltip: keyLabel(context.l10n.zoomTooltip),
               onPressed: () => controller.isOpen ? controller.close() : controller.open(),
             ),
           ),
@@ -349,8 +472,8 @@ class _TitleBar extends StatelessWidget {
           Text(context.l10n.messageTab, style: style.copyWith(fontWeight: FontWeight.w600)),
           if (subject.isNotEmpty) Text('  –  ', style: style),
           Expanded(child: Text(subject, overflow: TextOverflow.ellipsis, style: style)),
-          button(const Key('message-window-previous'), FluentIcons.arrow_up_20_regular, context.l10n.previousItem, onPrevious),
-          button(const Key('message-window-next'), FluentIcons.arrow_down_20_regular, context.l10n.nextItem, onNext),
+          button(const Key('message-window-previous'), FluentIcons.arrow_up_20_regular, keyLabel(context.l10n.previousItem), onPrevious),
+          button(const Key('message-window-next'), FluentIcons.arrow_down_20_regular, keyLabel(context.l10n.nextItem), onNext),
           const SizedBox(width: 8),
           button(const Key('message-window-close'), FluentIcons.dismiss_20_regular, context.l10n.closeEsc, onClose),
         ],
@@ -377,7 +500,7 @@ class _FileMenu extends StatelessWidget {
       itemBuilder: (_) => [
         for (final (value, icon, text) in [
           ('save-eml', FluentIcons.save_20_regular, context.l10n.saveAs),
-          ('print', FluentIcons.print_20_regular, context.l10n.printMessage),
+          ('print', FluentIcons.print_20_regular, keyLabel(context.l10n.printMessage)),
           ('pdf', FluentIcons.document_pdf_20_regular, context.l10n.saveAsPdf),
         ])
           PopupMenuItem(

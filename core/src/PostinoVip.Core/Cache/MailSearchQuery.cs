@@ -19,8 +19,10 @@ public sealed record SearchTerm(SearchField? Field, string Text, bool IsPhrase);
 /// - parole: tutte devono comparire, ognuna anche come inizio di parola ("fatt" trova "fattura");
 /// - "frase esatta" tra virgolette;
 /// - filtri: da: (mittente), a: (destinatari A e Cc), oggetto:, allegato: (nomi degli allegati),
-///   allegati:sì / allegati:no; anche in inglese, in tutte e due le lingue dell'app (tappa «Lingua», L6d, scelta 4a):
-///   from:, to:, subject:, attachment:, hasattachments:yes / hasattachments:no.
+///   allegati:sì / allegati:no; anche nelle altre lingue dell'app, valide sempre (tappa «Lingua», L6d, scelta 4a; 3a del
+///   17/11/2026): from:, to:, subject:, attachment:, hasattachments:yes/no; de:, para:, asunto:, adjunto:, adjuntos:sí/no;
+///   de:, à:, objet:, piècejointe:, piècesjointes:oui/non; von:, an:, betreff:, anlage:, anlagen:ja/nein.
+///   «de» è «da» sia in spagnolo sia in francese: stesso campo, nessun conflitto.
 /// Un filtro sconosciuto (es. "ore 10:30", "http://...") viene cercato come testo normale.
 /// Tradotta per l'indice locale (<see cref="Match"/>, FTS5) e per il server (IMAP SEARCH, in
 /// ImapFolderSource). Il testo dell'utente non entra mai nella sintassi FTS5: ogni termine diventa
@@ -38,11 +40,27 @@ public sealed partial record MailSearchQuery(IReadOnlyList<SearchTerm> Terms, bo
         ["to"] = SearchField.Recipients,
         ["subject"] = SearchField.Subject,
         ["attachment"] = SearchField.Attachments,
+        ["de"] = SearchField.Sender,
+        ["para"] = SearchField.Recipients,
+        ["asunto"] = SearchField.Subject,
+        ["adjunto"] = SearchField.Attachments,
+        ["à"] = SearchField.Recipients,
+        ["objet"] = SearchField.Subject,
+        ["piècejointe"] = SearchField.Attachments,
+        ["piecejointe"] = SearchField.Attachments,
+        ["von"] = SearchField.Sender,
+        ["an"] = SearchField.Recipients,
+        ["betreff"] = SearchField.Subject,
+        ["anlage"] = SearchField.Attachments,
     };
 
-    /// <summary>Filtro «ha allegati» nelle due lingue.</summary>
-    private static bool IsAttachmentsFilter(string prefix) =>
-        prefix.Equals("allegati", StringComparison.OrdinalIgnoreCase) || prefix.Equals("hasattachments", StringComparison.OrdinalIgnoreCase);
+    /// <summary>Filtro «ha allegati» in tutte le lingue dell'app.</summary>
+    private static readonly HashSet<string> AttachmentsFilters = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "allegati", "hasattachments", "adjuntos", "piècesjointes", "piecesjointes", "anlagen",
+    };
+
+    private static bool IsAttachmentsFilter(string prefix) => AttachmentsFilters.Contains(prefix);
 
     /// <summary>Nessuna condizione: non si cerca nulla (invece di restituire tutta la casella).</summary>
     public bool IsEmpty => Terms.Count == 0 && HasAttachments is null;
@@ -105,8 +123,8 @@ public sealed partial record MailSearchQuery(IReadOnlyList<SearchTerm> Terms, bo
 
     private static bool? YesNo(string value) => value.ToLowerInvariant() switch
     {
-        "sì" or "si" or "s" or "yes" or "y" or "true" => true,
-        "no" or "n" or "false" => false,
+        "sì" or "si" or "s" or "sí" or "yes" or "y" or "oui" or "o" or "ja" or "j" or "true" => true,
+        "no" or "n" or "non" or "nein" or "false" => false,
         _ => null,
     };
 

@@ -22,6 +22,9 @@ import 'view_test.dart' show start;
 
 Map<String, dynamic> _arb(String name) => jsonDecode(File('lib/l10n/$name').readAsStringSync()) as Map<String, dynamic>;
 
+/// Lingue tradotte dall'italiano (il modello).
+const _translations = ['en', 'es', 'fr', 'de'];
+
 Iterable<String> _messages(Map<String, dynamic> arb) => arb.keys.where((k) => !k.startsWith('@'));
 
 /// Nomi tra graffe di un testo ICU, senza i casi dei plurali (`=1{...}`, `other{...}`).
@@ -29,9 +32,10 @@ Set<String> _placeholders(String text) =>
     RegExp(r'(?<!=\d)(?<!other)(?<!one)(?<!few)(?<!many)(?<!zero)(?<!two)\{(\w+)[,}]').allMatches(text).map((m) => m.group(1)!).toSet();
 
 void main() {
-  test('app_en.arb ha tutti i testi di app_it.arb (e niente in più), con gli stessi segnaposto', () {
+  for (final lang in _translations) {
+  test('app_$lang.arb ha tutti i testi di app_it.arb (e niente in più), con gli stessi segnaposto', () {
     final it = _arb('app_it.arb');
-    final en = _arb('app_en.arb');
+    final en = _arb('app_$lang.arb');
     expect(_messages(en).toSet(), _messages(it).toSet());
     for (final key in _messages(it)) {
       expect((en[key] as String).trim(), isNotEmpty, reason: key);
@@ -42,11 +46,12 @@ void main() {
       expect(it.containsKey('@$key'), isTrue, reason: 'descrizione «@$key» mancante in app_it.arb');
     }
   });
+  }
 
   test('codice generato aggiornato: dopo una modifica ai file .arb serve «flutter gen-l10n»', () {
     final generated = {
       'it': File('lib/l10n/app_localizations_it.dart').readAsStringSync(),
-      'en': File('lib/l10n/app_localizations_en.dart').readAsStringSync(),
+      for (final lang in _translations) lang: File('lib/l10n/app_localizations_$lang.dart').readAsStringSync(),
     };
     for (final MapEntry(key: lang, value: code) in generated.entries) {
       final arb = _arb('app_$lang.arb');
@@ -152,8 +157,11 @@ void main() {
   test('lingua del sistema: la prima che l\'app ha, altrimenti inglese', () {
     expect(resolveLocale(const [Locale('it', 'CH')]), const Locale('it'));
     expect(resolveLocale(const [Locale('en', 'GB')]), const Locale('en'));
-    expect(resolveLocale(const [Locale('de'), Locale('it')]), const Locale('it'));
-    expect(resolveLocale(const [Locale('de'), Locale('fr')]), const Locale('en'));
+    expect(resolveLocale(const [Locale('nl'), Locale('it')]), const Locale('it'));
+    expect(resolveLocale(const [Locale('de'), Locale('fr')]), const Locale('de'));
+    expect(resolveLocale(const [Locale('es', 'MX')]), const Locale('es'));
+    expect(resolveLocale(const [Locale('fr', 'CA')]), const Locale('fr'));
+    expect(resolveLocale(const [Locale('pt'), Locale('ja')]), const Locale('en'));
     expect(resolveLocale(null), const Locale('en'));
   });
 
@@ -208,9 +216,9 @@ void main() {
     await fake.core.sse.close();
   });
 
-  testWidgets('«Come il sistema» con il sistema in inglese (o in una lingua che l\'app non ha): inglese', (tester) async {
+  testWidgets('«Come il sistema» con il sistema in una lingua che l\'app non ha: inglese', (tester) async {
     addTearDown(() => tester.platformDispatcher.localesTestValue = const [Locale('it', 'IT')]);
-    tester.platformDispatcher.localesTestValue = const [Locale('de', 'DE')];
+    tester.platformDispatcher.localesTestValue = const [Locale('pt', 'BR')];
     final (fake, settings, _) = await start(tester);
     expect(settings.language, AppLanguage.system);
     expect(find.text('Connected'), findsOneWidget);
@@ -219,5 +227,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Connesso'), findsOneWidget);
     await fake.core.sse.close();
+  });
+
+  // Spagnolo, francese e tedesco (17/11/2026): il sistema in tedesco dà il tedesco, e ogni lingua ha i suoi formati.
+  testWidgets('«Come il sistema» con il sistema in tedesco: tedesco', (tester) async {
+    addTearDown(() => tester.platformDispatcher.localesTestValue = const [Locale('it', 'IT')]);
+    tester.platformDispatcher.localesTestValue = const [Locale('de', 'DE')];
+    final (fake, settings, _) = await start(tester);
+    expect(find.text('Verbunden'), findsOneWidget);
+    await settings.setLanguage(AppLanguage.french);
+    await tester.pumpAndSettle();
+    expect(find.text('Connecté'), findsOneWidget);
+    await settings.setLanguage(AppLanguage.spanish);
+    await tester.pumpAndSettle();
+    expect(find.text('Conectado'), findsOneWidget);
+    await fake.core.sse.close();
+  });
+
+  test('date, plurali ed errori del core in spagnolo, francese e tedesco', () {
+    addTearDown(() => setFormatLanguage(lookupAppLocalizations(const Locale('it'))));
+    final d = DateTime(2026, 11, 5, 14, 30);
+    final es = lookupAppLocalizations(const Locale('es'));
+    setFormatLanguage(es);
+    expect(formatDate(d), '05/11/2026');
+    expect(formatTime(d), '14:30');
+    expect(formatFullDate(d), 'jueves, 5 de noviembre de 2026');
+    expect(es.mailsArchived(2), '2 mensajes archivados');
+    expect(coreErrorText('testUnreachable', const {'address': 'mail.example.com:993'}, null), 'Servidor mail.example.com:993 no accesible.');
+
+    final fr = lookupAppLocalizations(const Locale('fr'));
+    setFormatLanguage(fr);
+    expect(formatDate(d), '05/11/2026');
+    expect(formatFullDate(d), 'jeudi 5 novembre 2026');
+    expect(formatMegabytes(1468006), '1,4 MB');
+    expect(fr.mailsArchived(1), '1 message archivé');
+
+    final de = lookupAppLocalizations(const Locale('de'));
+    setFormatLanguage(de);
+    expect(formatDate(d), '05.11.2026');
+    expect(formatTime(d), '14:30');
+    expect(formatFullDate(d), 'Donnerstag, 5. November 2026');
+    expect(formatDayRange(DateTime(2026, 11, 9), DateTime(2026, 11, 13)), '9. – 13. November 2026');
+    expect(de.mailsArchived(3), '3 Nachrichten archiviert');
+    expect(coreKindText('offline'), 'Keine Verbindung');
   });
 }

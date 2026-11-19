@@ -3,6 +3,7 @@
 # rete, la tua casella e le tue impostazioni non vengono toccate. Serve a confrontare l'aspetto prima e dopo ogni step.
 #
 # Uso: tools/schermate.sh [cartella]      (predefinita: dist/schermate/<data-ora>)
+#      SCHERMATE_LANGUAGE=german tools/schermate.sh   (lingua: english, spanish, french, german; di serie italiano)
 # Crea 5 PNG (1440×900 a densità 2, l'ultima 640×480): posta chiara, posta scura, nuovo messaggio, calendario,
 # finestra piccola. Il testo usa Inter dagli asset dell'app, come l'app su Linux (dalla V1); il carattere che il
 # sistema dà per «sans-serif» (fc-match) resta per i testi senza un carattere proprio.

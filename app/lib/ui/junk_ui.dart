@@ -10,6 +10,7 @@ import '../models/junk_options.dart';
 import '../models/mail_folder.dart';
 import '../state/mailbox_model.dart';
 import 'message_actions.dart';
+import 'mac_menu_bar.dart';
 
 /// Posta indesiderata (J2, scelte 1a e 4a): il menu «Posta indesiderata» di Outlook (Home → Elimina, finestra della
 /// mail, menu del tasto destro) e la finestra «Opzioni posta indesiderata». I comandi agiscono sulla mail aperta o su
@@ -55,6 +56,34 @@ class JunkActions {
         leadingIcon: const Icon(FluentIcons.settings_20_regular, size: 16),
         onPressed: model.accounts.isEmpty ? null : () => JunkOptionsDialog.show(context, account: model.openAccount),
         child: Text(l.junkOptionsEllipsis),
+      ),
+    ];
+  }
+
+  /// Le stesse voci per la barra dei menu del Mac (M2b): Messaggio → Posta indesiderata.
+  static List<PlatformMenuItem> macItems(BuildContext context, {bool openNext = false}) {
+    final model = context.read<MailboxModel>();
+    final hasTarget = MessageActions.hasTarget(model) && !model.actionInProgress;
+    final canModify = MessageActions.canModify(model);
+    final l = context.l10n;
+    Future<void> Function() run(Future<void> Function(BuildContext) action, {bool moves = false}) =>
+        () => moves && openNext ? model.removeAndOpenNext(() => action(context)) : action(context);
+    return [
+      PlatformMenuItemGroup(
+        members: [
+          macItem(l.blockSender, canModify ? run(block, moves: true) : null),
+          for (final kind in NeverBlockKind.values)
+            macItem(kind.label(l, many: model.multiSelection), hasTarget ? run((c) => neverBlock(c, kind)) : null),
+          macItem(l.notJunk, canModify && model.selectionInJunk ? run(notJunk, moves: true) : null),
+        ],
+      ),
+      PlatformMenuItemGroup(
+        members: [
+          macItem(
+            l.junkOptionsEllipsis,
+            model.accounts.isEmpty ? null : () => JunkOptionsDialog.show(context, account: model.openAccount),
+          ),
+        ],
       ),
     ];
   }

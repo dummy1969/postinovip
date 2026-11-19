@@ -8,6 +8,7 @@ import '../l10n/language.dart';
 import '../models/mail_folder.dart';
 import '../state/mailbox_model.dart';
 import 'message_actions.dart';
+import 'keys.dart';
 
 /// Archivia (A2, scelte 1a e 3a): come Outlook classico per IMAP e POP3. Il comando sposta le mail selezionate nella
 /// cartella di archiviazione del loro account; la prima volta (o se la cartella è sparita) si sceglie o si crea con
@@ -20,7 +21,7 @@ class ArchiveActions {
 
   /// Testo del suggerimento del comando.
   static String tooltip(AppLocalizations l, MailboxModel model) =>
-      model.selectionInArchive ? l.alreadyInArchive : l.archiveTooltip;
+      model.selectionInArchive ? l.alreadyInArchive : keyLabel(l.archiveTooltip);
 
   /// «Archivia». Per gli account senza cartella di archiviazione prima la finestra di scelta: annullata, non si
   /// sposta niente. [openNext]: nella finestra della mail dopo lo spostamento si apre la successiva.

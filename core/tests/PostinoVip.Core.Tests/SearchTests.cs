@@ -69,6 +69,20 @@ public sealed class SearchTests : IDisposable
         Assert.Equal("\"allegati:forse\"*", MailSearchQuery.Parse("allegati:forse").Match);
         Assert.True(MailSearchQuery.Parse("hasattachments:yes").HasAttachments);
         Assert.False(MailSearchQuery.Parse("HasAttachments:no").HasAttachments);
+        // Spagnolo, francese e tedesco (17/11/2026, scelta 3a): valgono sempre, in qualunque lingua dell'app.
+        Assert.True(MailSearchQuery.Parse("adjuntos:sí").HasAttachments);
+        Assert.False(MailSearchQuery.Parse("piècesjointes:non").HasAttachments);
+        Assert.True(MailSearchQuery.Parse("anlagen:ja").HasAttachments);
+        Assert.False(MailSearchQuery.Parse("Anlagen:nein").HasAttachments);
+        Assert.Equal([new SearchTerm(SearchField.Sender, "anna", false), new SearchTerm(SearchField.Recipients, "mario", false),
+                new SearchTerm(SearchField.Subject, "reunión", false), new SearchTerm(SearchField.Attachments, "pdf", false)],
+            MailSearchQuery.Parse("de:anna para:mario asunto:reunión adjunto:pdf").Terms);
+        Assert.Equal([new SearchTerm(SearchField.Recipients, "mario", false), new SearchTerm(SearchField.Subject, "réunion", false),
+                new SearchTerm(SearchField.Attachments, "pdf", false)],
+            MailSearchQuery.Parse("à:mario objet:réunion piècejointe:pdf").Terms);
+        Assert.Equal([new SearchTerm(SearchField.Sender, "anna", false), new SearchTerm(SearchField.Recipients, "mario", false),
+                new SearchTerm(SearchField.Subject, "besprechung", false), new SearchTerm(SearchField.Attachments, "pdf", false)],
+            MailSearchQuery.Parse("von:anna an:mario betreff:besprechung anlage:pdf").Terms);
         Assert.True(MailSearchQuery.Parse("  ").IsEmpty);
         Assert.True(MailSearchQuery.Parse("- , ;").IsEmpty);
     }

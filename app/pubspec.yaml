@@ -1,7 +1,7 @@
 name: postinovip
 description: "PostinoVip: client di posta desktop (Flutter + core C#/MailKit)."
 publish_to: 'none'
-version: 0.0.259+259
+version: 0.0.264+264
 
 environment:
   sdk: ^3.13.4

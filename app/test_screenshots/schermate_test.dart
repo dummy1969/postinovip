@@ -10,6 +10,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:postinovip/api/api_client.dart';
+import 'package:postinovip/l10n/app_localizations.dart';
+import 'package:postinovip/l10n/language.dart';
 import 'package:postinovip/main.dart';
 import 'package:postinovip/notify/window_presenter.dart';
 import 'package:postinovip/settings/app_settings.dart';
@@ -20,6 +22,12 @@ import 'sample_core.dart';
 
 final _env = Platform.environment;
 final _out = Directory(_env['SCHERMATE_DIR'] ?? 'build/schermate');
+// Di serie italiano (19/11/2026): con la lingua «del sistema» l'app dei test usciva in inglese e i pulsanti da
+// premere, cercati in italiano, non si trovavano.
+final _language =
+    AppLanguage.values.where((l) => l.name == _env['SCHERMATE_LANGUAGE']).firstOrNull ?? AppLanguage.italian;
+/// Testi dei pulsanti da premere, nella lingua delle schermate.
+final _l = lookupAppLocalizations(_language.locale!);
 final _warnings = <String>[];
 
 class _NoWindow implements WindowPresenter {
@@ -84,6 +92,8 @@ Future<SampleCore> _start(
     ..theme = theme
     ..moduleBar = moduleBar
     ..ribbonLayout = ribbon
+    // Lingua dell'interfaccia (17/11/2026): SCHERMATE_LANGUAGE=english|spanish|french|german; di serie italiano.
+    ..language = _language
     ..readMode = ReadMode.manual;
   // I trabocchi (testo più largo del suo spazio) non fermano la schermata: si annotano in avvisi.txt.
   final previous = FlutterError.onError;
@@ -173,7 +183,7 @@ void main() {
 
   testWidgets('nuovo messaggio', (tester) async {
     final core = await _start(tester);
-    await tester.tap(find.text('Nuovo messaggio'));
+    await tester.tap(find.text(_l.newMessage));
     await _shot(tester, '3-nuovo-messaggio');
     await _finish(tester, core);
   });
@@ -208,16 +218,16 @@ void main() {
 
   testWidgets('nuovo messaggio, barra semplificata', (tester) async {
     final core = await _start(tester, ribbon: RibbonLayout.simplified);
-    await tester.tap(find.text('Nuovo messaggio'));
+    await tester.tap(find.text(_l.newMessage));
     await _shot(tester, '8-nuovo-messaggio-semplificata');
     await _finish(tester, core);
   });
 
   testWidgets('finestra Opzioni', (tester) async {
     final core = await _start(tester);
-    await tester.tap(find.text('File'));
+    await tester.tap(find.text(_l.fileTab));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Opzioni'));
+    await tester.tap(find.text(_l.optionsTitle));
     await _shot(tester, '9-opzioni');
     await _finish(tester, core);
   });
@@ -226,7 +236,7 @@ void main() {
     final core = await _start(tester);
     await tester.tap(find.byKey(const Key('module-calendar')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Nuovo appuntamento'));
+    await tester.tap(find.text(_l.newAppointment));
     await _shot(tester, '10-appuntamento');
     await _finish(tester, core);
   });

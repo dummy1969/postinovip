@@ -5,7 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
 import 'app_localizations_it.dart';
 
 // ignore_for_file: type=lint
@@ -94,7 +97,10 @@ abstract class AppLocalizations {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
+    Locale('de'),
     Locale('en'),
+    Locale('es'),
+    Locale('fr'),
     Locale('it'),
   ];
 
@@ -290,10 +296,10 @@ abstract class AppLocalizations {
   /// **'Lingua dell\'interfaccia'**
   String get optionsLanguage;
 
-  /// Avviso sotto la scelta della lingua, finché la traduzione non è completa
+  /// Nota sotto la scelta della lingua: la lingua vale anche per i testi che il core scrive nelle mail
   ///
   /// In it, this message translates to:
-  /// **'La traduzione è in corso: alcune parti dell\'app sono ancora solo in italiano'**
+  /// **'Vale anche per i testi che l\'app scrive nelle mail (intestazioni delle risposte, conferme di lettura)'**
   String get optionsLanguageHelper;
 
   /// Lingua: quella del sistema operativo (italiano o inglese; le altre lingue diventano inglese)
@@ -8168,6 +8174,156 @@ abstract class AppLocalizations {
   /// In it, this message translates to:
   /// **'Ultime righe del core:'**
   String get coreLastLines;
+
+  /// Menu dell'app sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Informazioni su PostinoVip'**
+  String get macMenuAbout;
+
+  /// Menu dell'app sul Mac (⌘,)
+  ///
+  /// In it, this message translates to:
+  /// **'Opzioni…'**
+  String get macMenuOptions;
+
+  /// Menu dell'app sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Servizi'**
+  String get macMenuServices;
+
+  /// Menu dell'app sul Mac (⌘H)
+  ///
+  /// In it, this message translates to:
+  /// **'Nascondi PostinoVip'**
+  String get macMenuHide;
+
+  /// Menu dell'app sul Mac (⌥⌘H)
+  ///
+  /// In it, this message translates to:
+  /// **'Nascondi altre'**
+  String get macMenuHideOthers;
+
+  /// Menu dell'app sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Mostra tutte'**
+  String get macMenuShowAll;
+
+  /// Menu dell'app sul Mac (⌘Q)
+  ///
+  /// In it, this message translates to:
+  /// **'Esci da PostinoVip'**
+  String get macMenuQuit;
+
+  /// Menu Modifica sul Mac (nome di macOS in italiano: Composizione)
+  ///
+  /// In it, this message translates to:
+  /// **'Composizione'**
+  String get macMenuEdit;
+
+  /// Menu Modifica sul Mac (⌘Z)
+  ///
+  /// In it, this message translates to:
+  /// **'Annulla'**
+  String get macMenuUndo;
+
+  /// Menu Modifica sul Mac (⇧⌘Z)
+  ///
+  /// In it, this message translates to:
+  /// **'Ripeti'**
+  String get macMenuRedo;
+
+  /// Menu Modifica sul Mac (⌘X)
+  ///
+  /// In it, this message translates to:
+  /// **'Taglia'**
+  String get macMenuCut;
+
+  /// Menu Modifica sul Mac (⌘C)
+  ///
+  /// In it, this message translates to:
+  /// **'Copia'**
+  String get macMenuCopy;
+
+  /// Menu Modifica sul Mac (⌘V)
+  ///
+  /// In it, this message translates to:
+  /// **'Incolla'**
+  String get macMenuPaste;
+
+  /// Menu Modifica sul Mac (⌘A): testo, o tutte le mail della lista
+  ///
+  /// In it, this message translates to:
+  /// **'Seleziona tutto'**
+  String get macMenuSelectAll;
+
+  /// Menu Finestra sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Finestra'**
+  String get macMenuWindow;
+
+  /// Menu Finestra sul Mac (⌘M)
+  ///
+  /// In it, this message translates to:
+  /// **'Contrai'**
+  String get macMenuMinimize;
+
+  /// Menu Finestra sul Mac: ingrandisce la finestra
+  ///
+  /// In it, this message translates to:
+  /// **'Zoom'**
+  String get macMenuZoom;
+
+  /// Menu Finestra sul Mac (⌃⌘F): entra o esce
+  ///
+  /// In it, this message translates to:
+  /// **'Tutto schermo'**
+  String get macMenuFullScreen;
+
+  /// Menu Finestra sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Porta tutto in primo piano'**
+  String get macMenuBringAllToFront;
+
+  /// Menu Visualizza sul Mac: mostra o nasconde la barra multifunzione della finestra principale
+  ///
+  /// In it, this message translates to:
+  /// **'Barra multifunzione'**
+  String get macMenuShowRibbon;
+
+  /// Menu Visualizza sul Mac (⌘0): zoom del testo della mail al 100%
+  ///
+  /// In it, this message translates to:
+  /// **'Dimensioni reali'**
+  String get macMenuZoomReset;
+
+  /// Menu File sul Mac (⌘W): chiude la finestra della mail, della composizione o dell'appuntamento
+  ///
+  /// In it, this message translates to:
+  /// **'Chiudi finestra'**
+  String get macMenuCloseWindow;
+
+  /// Menu Visualizza sul Mac, nel calendario: sottomenu delle viste
+  ///
+  /// In it, this message translates to:
+  /// **'Vista calendario'**
+  String get macMenuCalendarView;
+
+  /// File → Opzioni → Generale, solo sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Mostra la barra multifunzione'**
+  String get optionsShowRibbon;
+
+  /// Spiegazione sotto l'opzione, solo sul Mac
+  ///
+  /// In it, this message translates to:
+  /// **'Nella finestra principale. I comandi restano nella barra dei menu in alto.'**
+  String get optionsShowRibbonHelp;
 }
 
 class _AppLocalizationsDelegate
@@ -8181,7 +8337,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'it'].contains(locale.languageCode);
+      <String>['de', 'en', 'es', 'fr', 'it'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -8190,8 +8346,14 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'de':
+      return AppLocalizationsDe();
     case 'en':
       return AppLocalizationsEn();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
     case 'it':
       return AppLocalizationsIt();
   }

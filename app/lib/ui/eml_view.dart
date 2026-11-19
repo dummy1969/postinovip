@@ -16,6 +16,7 @@ import '../models/compose_draft.dart';
 import '../models/message_detail.dart';
 import '../state/mailbox_model.dart';
 import 'compose_page.dart';
+import 'mac_menu_bar.dart';
 import 'reading_pane.dart';
 
 /// File .eml (E2, scelte 1a e 2a): «Salva con nome…» della mail aperta e «Apri file .eml…», anche per le mail
@@ -98,59 +99,92 @@ class EmlPage extends StatelessWidget {
     final theme = Theme.of(context);
     return CallbackShortcuts(
       bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.of(context).maybePop()},
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                color: theme.colorScheme.surfaceContainer,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  children: [
-                    TextButton.icon(
-                      key: const Key('eml-close'),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back, size: 18),
-                      label: Text(context.l10n.closeEsc),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(FluentIcons.mail_20_regular, size: 18, color: theme.colorScheme.onSurfaceVariant),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        name ?? context.l10n.messageTab,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall,
+      // Sul Mac i comandi anche nella barra dei menu in alto (M2b).
+      child: MacMenuScope(
+        menus: _macMenus,
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  color: theme.colorScheme.surfaceContainer,
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  child: Row(
+                    children: [
+                      TextButton.icon(
+                        key: const Key('eml-close'),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back, size: 18),
+                        label: Text(context.l10n.closeEsc),
                       ),
-                    ),
-                    Text(context.l10n.readOnly, style: theme.textTheme.bodySmall),
-                    const SizedBox(width: 12),
-                    TextButton.icon(
-                      key: const Key('eml-save'),
-                      onPressed: () => _save(context),
-                      icon: const Icon(FluentIcons.save_20_regular, size: 18),
-                      label: Text(context.l10n.saveAsShort),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Icon(FluentIcons.mail_20_regular, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          name ?? context.l10n.messageTab,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall,
+                        ),
+                      ),
+                      Text(context.l10n.readOnly, style: theme.textTheme.bodySmall),
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        key: const Key('eml-save'),
+                        onPressed: () => _save(context),
+                        icon: const Icon(FluentIcons.save_20_regular, size: 18),
+                        label: Text(context.l10n.saveAsShort),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: MessageView(
-                  message,
-                  attachmentBytes: (index) => api.getEmlAttachmentBytes(id, index),
-                  attachmentUrl: (a) => api.emlAttachmentUrl(id, a.index),
-                  attachmentHeaders: api.authHeaders,
-                  onReply: (mode) => _reply(context, mode),
+                const Divider(height: 1),
+                Expanded(
+                  child: MessageView(
+                    message,
+                    attachmentBytes: (index) => api.getEmlAttachmentBytes(id, index),
+                    attachmentUrl: (a) => api.emlAttachmentUrl(id, a.index),
+                    attachmentHeaders: api.authHeaders,
+                    onReply: (mode) => _reply(context, mode),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Menu del Mac (M2b): File (Salva con nome, Chiudi finestra) e Messaggio (Rispondi, Inoltra) del file .eml.
+  List<PlatformMenu> _macMenus(BuildContext context) {
+    final l = context.l10n;
+    return [
+      PlatformMenu(
+        label: l.fileTab,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [macItem(macLabel(l.saveAs), () => _save(context), macKey(LogicalKeyboardKey.keyS, shift: true))],
+          ),
+          PlatformMenuItemGroup(
+            members: [macItem(l.macMenuCloseWindow, () => Navigator.of(context).maybePop(), macKey(LogicalKeyboardKey.keyW))],
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: l.messageTab,
+        menus: [
+          for (final (mode, key) in [
+            (DraftMode.reply, macKey(LogicalKeyboardKey.keyR)),
+            (DraftMode.replyAll, macKey(LogicalKeyboardKey.keyR, shift: true)),
+            (DraftMode.forward, macKey(LogicalKeyboardKey.keyF)),
+          ])
+            macItem(mode.label(l), () => _reply(context, mode), key),
+        ],
+      ),
+    ];
   }
 
   Future<void> _save(BuildContext context) async {

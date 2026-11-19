@@ -51,11 +51,15 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 
-; Lingua dell'installazione come quella di Windows (tappa «Lingua», L7): italiano o inglese; le altre lingue -> inglese,
-; come l'app. La finestra di scelta compare solo se la lingua di Windows non è tra queste.
+; Lingua dell'installazione come quella di Windows (tappa «Lingua», L7): italiano, inglese, spagnolo, francese o tedesco
+; (gli ultimi tre dal 17/11/2026, file inclusi in Inno Setup); le altre lingue -> inglese, come l'app. La finestra di
+; scelta compare solo se la lingua di Windows non è tra queste.
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

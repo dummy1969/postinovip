@@ -129,7 +129,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get optionsLanguageHelper =>
-      'La traduzione è in corso: alcune parti dell\'app sono ancora solo in italiano';
+      'Vale anche per i testi che l\'app scrive nelle mail (intestazioni delle risposte, conferme di lettura)';
 
   @override
   String get languageSystem => 'Come il sistema';
@@ -5187,4 +5187,80 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get coreLastLines => 'Ultime righe del core:';
+
+  @override
+  String get macMenuAbout => 'Informazioni su PostinoVip';
+
+  @override
+  String get macMenuOptions => 'Opzioni…';
+
+  @override
+  String get macMenuServices => 'Servizi';
+
+  @override
+  String get macMenuHide => 'Nascondi PostinoVip';
+
+  @override
+  String get macMenuHideOthers => 'Nascondi altre';
+
+  @override
+  String get macMenuShowAll => 'Mostra tutte';
+
+  @override
+  String get macMenuQuit => 'Esci da PostinoVip';
+
+  @override
+  String get macMenuEdit => 'Composizione';
+
+  @override
+  String get macMenuUndo => 'Annulla';
+
+  @override
+  String get macMenuRedo => 'Ripeti';
+
+  @override
+  String get macMenuCut => 'Taglia';
+
+  @override
+  String get macMenuCopy => 'Copia';
+
+  @override
+  String get macMenuPaste => 'Incolla';
+
+  @override
+  String get macMenuSelectAll => 'Seleziona tutto';
+
+  @override
+  String get macMenuWindow => 'Finestra';
+
+  @override
+  String get macMenuMinimize => 'Contrai';
+
+  @override
+  String get macMenuZoom => 'Zoom';
+
+  @override
+  String get macMenuFullScreen => 'Tutto schermo';
+
+  @override
+  String get macMenuBringAllToFront => 'Porta tutto in primo piano';
+
+  @override
+  String get macMenuShowRibbon => 'Barra multifunzione';
+
+  @override
+  String get macMenuZoomReset => 'Dimensioni reali';
+
+  @override
+  String get macMenuCloseWindow => 'Chiudi finestra';
+
+  @override
+  String get macMenuCalendarView => 'Vista calendario';
+
+  @override
+  String get optionsShowRibbon => 'Mostra la barra multifunzione';
+
+  @override
+  String get optionsShowRibbonHelp =>
+      'Nella finestra principale. I comandi restano nella barra dei menu in alto.';
 }

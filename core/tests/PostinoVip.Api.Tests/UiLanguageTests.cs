@@ -50,7 +50,11 @@ public sealed class UiLanguageTests : IClassFixture<WebApplicationFactory<Progra
         using var german = new HttpRequestMessage(HttpMethod.Get, "/folders");
         german.Headers.AcceptLanguage.ParseAdd("de-DE");
         await _client.SendAsync(german);
-        Assert.Equal("en", UiLanguage.Current);
+        Assert.Equal("de", UiLanguage.Current); // tedesco, spagnolo e francese dal 17/11/2026
+        using var portuguese = new HttpRequestMessage(HttpMethod.Get, "/folders");
+        portuguese.Headers.AcceptLanguage.ParseAdd("pt-BR");
+        await _client.SendAsync(portuguese);
+        Assert.Equal("de", UiLanguage.Current);
     }
 
     [Fact]

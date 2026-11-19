@@ -22,6 +22,9 @@ import 'top_bar.dart';
 import 'people_view.dart';
 import 'reading_pane.dart';
 import 'reading_zoom.dart';
+import 'keys.dart';
+import 'mac_menu_bar.dart';
+import 'mac_menus.dart';
 import 'ribbon.dart';
 import 'status_bar.dart';
 
@@ -105,10 +108,10 @@ class _HomePageState extends State<HomePage> {
   Map<ShortcutActivator, VoidCallback> get _bindings {
     _whenNotTyping.clear();
     final modules = <ShortcutActivator, VoidCallback>{
-      const SingleActivator(LogicalKeyboardKey.digit1, control: true): () => ModuleBar.show(context, AppModule.mail),
-      const SingleActivator(LogicalKeyboardKey.digit2, control: true): () => ModuleBar.show(context, AppModule.calendar),
-      const SingleActivator(LogicalKeyboardKey.digit3, control: true): () => ModuleBar.show(context, AppModule.people),
-      const SingleActivator(LogicalKeyboardKey.f1, control: true): () {
+      cmd(LogicalKeyboardKey.digit1): () => ModuleBar.show(context, AppModule.mail),
+      cmd(LogicalKeyboardKey.digit2): () => ModuleBar.show(context, AppModule.calendar),
+      cmd(LogicalKeyboardKey.digit3): () => ModuleBar.show(context, AppModule.people),
+      cmd(LogicalKeyboardKey.f1): () {
         final settings = context.read<AppSettings>();
         settings.setRibbonCollapsed(!settings.ribbonCollapsed);
       },
@@ -122,10 +125,11 @@ class _HomePageState extends State<HomePage> {
           context.read<MailboxModel>().refresh();
           calendar.syncNow();
         },
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => CalendarActions.newAppointment(context),
+        cmd(LogicalKeyboardKey.keyN): () => CalendarActions.newAppointment(context),
         const SingleActivator(LogicalKeyboardKey.delete): _notTyping(() => CalendarActions.deleteSelected(context)),
+        ...macBackspaceDeletes(_notTyping(() => CalendarActions.deleteSelected(context))),
         for (final (i, kind) in CalendarViewKind.values.indexed)
-          SingleActivator(LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i), control: true, alt: true): () => calendar.setView(kind),
+          cmd(LogicalKeyboardKey(LogicalKeyboardKey.digit1.keyId + i), alt: true): () => calendar.setView(kind),
       };
     }
     // Vista Persone (C2): Ctrl+N nuovo contatto, Ctrl+E cerca, Canc elimina, Invio apre.
@@ -137,10 +141,11 @@ class _HomePageState extends State<HomePage> {
           context.read<MailboxModel>().refresh();
           context.read<ContactsModel>().syncNow(); // C4c: anche la rubrica aperta, seguendone lo stato
         },
-        const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => PeopleActions.newContact(context),
-        const SingleActivator(LogicalKeyboardKey.keyE, control: true): () =>
+        cmd(LogicalKeyboardKey.keyN): () => PeopleActions.newContact(context),
+        cmd(LogicalKeyboardKey.keyE): () =>
             context.read<ContactsModel>().searchFocus.requestFocus(),
         const SingleActivator(LogicalKeyboardKey.delete): people(PeopleActions.delete),
+        ...macBackspaceDeletes(people(PeopleActions.delete)),
         const SingleActivator(LogicalKeyboardKey.enter): people(PeopleActions.edit),
         const SingleActivator(LogicalKeyboardKey.numpadEnter): people(PeopleActions.edit),
       };
@@ -164,30 +169,31 @@ class _HomePageState extends State<HomePage> {
       ...ZoomedBody.shortcuts(context.read<AppSettings>()), // P2: Ctrl++, Ctrl+-, Ctrl+0
       const SingleActivator(LogicalKeyboardKey.f9): () => context.read<MailboxModel>().refresh(),
       const SingleActivator(LogicalKeyboardKey.f2): _mail((context, _) => FolderActions.renameSelected(context)),
-      const SingleActivator(LogicalKeyboardKey.keyN, control: true): () => MessageActions.compose(context),
+      cmd(LogicalKeyboardKey.keyN): () => MessageActions.compose(context),
       const SingleActivator(LogicalKeyboardKey.f12): _mail((c, m) {
         if (EmlActions.canSave(m)) EmlActions.saveAs(c);
       }),
-      const SingleActivator(LogicalKeyboardKey.keyP, control: true): _mail((c, m) {
+      cmd(LogicalKeyboardKey.keyP): _mail((c, m) {
         if (PrintActions.canPrint(m)) PrintActions.printMessage(c);
       }),
-      const SingleActivator(LogicalKeyboardKey.keyE, control: true): () => _searchFocus.node.requestFocus(),
-      const SingleActivator(LogicalKeyboardKey.keyR, control: true): _mail((c, m) => reply(c, m, DraftMode.reply)),
-      const SingleActivator(LogicalKeyboardKey.keyR, control: true, shift: true): _mail(
+      cmd(LogicalKeyboardKey.keyE): () => _searchFocus.node.requestFocus(),
+      cmd(LogicalKeyboardKey.keyR): _mail((c, m) => reply(c, m, DraftMode.reply)),
+      cmd(LogicalKeyboardKey.keyR, shift: true): _mail(
         (c, m) => reply(c, m, DraftMode.replyAll),
       ),
-      const SingleActivator(LogicalKeyboardKey.keyF, control: true): _mail((c, m) => reply(c, m, DraftMode.forward)),
+      cmd(LogicalKeyboardKey.keyF): _mail((c, m) => reply(c, m, DraftMode.forward)),
       const SingleActivator(LogicalKeyboardKey.delete): _mail(delete),
       const SingleActivator(LogicalKeyboardKey.delete, shift: true): _mail(delete),
-      const SingleActivator(LogicalKeyboardKey.keyD, control: true): _mail(delete),
-      // Archivia (A2): Backspace come Outlook; non nella finestra della mail, che ha le sue scorciatoie.
-      const SingleActivator(LogicalKeyboardKey.backspace): _mail((c, _) => ArchiveActions.archive(c)),
-      const SingleActivator(LogicalKeyboardKey.keyQ, control: true): _mail((c, m) => seen(c, m, true)),
-      const SingleActivator(LogicalKeyboardKey.keyU, control: true): _mail((c, m) => seen(c, m, false)),
-      const SingleActivator(LogicalKeyboardKey.keyV, control: true, shift: true): _mail((c, m) {
+      ...macBackspaceDeletes(_mail(delete)), // sul Mac ⌫ elimina (keys.dart)
+      cmd(LogicalKeyboardKey.keyD): _mail(delete),
+      // Archivia (A2): Backspace come Outlook (sul Mac ⌃E, keys.dart); non nella finestra della mail, che ha le sue scorciatoie.
+      archiveKey: _mail((c, _) => ArchiveActions.archive(c)),
+      markReadKey: _mail((c, m) => seen(c, m, true)),
+      markUnreadKey: _mail((c, m) => seen(c, m, false)),
+      cmd(LogicalKeyboardKey.keyV, shift: true): _mail((c, m) {
         if (MessageActions.canModify(m)) MessageActions.moveToFolder(c);
       }),
-      const SingleActivator(LogicalKeyboardKey.keyA, control: true): _mail((_, m) => m.selectAll()),
+      cmd(LogicalKeyboardKey.keyA): _mail((_, m) => m.selectAll()),
       const SingleActivator(LogicalKeyboardKey.arrowDown): _mail((_, m) => m.moveCursor(1)),
       const SingleActivator(LogicalKeyboardKey.arrowUp): _mail((_, m) => m.moveCursor(-1)),
       const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true): _mail((_, m) => m.moveCursor(1, extend: true)),
@@ -259,38 +265,46 @@ class _HomePageState extends State<HomePage> {
         Provider.value(value: _mainFocus),
         Provider<MessageOpener?>.value(value: MessageOpener(_openMessage)),
       ],
-      child: Scaffold(
-        body: Focus(
-          canRequestFocus: false,
-          skipTraversal: true,
-          onKeyEvent: _onKey,
-          child: Focus(
-            focusNode: _mainFocus.node,
-            autofocus: true,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const TopBar(),
-                const Ribbon(),
-                Expanded(
-                  // Barra dei moduli a sinistra, sotto la barra multifunzione (V2), poi il modulo aperto. Con la barra «in basso»
-                  // (File → Opzioni → Generale) la mettono i riquadri di sinistra dei moduli (`ModuleBar.bottomOf`).
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (context.watch<AppSettings>().moduleBar == ModuleBarPosition.left) const ModuleBar(),
-                      Expanded(
-                        child: switch (context.watch<ContactsModel>().module) {
-                          AppModule.people => const PeopleView(),
-                          AppModule.calendar => const CalendarView(),
-                          AppModule.mail => _panes(context),
-                        },
+      // Sul Mac anche la barra dei menu del sistema (M2a); altrove solo la finestra.
+      child: MacMenuBar(
+        child: MacMenuScope(
+          menus: MainWindowMenus.build,
+          editExtras: MainWindowMenus.editExtras,
+          child: Scaffold(
+            body: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: _onKey,
+              child: Focus(
+                focusNode: _mainFocus.node,
+                autofocus: true,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const TopBar(),
+                    // Sul Mac nascondibile (File → Opzioni → Generale, M2b): lì i comandi sono anche nella barra dei menu.
+                  if (!usesCommandKey || context.watch<AppSettings>().showRibbon) const Ribbon(),
+                    Expanded(
+                      // Barra dei moduli a sinistra, sotto la barra multifunzione (V2), poi il modulo aperto. Con la barra «in basso»
+                      // (File → Opzioni → Generale) la mettono i riquadri di sinistra dei moduli (`ModuleBar.bottomOf`).
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (context.watch<AppSettings>().moduleBar == ModuleBarPosition.left) const ModuleBar(),
+                          Expanded(
+                            child: switch (context.watch<ContactsModel>().module) {
+                              AppModule.people => const PeopleView(),
+                              AppModule.calendar => const CalendarView(),
+                              AppModule.mail => _panes(context),
+                            },
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    const StatusBar(),
+                  ],
                 ),
-                const StatusBar(),
-              ],
+              ),
             ),
           ),
         ),

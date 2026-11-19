@@ -24,6 +24,8 @@ import '../settings/app_settings.dart';
 import 'address_book_dialog.dart';
 import 'theme.dart';
 import '../state/mailbox_model.dart';
+import 'keys.dart';
+import 'mac_menu_bar.dart';
 import 'format.dart';
 import 'format_commands.dart';
 import 'html_body_view.dart';
@@ -380,42 +382,134 @@ class _ComposePageState extends State<ComposePage> {
       // nella finestra principale.
       child: CallbackShortcuts(
         bindings: {
-          const SingleActivator(LogicalKeyboardKey.enter, control: true): _sendShortcut,
-          const SingleActivator(LogicalKeyboardKey.numpadEnter, control: true): _sendShortcut,
+          cmd(LogicalKeyboardKey.enter): _sendShortcut,
+          cmd(LogicalKeyboardKey.numpadEnter): _sendShortcut,
           const SingleActivator(LogicalKeyboardKey.keyS, alt: true): _sendShortcut,
           const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.maybePop(context),
-          const SingleActivator(LogicalKeyboardKey.f1, control: true): () =>
+          cmd(LogicalKeyboardKey.f1): () =>
               settings.setRibbonCollapsed(!settings.ribbonCollapsed),
-          const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          cmd(LogicalKeyboardKey.keyS): () {
             if (!_sending && !_savingDraft) _saveDraft();
           },
-          const SingleActivator(LogicalKeyboardKey.keyK, control: true): () {
+          cmd(LogicalKeyboardKey.keyK): () {
             if (!_sending && !_plain) FormatCommands.insertLink(context, _editor);
           },
         },
-        child: Scaffold(
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ComposeTitleBar(
-                key: ComposePage.titleKey,
-                title: widget.title ?? context.l10n.newMessageTitle,
-                subject: _subject.text.trim(),
-                info: _savingDraft ? context.l10n.savingDraft : _draftInfo,
-                onClose: _sending ? null : () => Navigator.maybePop(context),
-              ),
-              RibbonFrame(
-                tabs: [context.l10n.messageTab, context.l10n.tabInsert, context.l10n.tabFormatText, context.l10n.groupOptions],
-                selected: _tab,
-                onSelect: (i) => setState(() => _tab = i),
-                groups: _ribbonGroups(),
-              ),
-              Expanded(child: _form(context)),
-            ],
+        // Sul Mac i comandi anche nella barra dei menu in alto (M2b).
+        child: MacMenuScope(
+          menus: _macMenus,
+          child: Scaffold(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ComposeTitleBar(
+                  key: ComposePage.titleKey,
+                  title: widget.title ?? context.l10n.newMessageTitle,
+                  subject: _subject.text.trim(),
+                  info: _savingDraft ? context.l10n.savingDraft : _draftInfo,
+                  onClose: _sending ? null : () => Navigator.maybePop(context),
+                ),
+                RibbonFrame(
+                  tabs: [context.l10n.messageTab, context.l10n.tabInsert, context.l10n.tabFormatText, context.l10n.groupOptions],
+                  selected: _tab,
+                  onSelect: (i) => setState(() => _tab = i),
+                  groups: _ribbonGroups(),
+                ),
+                Expanded(child: _form(context)),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Menu del Mac (M2b): File, Messaggio e Formato della composizione, con le stesse condizioni della barra.
+  List<PlatformMenu> _macMenus(BuildContext context) {
+    final l = context.l10n;
+    final format = FormatCommands(_editor, l10n: l, enabled: !_sending && !_plain, onEdited: _editorFocus.requestFocus);
+    final idle = !_sending;
+    final settings = context.read<AppSettings>();
+    final bccShown = settings.showBcc || widget.draft.bcc.isNotEmpty;
+    PlatformMenuItem toggle(String label, bool on, VoidCallback? action, [MenuSerializableShortcut? key]) =>
+        macItem(macChecked(label, on), action, key);
+    PlatformMenuItem importance(MailImportance value, String label) => toggle(
+      label,
+      _importance == value,
+      idle ? () => setState(() => _importance = _importance == value ? MailImportance.normal : value) : null,
+    );
+    PlatformMenuItem style(String label, Attribute attribute, [MenuSerializableShortcut? key]) =>
+        macItem(macLabel(label), idle && !_plain ? () => format.toggle(attribute) : null, key);
+    return [
+      PlatformMenu(
+        label: l.fileTab,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              macItem(l.receiptSend, idle ? _send : null, macKey(LogicalKeyboardKey.enter)),
+              macItem(
+                l.saveDraft,
+                idle && !_savingDraft ? () => _saveDraft() : null,
+                macKey(LogicalKeyboardKey.keyS),
+              ),
+              macItem('${l.attachFile}…', idle ? _pickFiles : null),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [macItem(l.macMenuCloseWindow, idle ? () => Navigator.maybePop(context) : null, macKey(LogicalKeyboardKey.keyW))],
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: l.messageTab,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [importance(MailImportance.high, l.importanceHigh), importance(MailImportance.low, l.importanceLow)],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              toggle(l.requestReadReceipt, _readReceipt, idle ? () => setState(() => _readReceipt = !_readReceipt) : null),
+              toggle(
+                l.bcc,
+                bccShown,
+                // Con dei Ccn già scritti il campo resta (come il pulsante della barra).
+                !idle || (_bcc.text.trim().isNotEmpty && bccShown) ? null : () => settings.setShowBcc(!settings.showBcc),
+              ),
+              toggle(l.saveSentCopy, _saveCopy, idle ? () => setState(() => _saveCopy = !_saveCopy) : null),
+              macItem('${l.delayDelivery}…', idle ? _pickSendAfter : null),
+            ],
+          ),
+        ],
+      ),
+      PlatformMenu(
+        label: l.groupFormat,
+        menus: [
+          PlatformMenuItemGroup(
+            members: [
+              toggle('HTML', !_plain, idle ? () => _setPlain(false) : null),
+              toggle(l.plainText, _plain, idle ? () => _setPlain(true) : null),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              style(l.bold, Attribute.bold, macKey(LogicalKeyboardKey.keyB)),
+              style(l.italic, Attribute.italic, macKey(LogicalKeyboardKey.keyI)),
+              style(l.underline, Attribute.underline, macKey(LogicalKeyboardKey.keyU)),
+              style(l.strikethrough, Attribute.strikeThrough),
+            ],
+          ),
+          PlatformMenuItemGroup(
+            members: [
+              macItem(
+                '${l.insertLink}…',
+                idle && !_plain ? () => FormatCommands.insertLink(context, _editor) : null,
+                macKey(LogicalKeyboardKey.keyK),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ];
   }
 
   /// Comandi della barra multifunzione (le firme arrivano con la 3.7c).
@@ -437,7 +531,7 @@ class _ComposePageState extends State<ComposePage> {
     final saveDraft = RibbonLargeButton(
       icon: FluentIcons.document_save_24_regular,
       label: context.l10n.saveDraft,
-      tooltip: context.l10n.saveDraftTooltip,
+      tooltip: keyLabel(context.l10n.saveDraftTooltip),
       onPressed: _sending || _savingDraft ? null : () => _saveDraft(),
     );
     final delay = RibbonLargeButton(

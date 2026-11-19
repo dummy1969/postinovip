@@ -10,6 +10,8 @@ import '../l10n/language.dart';
 import '../models/calendar.dart';
 import '../settings/app_settings.dart';
 import '../state/calendar_model.dart';
+import 'keys.dart';
+import 'mac_menu_bar.dart';
 import 'ribbon_parts.dart';
 
 /// Un calendario in cui si può creare l'appuntamento (menu «Calendario» della finestra).
@@ -268,50 +270,76 @@ class _AppointmentPageState extends State<AppointmentPage> {
       child: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.maybePop(context),
-          const SingleActivator(LogicalKeyboardKey.keyS, control: true): () {
+          cmd(LogicalKeyboardKey.keyS): () {
             if (!_saving && !_readOnly) _save();
           },
-          const SingleActivator(LogicalKeyboardKey.f1, control: true): () => settings.setRibbonCollapsed(!settings.ribbonCollapsed),
+          cmd(LogicalKeyboardKey.f1): () => settings.setRibbonCollapsed(!settings.ribbonCollapsed),
         },
-        child: Scaffold(
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                height: 36,
-                color: theme.colorScheme.primary,
-                padding: const EdgeInsets.only(left: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${_occurrence ? context.l10n.occurrence : context.l10n.appointment} - $title',
-                        key: const Key('appointment-title'),
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onPrimary),
+        // Sul Mac i comandi anche nella barra dei menu in alto (M2b).
+        child: MacMenuScope(
+          menus: _macMenus,
+          child: Scaffold(
+            body: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  height: 36,
+                  color: theme.colorScheme.primary,
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${_occurrence ? context.l10n.occurrence : context.l10n.appointment} - $title',
+                          key: const Key('appointment-title'),
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.onPrimary),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: context.l10n.closeEsc,
-                      icon: Icon(FluentIcons.dismiss_20_regular, color: theme.colorScheme.onPrimary),
-                      onPressed: () => Navigator.maybePop(context),
-                    ),
-                  ],
+                      IconButton(
+                        tooltip: context.l10n.closeEsc,
+                        icon: Icon(FluentIcons.dismiss_20_regular, color: theme.colorScheme.onPrimary),
+                        onPressed: () => Navigator.maybePop(context),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              RibbonFrame(
-                tabs: [_occurrence ? context.l10n.occurrence : context.l10n.appointment],
-                selected: 0,
-                onSelect: (_) {},
-                groups: _groups(),
-              ),
-              if (_saving) const LinearProgressIndicator(minHeight: 2),
-              Expanded(child: _form(theme)),
-            ],
+                RibbonFrame(
+                  tabs: [_occurrence ? context.l10n.occurrence : context.l10n.appointment],
+                  selected: 0,
+                  onSelect: (_) {},
+                  groups: _groups(),
+                ),
+                if (_saving) const LinearProgressIndicator(minHeight: 2),
+                Expanded(child: _form(theme)),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Menu del Mac (M2b): File dell'appuntamento, come la sua barra.
+  List<PlatformMenu> _macMenus(BuildContext context) {
+    final l = context.l10n;
+    return [
+      PlatformMenu(
+        label: l.fileTab,
+        menus: [
+          if (!_readOnly)
+            PlatformMenuItemGroup(
+              members: [
+                macItem(l.saveAndClose, _saving ? null : _save, macKey(LogicalKeyboardKey.keyS)),
+                if (!_isNew) macItem(l.delete, _saving ? null : _delete),
+              ],
+            ),
+          PlatformMenuItemGroup(
+            members: [macItem(l.macMenuCloseWindow, () => Navigator.maybePop(context), macKey(LogicalKeyboardKey.keyW))],
+          ),
+        ],
+      ),
+    ];
   }
 
   List<Widget> _groups() => _readOnly
@@ -337,7 +365,7 @@ class _AppointmentPageState extends State<AppointmentPage> {
           key: const Key('appointment-save'),
           icon: FluentIcons.save_24_regular,
           label: context.l10n.saveAndClose,
-          tooltip: context.l10n.saveAndCloseTooltip,
+          tooltip: keyLabel(context.l10n.saveAndCloseTooltip),
           onPressed: _saving ? null : _save,
         ),
         if (!_isNew)

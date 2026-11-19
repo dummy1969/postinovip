@@ -34,7 +34,7 @@ public static class CoreError
 /// </summary>
 public static class UiLanguage
 {
-    public static readonly string[] Supported = ["it", "en"];
+    public static readonly string[] Supported = ["it", "en", "es", "fr", "de"];
 
     private static volatile string _current = "it";
 

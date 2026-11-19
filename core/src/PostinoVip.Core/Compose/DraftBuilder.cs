@@ -119,10 +119,11 @@ public static partial class DraftBuilder
         string.Join("\n", text.ReplaceLineEndings("\n").Split('\n').Select(l => l.Length == 0 ? ">" : "> " + l));
 
     // Prefissi già presenti, in tutte le lingue (scelta 3a): inglesi (RE:, FW:, Fwd:), di Outlook in italiano (R:, I:),
-    // tedeschi (AW:, WG:) e svedesi (SV:): non si raddoppiano.
+    // spagnolo (RV:), francese (TR :, anche con lo spazio prima dei due punti), tedeschi (AW:, WG:) e svedesi (SV:):
+    // non si raddoppiano.
     [GeneratedRegex(@"^\s*(re|r|aw|sv)\s*:", RegexOptions.IgnoreCase)]
     private static partial Regex ReplyPrefix();
 
-    [GeneratedRegex(@"^\s*(fwd?|fw|i|wg)\s*:", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^\s*(fwd?|fw|i|wg|rv|tr)\s*:", RegexOptions.IgnoreCase)]
     private static partial Regex ForwardPrefix();
 }

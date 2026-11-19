@@ -41,3 +41,6 @@ oauth-clients.json
 # Mail vere (.eml) e dati reali: mai nel repository (preparazione alla pubblicazione, 12/11/2026)
 *.eml
 tools/dati-privati.txt
+
+# Permessi locali di Claude Code (mai nel repository)
+.claude/settings.local.json

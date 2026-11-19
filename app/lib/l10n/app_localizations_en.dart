@@ -129,7 +129,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get optionsLanguageHelper =>
-      'Translation in progress: some parts of the app are still in Italian only';
+      'Also used for the texts the app writes in messages (reply headers, read receipts)';
 
   @override
   String get languageSystem => 'Same as the system';
@@ -5230,4 +5230,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coreLastLines => 'Last lines from the core:';
+
+  @override
+  String get macMenuAbout => 'About PostinoVip';
+
+  @override
+  String get macMenuOptions => 'Options…';
+
+  @override
+  String get macMenuServices => 'Services';
+
+  @override
+  String get macMenuHide => 'Hide PostinoVip';
+
+  @override
+  String get macMenuHideOthers => 'Hide Others';
+
+  @override
+  String get macMenuShowAll => 'Show All';
+
+  @override
+  String get macMenuQuit => 'Quit PostinoVip';
+
+  @override
+  String get macMenuEdit => 'Edit';
+
+  @override
+  String get macMenuUndo => 'Undo';
+
+  @override
+  String get macMenuRedo => 'Redo';
+
+  @override
+  String get macMenuCut => 'Cut';
+
+  @override
+  String get macMenuCopy => 'Copy';
+
+  @override
+  String get macMenuPaste => 'Paste';
+
+  @override
+  String get macMenuSelectAll => 'Select All';
+
+  @override
+  String get macMenuWindow => 'Window';
+
+  @override
+  String get macMenuMinimize => 'Minimize';
+
+  @override
+  String get macMenuZoom => 'Zoom';
+
+  @override
+  String get macMenuFullScreen => 'Full Screen';
+
+  @override
+  String get macMenuBringAllToFront => 'Bring All to Front';
+
+  @override
+  String get macMenuShowRibbon => 'Ribbon';
+
+  @override
+  String get macMenuZoomReset => 'Actual Size';
+
+  @override
+  String get macMenuCloseWindow => 'Close Window';
+
+  @override
+  String get macMenuCalendarView => 'Calendar View';
+
+  @override
+  String get optionsShowRibbon => 'Show the ribbon';
+
+  @override
+  String get optionsShowRibbonHelp =>
+      'In the main window. The commands stay in the menu bar at the top.';
 }

@@ -8,6 +8,7 @@ import '../settings/app_settings.dart';
 import '../state/mailbox_model.dart';
 import 'categories.dart';
 import 'follow_up.dart';
+import 'mac_menu_bar.dart';
 
 /// Messaggi su cui agiscono "Categorizza" e "Completa": la mail aperta (barra multifunzione, tasto
 /// destro), una riga della lista (bandierina) o tutte le mail selezionate ([many], 3.5a).
@@ -115,6 +116,50 @@ class TagMenus {
     ];
   }
 
+  /// Le stesse voci per la barra dei menu del Mac (M2b): Messaggio → Categorizza.
+  static List<PlatformMenuItem> categoryMacItems(BuildContext context, TagTarget? t) {
+    final settings = context.read<AppSettings>();
+    final current = t?.tags.categories ?? const <int>[];
+    final l = context.l10n;
+    return [
+      PlatformMenuItemGroup(
+        members: [
+          for (var n = 1; n <= CategoryColors.colors.length; n++)
+            macItem(
+              macChecked(settings.categoryName(n), current.contains(n)),
+              t == null
+                  ? null
+                  : t.many
+                  ? () => current.contains(n)
+                        ? _apply(context, t, removeCategories: [n])
+                        : _apply(context, t, addCategories: [n])
+                  : () => _apply(
+                      context,
+                      t,
+                      categories: current.contains(n) ? [...current.where((c) => c != n)] : ([...current, n]..sort()),
+                    ),
+            ),
+        ],
+      ),
+      PlatformMenuItemGroup(
+        members: [
+          macItem(
+            l.clearAllCategories,
+            t == null || (current.isEmpty && !t.many)
+                ? null
+                : t.many
+                ? () => _apply(context, t, removeCategories: [for (var n = 1; n <= CategoryColors.colors.length; n++) n])
+                : () => _apply(context, t, categories: const []),
+          ),
+          macItem(
+            l.allCategoriesEllipsis,
+            () => showDialog<void>(context: context, builder: (_) => CategoryNamesDialog(settings: settings)),
+          ),
+        ],
+      ),
+    ];
+  }
+
   static List<Widget> followUpItems(BuildContext context, TagTarget? t) {
     final l = context.l10n;
     return [
@@ -143,6 +188,35 @@ class TagMenus {
             ? null
             : () => _apply(context, t, followUp: 'none'),
         child: Text(l.clearFlag),
+      ),
+    ];
+  }
+
+  /// Le stesse voci per la barra dei menu del Mac (M2b): Messaggio → Completa.
+  static List<PlatformMenuItem> followUpMacItems(BuildContext context, TagTarget? t) {
+    final l = context.l10n;
+    return [
+      PlatformMenuItemGroup(
+        members: [
+          for (final choice in FollowUpChoice.values)
+            macItem(
+              choice.label(l),
+              t == null ? null : () => _apply(context, t, followUp: 'flagged', due: choice.dueFrom(DateTime.now())),
+            ),
+          macItem(l.customDateEllipsis, t == null ? null : () => _pickDate(context, t)),
+        ],
+      ),
+      PlatformMenuItemGroup(
+        members: [
+          macItem(
+            l.markComplete,
+            t == null || (t.tags.completed && !t.many) ? null : () => _apply(context, t, followUp: 'completed'),
+          ),
+          macItem(
+            l.clearFlag,
+            t == null || !(t.tags.flagged || t.tags.completed || t.many) ? null : () => _apply(context, t, followUp: 'none'),
+          ),
+        ],
       ),
     ];
   }

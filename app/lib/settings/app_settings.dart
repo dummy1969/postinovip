@@ -140,6 +140,7 @@ class AppSettings extends ChangeNotifier {
   static const _readDelayKey = 'readDelaySeconds';
   static const _collapsedKey = 'collapsedAccounts';
   static const _ribbonKey = 'ribbonCollapsed';
+  static const _showRibbonKey = 'showRibbon';
   static const _ribbonLayoutKey = 'ribbonLayout';
   static const _categoriesKey = 'categoryNames';
   static const _favoritesKey = 'favoriteFolders';
@@ -200,6 +201,10 @@ class AppSettings extends ChangeNotifier {
 
   /// Barra multifunzione compressa (solo i nomi delle schede). Predefinito: completa (scelta 3.1-1a).
   bool ribbonCollapsed = false;
+
+  /// Barra multifunzione della finestra principale (M2b, 19/11/2026, solo sul Mac: lì i comandi sono anche nella
+  /// barra dei menu in alto). Predefinita: visibile. Su Linux e Windows si ignora: senza barra non ci sarebbero comandi.
+  bool showRibbon = true;
 
   /// Nomi delle categorie 1–6, rinominabili (scelta 3.3-3a); valgono solo su questo computer: sul
   /// server ogni categoria è una parola chiave fissa per colore.
@@ -529,6 +534,7 @@ class AppSettings extends ChangeNotifier {
     final collapsed = await _store.read(_collapsedKey) ?? '';
     collapsedAccounts = collapsed.split(',').where((id) => id.isNotEmpty).toSet();
     ribbonCollapsed = await _store.read(_ribbonKey) == 'true';
+    showRibbon = await _store.read(_showRibbonKey) != 'false';
     final savedLayout = await _store.read(_ribbonLayoutKey);
     ribbonLayout = RibbonLayout.values.where((l) => l.name == savedLayout).firstOrNull ?? RibbonLayout.classic;
     categoryNames = _parseCategoryNames(await _store.read(_categoriesKey));
@@ -618,6 +624,13 @@ class AppSettings extends ChangeNotifier {
     ribbonLayout = value;
     notifyListeners();
     await _store.write(_ribbonLayoutKey, value.name);
+  }
+
+  Future<void> setShowRibbon(bool value) async {
+    if (value == showRibbon) return;
+    showRibbon = value;
+    notifyListeners();
+    await _store.write(_showRibbonKey, '$value');
   }
 
   Future<void> setRibbonCollapsed(bool collapsed) async {

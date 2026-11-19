@@ -29,6 +29,11 @@ void main() {
     (AppLanguage.italian, 'Nuovo messaggio', RibbonLayout.classic),
     (AppLanguage.english, 'New Email', RibbonLayout.classic),
     (AppLanguage.italian, 'Nuovo messaggio', RibbonLayout.simplified),
+    // Spagnolo, francese e tedesco (17/11/2026): parole più lunghe, il tedesco soprattutto.
+    (AppLanguage.spanish, 'Nuevo correo electrónico', RibbonLayout.classic),
+    (AppLanguage.french, 'Nouveau courrier', RibbonLayout.classic),
+    (AppLanguage.german, 'Neue E-Mail', RibbonLayout.classic),
+    (AppLanguage.german, 'Neue E-Mail', RibbonLayout.simplified),
   ]) {
   for (final pane in ReadingPanePosition.values) {
     for (final size in const [Size(640, 480), Size(800, 500)]) {

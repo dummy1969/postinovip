@@ -18,6 +18,7 @@ import 'home_page.dart';
 import 'module_bar.dart';
 import 'people_view.dart';
 import 'ribbon_parts.dart';
+import 'keys.dart';
 
 /// Colori dei calendari (K3, scelta 3a): tinte della palette condivisa di Fluent, leggibili su temi chiari e scuri.
 class CalendarColors {
@@ -217,7 +218,7 @@ class CalendarActions {
             key: const Key('calendar-new'),
             icon: FluentIcons.calendar_add_24_regular,
             label: context.l10n.newAppointment,
-            tooltip: context.l10n.newAppointmentTooltip,
+            tooltip: keyLabel(context.l10n.newAppointmentTooltip),
             onPressed: model.calendars.values.any((l) => l.any((c) => !c.readOnly)) ? () => newAppointment(context) : null,
           ),
         ],
@@ -229,7 +230,7 @@ class CalendarActions {
             key: const Key('calendar-delete'),
             icon: FluentIcons.delete_24_regular,
             label: context.l10n.delete,
-            tooltip: context.l10n.deleteSelectedAppointmentTooltip,
+            tooltip: keyLabel(context.l10n.deleteSelectedAppointmentTooltip),
             onPressed: model.selected != null && !model.isReadOnly(model.selected!.account, model.selected!.calendarId)
                 ? () => deleteSelected(context)
                 : null,
@@ -257,10 +258,10 @@ class CalendarActions {
       RibbonGroup(
         label: context.l10n.groupArrange,
         children: [
-          view(CalendarViewKind.day, FluentIcons.calendar_day_24_regular, 'Ctrl+Alt+1'),
-          view(CalendarViewKind.workWeek, FluentIcons.calendar_work_week_24_regular, 'Ctrl+Alt+2'),
-          view(CalendarViewKind.week, FluentIcons.calendar_week_start_24_regular, 'Ctrl+Alt+3'),
-          view(CalendarViewKind.month, FluentIcons.calendar_month_24_regular, 'Ctrl+Alt+4'),
+          view(CalendarViewKind.day, FluentIcons.calendar_day_24_regular, keyLabel('Ctrl+Alt+1')),
+          view(CalendarViewKind.workWeek, FluentIcons.calendar_work_week_24_regular, keyLabel('Ctrl+Alt+2')),
+          view(CalendarViewKind.week, FluentIcons.calendar_week_start_24_regular, keyLabel('Ctrl+Alt+3')),
+          view(CalendarViewKind.month, FluentIcons.calendar_month_24_regular, keyLabel('Ctrl+Alt+4')),
         ],
       ),
       if (mail.accounts.any((a) => a.calDav))
@@ -377,7 +378,7 @@ class _EmptyHint extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              context.l10n.calendarEmpty + (synced ? '' : context.l10n.calendarEmptySyncHint) + context.l10n.calendarEmptyCreate,
+              context.l10n.calendarEmpty + (synced ? '' : context.l10n.calendarEmptySyncHint) + keyLabel(context.l10n.calendarEmptyCreate),
               style: theme.textTheme.bodySmall,
             ),
           ),

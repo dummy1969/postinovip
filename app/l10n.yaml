@@ -1,7 +1,8 @@
 # Traduzioni dell'interfaccia (tappa «Lingua», L1). L'italiano è il modello: ogni testo nuovo si scrive prima in
-# app_it.arb (con la descrizione «@...»), poi in app_en.arb, poi `flutter gen-l10n` (lo fa da solo anche
-# `flutter pub get`, non `flutter test`). Il codice generato (lib/l10n/app_localizations*.dart) è versionato, così ogni
-# clone compila subito; test/l10n_test.dart controlla che i due file abbiano gli stessi testi e che il codice sia aggiornato.
+# app_it.arb (con la descrizione «@...»), poi nelle altre lingue (app_en, app_es, app_fr, app_de.arb), poi `flutter gen-l10n`
+# (lo fa da solo anche `flutter pub get`, non `flutter test`). Il codice generato (lib/l10n/app_localizations*.dart) è
+# versionato, così ogni clone compila subito; test/l10n_test.dart controlla che i file abbiano gli stessi testi e che il
+# codice sia aggiornato.
 arb-dir: lib/l10n
 template-arb-file: app_it.arb
 output-localization-file: app_localizations.dart

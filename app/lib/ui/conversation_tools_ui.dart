@@ -7,6 +7,7 @@ import '../l10n/language.dart';
 import '../settings/app_settings.dart';
 import '../state/mailbox_model.dart';
 import 'message_actions.dart';
+import 'mac_menu_bar.dart';
 
 /// Ignora e Pulisci conversazione (C2, scelte 1b, 3b e 4a), come Outlook classico: «Ignora» in Home → Elimina, nella
 /// finestra della mail e nel tasto destro; il menu «Pulisci» con Pulisci conversazione e Pulisci cartella. Tutto
@@ -117,6 +118,16 @@ class ConversationToolActions {
         onPressed: canCleanUpFolder(model) ? () => cleanUpFolder(context) : null,
         child: Text(l.cleanUpFolder),
       ),
+    ];
+  }
+
+  /// Le stesse voci per la barra dei menu del Mac (M2b): Messaggio → Pulisci.
+  static List<PlatformMenuItem> cleanUpMacItems(BuildContext context) {
+    final model = context.read<MailboxModel>();
+    final l = context.l10n;
+    return [
+      macItem(l.cleanUpConversation, canCleanUpConversation(model) ? () => cleanUpConversation(context) : null),
+      macItem(l.cleanUpFolder, canCleanUpFolder(model) ? () => cleanUpFolder(context) : null),
     ];
   }
 

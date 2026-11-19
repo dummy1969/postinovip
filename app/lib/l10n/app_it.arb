@@ -163,9 +163,9 @@
   "@optionsLanguage": {
     "description": "Etichetta della scelta della lingua"
   },
-  "optionsLanguageHelper": "La traduzione è in corso: alcune parti dell'app sono ancora solo in italiano",
+  "optionsLanguageHelper": "Vale anche per i testi che l'app scrive nelle mail (intestazioni delle risposte, conferme di lettura)",
   "@optionsLanguageHelper": {
-    "description": "Avviso sotto la scelta della lingua, finché la traduzione non è completa"
+    "description": "Nota sotto la scelta della lingua: la lingua vale anche per i testi che il core scrive nelle mail"
   },
   "languageSystem": "Come il sistema",
   "@languageSystem": {
@@ -7330,5 +7330,105 @@
   "coreLastLines": "Ultime righe del core:",
   "@coreLastLines": {
     "description": "Errore all'avvio"
+  },
+  "macMenuAbout": "Informazioni su PostinoVip",
+  "@macMenuAbout": {
+    "description": "Menu dell'app sul Mac"
+  },
+  "macMenuOptions": "Opzioni…",
+  "@macMenuOptions": {
+    "description": "Menu dell'app sul Mac (⌘,)"
+  },
+  "macMenuServices": "Servizi",
+  "@macMenuServices": {
+    "description": "Menu dell'app sul Mac"
+  },
+  "macMenuHide": "Nascondi PostinoVip",
+  "@macMenuHide": {
+    "description": "Menu dell'app sul Mac (⌘H)"
+  },
+  "macMenuHideOthers": "Nascondi altre",
+  "@macMenuHideOthers": {
+    "description": "Menu dell'app sul Mac (⌥⌘H)"
+  },
+  "macMenuShowAll": "Mostra tutte",
+  "@macMenuShowAll": {
+    "description": "Menu dell'app sul Mac"
+  },
+  "macMenuQuit": "Esci da PostinoVip",
+  "@macMenuQuit": {
+    "description": "Menu dell'app sul Mac (⌘Q)"
+  },
+  "macMenuEdit": "Composizione",
+  "@macMenuEdit": {
+    "description": "Menu Modifica sul Mac (nome di macOS in italiano: Composizione)"
+  },
+  "macMenuUndo": "Annulla",
+  "@macMenuUndo": {
+    "description": "Menu Modifica sul Mac (⌘Z)"
+  },
+  "macMenuRedo": "Ripeti",
+  "@macMenuRedo": {
+    "description": "Menu Modifica sul Mac (⇧⌘Z)"
+  },
+  "macMenuCut": "Taglia",
+  "@macMenuCut": {
+    "description": "Menu Modifica sul Mac (⌘X)"
+  },
+  "macMenuCopy": "Copia",
+  "@macMenuCopy": {
+    "description": "Menu Modifica sul Mac (⌘C)"
+  },
+  "macMenuPaste": "Incolla",
+  "@macMenuPaste": {
+    "description": "Menu Modifica sul Mac (⌘V)"
+  },
+  "macMenuSelectAll": "Seleziona tutto",
+  "@macMenuSelectAll": {
+    "description": "Menu Modifica sul Mac (⌘A): testo, o tutte le mail della lista"
+  },
+  "macMenuWindow": "Finestra",
+  "@macMenuWindow": {
+    "description": "Menu Finestra sul Mac"
+  },
+  "macMenuMinimize": "Contrai",
+  "@macMenuMinimize": {
+    "description": "Menu Finestra sul Mac (⌘M)"
+  },
+  "macMenuZoom": "Zoom",
+  "@macMenuZoom": {
+    "description": "Menu Finestra sul Mac: ingrandisce la finestra"
+  },
+  "macMenuFullScreen": "Tutto schermo",
+  "@macMenuFullScreen": {
+    "description": "Menu Finestra sul Mac (⌃⌘F): entra o esce"
+  },
+  "macMenuBringAllToFront": "Porta tutto in primo piano",
+  "@macMenuBringAllToFront": {
+    "description": "Menu Finestra sul Mac"
+  },
+  "macMenuShowRibbon": "Barra multifunzione",
+  "@macMenuShowRibbon": {
+    "description": "Menu Visualizza sul Mac: mostra o nasconde la barra multifunzione della finestra principale"
+  },
+  "macMenuZoomReset": "Dimensioni reali",
+  "@macMenuZoomReset": {
+    "description": "Menu Visualizza sul Mac (⌘0): zoom del testo della mail al 100%"
+  },
+  "macMenuCloseWindow": "Chiudi finestra",
+  "@macMenuCloseWindow": {
+    "description": "Menu File sul Mac (⌘W): chiude la finestra della mail, della composizione o dell'appuntamento"
+  },
+  "macMenuCalendarView": "Vista calendario",
+  "@macMenuCalendarView": {
+    "description": "Menu Visualizza sul Mac, nel calendario: sottomenu delle viste"
+  },
+  "optionsShowRibbon": "Mostra la barra multifunzione",
+  "@optionsShowRibbon": {
+    "description": "File → Opzioni → Generale, solo sul Mac"
+  },
+  "optionsShowRibbonHelp": "Nella finestra principale. I comandi restano nella barra dei menu in alto.",
+  "@optionsShowRibbonHelp": {
+    "description": "Spiegazione sotto l'opzione, solo sul Mac"
   }
 }

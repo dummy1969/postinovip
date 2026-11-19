@@ -22,6 +22,7 @@ import 'contact_dialog.dart';
 import 'home_page.dart';
 import 'module_bar.dart';
 import 'ribbon_parts.dart';
+import 'keys.dart';
 
 /// Comandi della vista Persone (C2), comuni a barra multifunzione, scorciatoie e scheda del contatto.
 class PeopleActions {
@@ -279,7 +280,7 @@ class PeopleActions {
           RibbonLargeButton(
             icon: FluentIcons.person_add_24_regular,
             label: context.l10n.newContact,
-            tooltip: context.l10n.newContactTooltip,
+            tooltip: keyLabel(context.l10n.newContactTooltip),
             onPressed: hasBook ? () => newContact(context) : null,
           ),
         ],
@@ -290,7 +291,7 @@ class PeopleActions {
           RibbonLargeButton(
             icon: FluentIcons.delete_24_regular,
             label: context.l10n.delete,
-            tooltip: context.l10n.deleteContactTooltip,
+            tooltip: keyLabel(context.l10n.deleteContactTooltip),
             onPressed: selected != null ? () => delete(context) : null,
           ),
         ],
@@ -355,7 +356,7 @@ class PeopleActions {
           RibbonLargeButton(
             icon: FluentIcons.search_24_regular,
             label: context.l10n.searchContacts,
-            tooltip: context.l10n.searchContactsTooltip,
+            tooltip: keyLabel(context.l10n.searchContactsTooltip),
             onPressed: hasBook ? () => model.searchFocus.requestFocus() : null,
           ),
         ],
